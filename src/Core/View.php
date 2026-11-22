@@ -27,6 +27,11 @@ final class View
         self::$shared[$key] = $value;
     }
 
+    public static function shared(string $key, mixed $default = null): mixed
+    {
+        return self::$shared[$key] ?? $default;
+    }
+
     /**
      * @param array<string, mixed> $data
      */

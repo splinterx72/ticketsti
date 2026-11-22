@@ -65,7 +65,7 @@ AddDefaultCharset UTF-8
     RewriteRule ^ - [L]
 
     # --- Todo lo demás va al Front Controller ---
-    RewriteRule ^ index.php [QSA,L]
+    RewriteRule ^ index.php [QSA,L,E=MOD_REWRITE:On]
 </IfModule>
 
 # --- Cabeceras de seguridad ---

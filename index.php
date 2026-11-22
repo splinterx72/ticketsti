@@ -13,6 +13,7 @@ use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
 use App\Controllers\GecaController;
 use App\Controllers\InstallController;
+use App\Controllers\InstallerController;
 use App\Core\Autoloader;
 use App\Core\Auth;
 use App\Core\Csrf;
@@ -41,16 +42,18 @@ if (PHP_VERSION_ID < 80300) {
 }
 
 // --- Configuración ------------------------------------------------------------
+// Sin config/config.php el sistema entra en MODO INSTALACIÓN: solo responde el
+// asistente /instalacion y se usan los valores por defecto de config.example.php.
 $configFile = ROOT_PATH . '/config/config.php';
-if (!is_file($configFile)) {
-    http_response_code(500);
-    header('Content-Type: text/plain; charset=UTF-8');
-    echo "Falta config/config.php. Copia config/config.example.php como config/config.php y captura tus credenciales.";
-    exit;
-}
+$installMode = !is_file($configFile);
 /** @var array<string, mixed> $config */
-$config = require $configFile;
+$config = require ($installMode ? ROOT_PATH . '/config/config.example.php' : $configFile);
+if ($installMode) {
+    $config['app']['env'] = 'production';
+    $config['session']['secure'] = null;
+}
 $GLOBALS['__app_config'] = $config;
+$GLOBALS['__install_mode'] = $installMode;
 
 $isProduction = ($config['app']['env'] ?? 'production') === 'production';
 $timezone = (string) ($config['app']['timezone'] ?? 'America/Mexico_City');
@@ -73,26 +76,45 @@ Autoloader::register('App', ROOT_PATH . '/src');
 require ROOT_PATH . '/src/Core/helpers.php';
 
 // --- Servicios base -----------------------------------------------------------
-Database::configure((array) ($config['db'] ?? []), $timezone);
+if (!$installMode) {
+    Database::configure((array) ($config['db'] ?? []), $timezone);
+}
 Session::start((array) ($config['session'] ?? []), STORAGE_PATH . '/sessions');
 View::setPath(ROOT_PATH . '/src/Views');
 
 // --- Rutas --------------------------------------------------------------------
 $router = new Router();
 
-$router->get('/', [DashboardController::class, 'index']);
+// Asistente de instalación (se auto-bloquea en cuanto existe config/config.php).
+$router->get('/instalacion', [InstallerController::class, 'requirements']);
+$router->post('/instalacion/clave', [InstallerController::class, 'verifyKey']);
+$router->get('/instalacion/base-datos', [InstallerController::class, 'database']);
+$router->post('/instalacion/base-datos', [InstallerController::class, 'saveDatabase']);
+$router->get('/instalacion/sitio', [InstallerController::class, 'site']);
+$router->post('/instalacion/sitio', [InstallerController::class, 'saveSite']);
+$router->get('/instalacion/administrador', [InstallerController::class, 'admin']);
+$router->post('/instalacion/administrador', [InstallerController::class, 'saveAdmin']);
+$router->get('/instalacion/confirmar', [InstallerController::class, 'confirm']);
+$router->post('/instalacion/ejecutar', [InstallerController::class, 'run']);
+$router->get('/instalacion/finalizado', [InstallerController::class, 'finished']);
+$router->post('/instalacion/config', [InstallerController::class, 'downloadConfig']);
 
-$router->get('/login', [AuthController::class, 'showLogin']);
-$router->post('/login', [AuthController::class, 'login']);
-$router->post('/logout', [AuthController::class, 'logout']);
+if (!$installMode) {
+    $router->get('/', [DashboardController::class, 'index']);
 
-$router->get('/instalar', [InstallController::class, 'show']);
-$router->post('/instalar', [InstallController::class, 'store']);
+    $router->get('/login', [AuthController::class, 'showLogin']);
+    $router->post('/login', [AuthController::class, 'login']);
+    $router->post('/logout', [AuthController::class, 'logout']);
 
-$router->get('/geca', [GecaController::class, 'index']);
-$router->post('/geca/cargar', [GecaController::class, 'upload']);
-$router->get('/geca/cargas/{id}', [GecaController::class, 'show']);
-$router->get('/geca/plantilla', [GecaController::class, 'template']);
+    // Alta del primer admin cuando config.php se creó a mano (sin asistente).
+    $router->get('/instalar', [InstallController::class, 'show']);
+    $router->post('/instalar', [InstallController::class, 'store']);
+
+    $router->get('/geca', [GecaController::class, 'index']);
+    $router->post('/geca/cargar', [GecaController::class, 'upload']);
+    $router->get('/geca/cargas/{id}', [GecaController::class, 'show']);
+    $router->get('/geca/plantilla', [GecaController::class, 'template']);
+}
 
 // --- Despacho con manejo centralizado de errores ------------------------------
 try {
@@ -102,6 +124,12 @@ try {
     Session::remove('_old');
     View::share('old', is_array($old) ? $old : []);
     View::share('csrfToken', Csrf::token());
+
+    // En modo instalación cualquier otra ruta lleva al asistente.
+    $currentPath = Router::currentPath((string) ($_SERVER['REQUEST_URI'] ?? '/'));
+    if ($installMode && !str_starts_with($currentPath, '/instalacion')) {
+        redirect('/instalacion');
+    }
 
     $router->dispatch((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'), (string) ($_SERVER['REQUEST_URI'] ?? '/'));
 } catch (HttpException $e) {
@@ -128,8 +156,8 @@ function renderError(int $status, string $message): void
     ];
 
     try {
-        // Evita consultar la BD si el error fue justamente de conexión.
-        $user = $status === 500 ? null : Auth::user();
+        // Evita consultar la BD si el error fue de conexión o no hay instalación.
+        $user = ($status === 500 || !empty($GLOBALS['__install_mode'])) ? null : Auth::user();
     } catch (Throwable) {
         $user = null;
     }

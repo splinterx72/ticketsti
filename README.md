@@ -5,12 +5,12 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 > Reglas de negocio, convenciones y estado por fases: ver [`CLAUDE.md`](CLAUDE.md).
 > Esquema de base de datos: [`database/schema.sql`](database/schema.sql).
 
-## Funcionalidad actual (Fases 1 y 2)
+## Funcionalidad actual
 
 * Front Controller con URLs amigables (`.htaccess` + `index.php`), funciona en la raíz o en una subcarpeta.
 * Carpetas internas (`src/`, `config/`, `database/`, `storage/`) y archivos sensibles (`.env`, `.sql`, `.md`, `.log`…) bloqueados por web.
 * Inicio de sesión por ficha o correo, sesiones aisladas en `storage/sessions`, CSRF en todos los formularios y bloqueo temporal tras intentos fallidos.
-* Asistente `/instalar` para crear el primer **Admin TI** (se desactiva solo).
+* **Asistente de instalación web** (`/instalacion`) para hosting compartido: requisitos, clave privada, prueba de BD, creación de tablas, admin y `config.php`.
 * **Carga semanal del GECA** (`/geca`): `.xlsx` o `.csv` (coma o punto y coma, UTF-8 o ANSI de Excel), validación de los 30 encabezados, **UPSERT** por `ficha` y `serie` en una sola transacción, historial de cargas, detalle con advertencias y plantilla descargable.
 
 Rendimiento medido: 30 000 filas en ~5 s (CSV) / ~8 s (XLSX) usando 4–14 MB de RAM.
@@ -26,22 +26,39 @@ Rendimiento medido: 30 000 filas en ~5 s (CSV) / ~8 s (XLSX) usando 4–14 MB de
 
 ## Despliegue en NEUBOX (paso a paso)
 
-1. **Base de datos**
-   1. cPanel > *MySQL® Databases*: crea la base (ej. `mesaayuda` → queda `usuario_mesaayuda`).
-   2. Crea un usuario (ej. `tickets` → `usuario_tickets`) con contraseña robusta.
-   3. *Add User To Database* con **ALL PRIVILEGES**.
-   4. *phpMyAdmin* > selecciona la base > pestaña **Importar** > `database/schema.sql` > *Continuar*.
-2. **Archivos**
+La instalación se hace con un **asistente web**: no necesitas SSH, phpMyAdmin ni editar archivos.
+
+1. **Crea la base de datos** (único paso manual; cPanel no permite hacerlo desde PHP):
+   1. cPanel › *MySQL® Databases* › *Create New Database*: `mesaayuda` (quedará `usuario_mesaayuda`).
+   2. *Add New User*: `tickets` (quedará `usuario_tickets`) con una contraseña generada.
+   3. *Add User To Database*: elige ambos y marca **ALL PRIVILEGES**.
+2. **Sube los archivos**:
    1. Comprime el repositorio en `.zip` (sin la carpeta `.git`).
-   2. *Administrador de archivos* > entra a `public_html/` (o a la carpeta del subdominio, ej. `tickets.tudominio.com/`) > *Cargar* el zip > *Extraer*.
-   3. Activa *Configuración* > *Mostrar archivos ocultos* y confirma que `.htaccess` y `.user.ini` quedaron en la raíz.
-3. **Configuración**
-   1. Copia `config/config.example.php` como `config/config.php`.
-   2. Edita host (`localhost`), base, usuario y contraseña con prefijo de cPanel, y `base_url`.
-4. **Permisos**: carpetas `755`, archivos `644`; `storage/uploads`, `storage/logs` y `storage/sessions` deben ser escribibles (755 basta en cPanel con suPHP/PHP-FPM).
-5. **Primer administrador**: abre `https://tu-dominio/instalar`, captura ficha, nombre, correo y contraseña. Después pon `'install_enabled' => false` en `config/config.php`.
-6. **SSL**: cuando AutoSSL esté activo, descomenta el bloque *Forzar HTTPS* del `.htaccess`.
-7. **Verificación rápida**: `https://tu-dominio/config/config.php`, `/database/schema.sql` y `/src/` deben responder **403**.
+   2. *Administrador de archivos* › entra a `public_html/` (o a la carpeta del subdominio) › *Cargar* › *Extraer*.
+   3. Activa *Configuración › Mostrar archivos ocultos* y confirma que `.htaccess` y `.user.ini` quedaron en la raíz.
+3. **(Recomendado) Activa SSL** en cPanel › *SSL/TLS Status* › *Run AutoSSL*, para instalar ya por `https://`.
+4. **Abre tu dominio** en el navegador: te llevará solo a `/instalacion`.
+   1. **Requisitos**: el asistente revisa PHP, extensiones, límites, permisos, `mod_rewrite`, HTTPS y que `/config`, `/database` y `/storage` respondan 403.
+   2. **Clave de instalación**: abre `storage/install.key` en el Administrador de archivos y cópiala. Así nadie más puede instalar el sistema antes que tú.
+   3. **Base de datos**: captura los datos del paso 1. Se prueba la conexión, la versión del servidor, InnoDB y los privilegios reales.
+   4. **Sitio**: nombre, URL (autodetectada), zona horaria y, si entraste por https, *Forzar HTTPS*.
+   5. **Administrador**: ficha, nombre, correo y contraseña (mín. 12 caracteres).
+   6. **Instalar**: crea las tablas, el admin y `config/config.php`, y bloquea el asistente.
+
+Si el servidor no deja escribir `config/config.php`, la pantalla final te permite **descargarlo** para subirlo a `config/` con el Administrador de archivos.
+
+### Qué protege el instalador
+
+* Solo funciona mientras **no exista** `config/config.php`; después responde 404.
+* Exige la clave privada de `storage/install.key` (bloqueada por web), que se borra al terminar.
+* Si la creación de tablas falla a medias, **elimina solo las tablas que acaba de crear**; nunca borra datos existentes.
+* Si la base ya tiene todas las tablas (reinstalación), las conserva con sus datos.
+* Si la base tiene solo algunas tablas del sistema, se detiene y pide revisarla.
+* La contraseña del administrador se guarda ya cifrada (`password_hash`) desde el paso 4; `config.php` se escribe de forma atómica, se valida antes de activarse y queda con permisos `640`.
+
+### Instalación manual (alternativa)
+
+Importa `database/schema.sql` en phpMyAdmin, copia `config/config.example.php` como `config/config.php` con tus credenciales y abre `/instalar` para crear el primer Admin TI (se desactiva solo al existir uno).
 
 ### Si algo falla
 

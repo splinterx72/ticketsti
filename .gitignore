@@ -13,3 +13,7 @@
 Thumbs.db
 .idea/
 .vscode/
+
+# Instalador
+/storage/install.key
+/storage/installed.lock

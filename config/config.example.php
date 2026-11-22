@@ -5,6 +5,11 @@ declare(strict_types=1);
 /**
  * Configuración de la aplicación.
  *
+ * Lo normal es NO editar este archivo: el asistente web (/instalacion) genera
+ * config/config.php automáticamente. Úsalo solo para instalación manual.
+ * Mientras no exista config/config.php, estos valores sirven como
+ * predeterminados del modo instalación.
+ *
  * 1. Copia este archivo como  config/config.php  (desde el Administrador de
  *    Archivos de cPanel: clic derecho > Copy, o súbelo ya renombrado).
  * 2. Llena las credenciales de la base de datos creada con el asistente
