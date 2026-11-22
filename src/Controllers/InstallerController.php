@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Auth;
 use App\Core\HttpException;
+use App\Core\PasswordPolicy;
 use App\Core\Router;
 use App\Core\Session;
 use App\Services\Installer\Installer;
@@ -274,7 +275,7 @@ final class InstallerController extends Controller
             $errors[] = 'Captura un correo electrónico válido.';
         }
         if (!$keep) {
-            $errors = array_merge($errors, self::passwordErrors($password, [$ficha, $email, $nombre]));
+            $errors = array_merge($errors, PasswordPolicy::errors($password, [$ficha, $email, $nombre], PasswordPolicy::MIN_ADMIN));
             if (!hash_equals($password, $confirm)) {
                 $errors[] = 'La confirmación no coincide con la contraseña.';
             }
@@ -395,39 +396,6 @@ final class InstallerController extends Controller
     // ------------------------------------------------------------------
     //  Utilidades internas
     // ------------------------------------------------------------------
-
-    /**
-     * Política de contraseña del administrador.
-     *
-     * @param list<string> $personal datos que no deben formar parte de la contraseña
-     * @return list<string>
-     */
-    private static function passwordErrors(string $password, array $personal): array
-    {
-        $errors = [];
-        if (mb_strlen($password) < 12) {
-            $errors[] = 'La contraseña debe tener al menos 12 caracteres.';
-        }
-        if (mb_strlen($password) > 128) {
-            $errors[] = 'La contraseña no puede exceder 128 caracteres.';
-        }
-        $classes = (int) (preg_match('/[a-z]/', $password) === 1)
-            + (int) (preg_match('/[A-Z]/', $password) === 1)
-            + (int) (preg_match('/\d/', $password) === 1)
-            + (int) (preg_match('/[^A-Za-z0-9]/', $password) === 1);
-        if ($classes < 3) {
-            $errors[] = 'Combina al menos tres de: minúsculas, mayúsculas, números y símbolos.';
-        }
-        $lower = mb_strtolower($password);
-        foreach ($personal as $value) {
-            $value = mb_strtolower(trim(explode('@', $value)[0]));
-            if (mb_strlen($value) >= 4 && str_contains($lower, $value)) {
-                $errors[] = 'La contraseña no debe contener tu ficha, nombre o correo.';
-                break;
-            }
-        }
-        return $errors;
-    }
 
     /** @return array<string, mixed> */
     private function state(): array

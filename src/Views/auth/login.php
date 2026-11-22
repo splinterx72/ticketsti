@@ -22,6 +22,6 @@
         </form>
     </div>
     <div class="card-footer bg-white small text-body-secondary text-center">
-        ¿Primera vez? El auto-registro por ficha estará disponible próximamente.
+        ¿Primera vez? <a href="<?= e(url('/registro')) ?>" class="fw-semibold">Activa tu cuenta con tu ficha</a>
     </div>
 </div>

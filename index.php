@@ -11,9 +11,13 @@ declare(strict_types=1);
 use App\Config\Database;
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
+use App\Controllers\EquipoController;
 use App\Controllers\GecaController;
 use App\Controllers\InstallController;
 use App\Controllers\InstallerController;
+use App\Controllers\RegistroController;
+use App\Controllers\TicketController;
+use App\Controllers\TiController;
 use App\Core\Autoloader;
 use App\Core\Auth;
 use App\Core\Csrf;
@@ -109,6 +113,25 @@ if (!$installMode) {
     // Alta del primer admin cuando config.php se creó a mano (sin asistente).
     $router->get('/instalar', [InstallController::class, 'show']);
     $router->post('/instalar', [InstallController::class, 'store']);
+
+    // Auto-registro por ficha.
+    $router->get('/registro', [RegistroController::class, 'showFicha']);
+    $router->post('/registro', [RegistroController::class, 'lookupFicha']);
+    $router->get('/registro/completar', [RegistroController::class, 'showCompletar']);
+    $router->post('/registro/completar', [RegistroController::class, 'completar']);
+
+    // Portal del trabajador.
+    $router->get('/tickets', [TicketController::class, 'index']);
+    $router->get('/tickets/nuevo', [TicketController::class, 'create']);
+    $router->post('/tickets', [TicketController::class, 'store']);
+    $router->get('/tickets/{id}', [TicketController::class, 'show']);
+    $router->post('/tickets/{id}/comentarios', [TicketController::class, 'comment']);
+    $router->post('/equipos/{id}/principal', [EquipoController::class, 'setPrincipal']);
+
+    // Bandeja de TI.
+    $router->get('/ti/tickets', [TiController::class, 'inbox']);
+    $router->post('/tickets/{id}/gestion', [TiController::class, 'manage']);
+    $router->post('/tickets/{id}/tomar', [TiController::class, 'take']);
 
     $router->get('/geca', [GecaController::class, 'index']);
     $router->post('/geca/cargar', [GecaController::class, 'upload']);

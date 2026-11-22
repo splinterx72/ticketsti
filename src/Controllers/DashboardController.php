@@ -6,9 +6,11 @@ namespace App\Controllers;
 
 use App\Config\Database;
 use App\Core\Auth;
+use App\Services\TicketService;
 
 /**
- * Página de inicio con indicadores del inventario.
+ * Página de inicio: tickets recientes y equipos del usuario; para TI,
+ * además, indicadores de la bandeja y del inventario.
  */
 final class DashboardController extends Controller
 {
@@ -16,49 +18,72 @@ final class DashboardController extends Controller
     {
         $this->requireLogin();
         $pdo = Database::getInstance();
-
-        $stats = $pdo->query(
-            'SELECT
-                (SELECT COUNT(*) FROM usuarios)                              AS usuarios,
-                (SELECT COUNT(*) FROM usuarios WHERE registrado = 1)         AS usuarios_registrados,
-                (SELECT COUNT(*) FROM equipos WHERE vigente_en_geca = 1)     AS equipos_vigentes,
-                (SELECT COUNT(*) FROM equipos WHERE vigente_en_geca = 0)     AS equipos_no_vigentes,
-                (SELECT COUNT(*) FROM equipos
-                  WHERE ubicacion_real_id IS NOT NULL
-                    AND ubicacion_geca_id IS NOT NULL
-                    AND ubicacion_real_id <> ubicacion_geca_id)              AS equipos_discrepancia,
-                (SELECT COUNT(*) FROM ubicaciones)                           AS ubicaciones'
-        )->fetch();
-
-        $ultimaCarga = $pdo->query(
-            'SELECT c.*, u.nombre AS agente
-               FROM cargas_geca c
-               LEFT JOIN usuarios u ON u.id = c.usuario_ti_id
-              ORDER BY c.id DESC
-              LIMIT 1'
-        )->fetch() ?: null;
-
-        $misEquipos = [];
         $user = Auth::user();
-        if ($user !== null) {
-            $stmt = $pdo->prepare(
-                'SELECT e.serie, e.marca, e.modelo, e.es_principal, e.vigente_en_geca,
-                        e.serie_monitor1, e.serie_monitor2, ug.inmueble AS inmueble_geca
-                   FROM equipos e
-                   LEFT JOIN ubicaciones ug ON ug.id = e.ubicacion_geca_id
-                  WHERE e.usuario_id = ?
-                  ORDER BY e.es_principal DESC, e.serie'
+        $userId = (int) $user['id'];
+        $esTi = Auth::hasRole(['agente_ti', 'admin_ti']);
+
+        $recientes = $pdo->prepare(
+            'SELECT t.id, t.folio, t.titulo, t.prioridad, t.actualizado_en,
+                    es.nombre AS estado_nombre, es.color_hex AS estado_color
+               FROM tickets t JOIN estados es ON es.id = t.estado_id
+              WHERE t.usuario_solicitante_id = ?
+              ORDER BY es.es_cierre ASC, t.actualizado_en DESC
+              LIMIT 5'
+        );
+        $recientes->execute([$userId]);
+
+        $abiertos = $pdo->prepare(
+            'SELECT COUNT(*) FROM tickets t JOIN estados es ON es.id = t.estado_id
+              WHERE t.usuario_solicitante_id = ? AND es.es_cierre = 0'
+        );
+        $abiertos->execute([$userId]);
+
+        $data = [
+            'title'         => 'Inicio',
+            'esTi'          => $esTi,
+            'misTickets'    => $recientes->fetchAll(),
+            'misAbiertos'   => (int) $abiertos->fetchColumn(),
+            'misEquipos'    => (new TicketService($pdo))->equiposDeUsuario($userId),
+            'stats'         => [],
+            'ticketStats'   => [],
+            'ultimaCarga'   => null,
+        ];
+
+        if ($esTi) {
+            $data['stats'] = $pdo->query(
+                'SELECT
+                    (SELECT COUNT(*) FROM usuarios)                              AS usuarios,
+                    (SELECT COUNT(*) FROM usuarios WHERE registrado = 1)         AS usuarios_registrados,
+                    (SELECT COUNT(*) FROM equipos WHERE vigente_en_geca = 1)     AS equipos_vigentes,
+                    (SELECT COUNT(*) FROM equipos WHERE vigente_en_geca = 0)     AS equipos_no_vigentes,
+                    (SELECT COUNT(*) FROM equipos
+                      WHERE ubicacion_real_id IS NOT NULL
+                        AND ubicacion_geca_id IS NOT NULL
+                        AND ubicacion_real_id <> ubicacion_geca_id)              AS equipos_discrepancia,
+                    (SELECT COUNT(*) FROM ubicaciones)                           AS ubicaciones'
+            )->fetch() ?: [];
+
+            $ts = $pdo->prepare(
+                "SELECT
+                    COALESCE(SUM(es.es_cierre = 0), 0) AS abiertos,
+                    COALESCE(SUM(es.es_cierre = 0 AND t.agente_asignado_id IS NULL), 0) AS sin_asignar,
+                    COALESCE(SUM(es.es_cierre = 0 AND t.agente_asignado_id = ?), 0) AS mios,
+                    COALESCE(SUM(es.es_cierre = 0 AND t.prioridad IN ('alta', 'critica')), 0) AS urgentes,
+                    COALESCE(SUM(es.es_cierre = 1 AND DATE(t.cerrado_en) = CURDATE()), 0) AS cerrados_hoy
+                   FROM tickets t JOIN estados es ON es.id = t.estado_id"
             );
-            $stmt->execute([(int) $user['id']]);
-            $misEquipos = $stmt->fetchAll();
+            $ts->execute([$userId]);
+            $data['ticketStats'] = array_map('intval', $ts->fetch() ?: []);
+
+            $data['ultimaCarga'] = $pdo->query(
+                'SELECT c.*, u.nombre AS agente
+                   FROM cargas_geca c
+                   LEFT JOIN usuarios u ON u.id = c.usuario_ti_id
+                  ORDER BY c.id DESC
+                  LIMIT 1'
+            )->fetch() ?: null;
         }
 
-        $this->view('dashboard/index', [
-            'title'       => 'Inicio',
-            'stats'       => $stats ?: [],
-            'ultimaCarga' => $ultimaCarga,
-            'misEquipos'  => $misEquipos,
-            'esTi'        => Auth::hasRole(['agente_ti', 'admin_ti']),
-        ]);
+        $this->view('dashboard/index', $data);
     }
 }

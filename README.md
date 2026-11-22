@@ -11,6 +11,10 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 * Carpetas internas (`src/`, `config/`, `database/`, `storage/`) y archivos sensibles (`.env`, `.sql`, `.md`, `.log`…) bloqueados por web.
 * Inicio de sesión por ficha o correo, sesiones aisladas en `storage/sessions`, CSRF en todos los formularios y bloqueo temporal tras intentos fallidos.
 * **Asistente de instalación web** (`/instalacion`) para hosting compartido: requisitos, clave privada, prueba de BD, creación de tablas, admin y `config.php`.
+* **Auto-registro por ficha** (`/registro`): el trabajador confirma su nombre y jefe del GECA y crea su cuenta.
+* **Portal del trabajador**: *Mis tickets*, *Nuevo ticket* (equipo principal preseleccionado, monitores casados, hostname `PM…`, componente afectado y ubicación física) y seguimiento con comentarios.
+* **Detección de discrepancias de ubicación**: si el equipo está en otra ubicación que la del GECA, se actualiza su ubicación real y se abre un ticket para Control de Resguardos.
+* **Bandeja de TI** (`/ti/tickets`): filtros, búsqueda, "Tomar", cambio de estado, prioridad, departamento y agente, y notas internas.
 * **Carga semanal del GECA** (`/geca`): `.xlsx` o `.csv` (coma o punto y coma, UTF-8 o ANSI de Excel), validación de los 30 encabezados, **UPSERT** por `ficha` y `serie` en una sola transacción, historial de cargas, detalle con advertencias y plantilla descargable.
 
 Rendimiento medido: 30 000 filas en ~5 s (CSV) / ~8 s (XLSX) usando 4–14 MB de RAM.

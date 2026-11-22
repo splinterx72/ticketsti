@@ -28,7 +28,7 @@
             <label for="password" class="form-label fw-semibold">Contraseña</label>
             <div class="input-group">
                 <input type="password" class="form-control" id="password" name="password" minlength="12" maxlength="128"
-                       <?= $hasPassword ? 'placeholder="(sin cambios)"' : 'required' ?> autocomplete="new-password" data-strength="#strength">
+                       <?= $hasPassword ? 'placeholder="(sin cambios)"' : 'required' ?> autocomplete="new-password" data-strength="#strength" data-min="12">
                 <button class="btn btn-outline-secondary toggle-password" type="button" data-target="password" aria-label="Mostrar contraseña">
                     <i class="bi bi-eye"></i>
                 </button>

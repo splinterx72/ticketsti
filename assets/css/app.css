@@ -32,3 +32,35 @@
 .table td.text-truncate {
     white-space: nowrap;
 }
+
+/* --- Tickets --- */
+.font-sans-serif { font-family: var(--bs-body-font-family); }
+
+.ticket-list .list-group-item { border-left: 3px solid transparent; }
+.ticket-list .list-group-item:hover { border-left-color: var(--bs-primary); }
+
+.ticket-description {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.6;
+}
+
+.timeline { display: flex; flex-direction: column; gap: .75rem; }
+.timeline-item { overflow-wrap: anywhere; }
+.timeline-system {
+    padding: .1rem .75rem;
+    border-left: 2px dashed var(--bs-border-color);
+    margin-left: .75rem;
+}
+.note-ti { border-left: 3px solid var(--bs-primary) !important; }
+.note-internal { background: var(--bs-warning-bg-subtle); border-left: 3px solid var(--bs-warning) !important; }
+
+.detail-list dt { font-weight: 400; color: var(--bs-secondary-color); font-size: .75rem; margin-top: .6rem; }
+.detail-list dt:first-child { margin-top: 0; }
+.detail-list dd { margin-bottom: 0; overflow-wrap: anywhere; }
+
+.inbox-table .subject-cell { max-width: 22rem; min-width: 14rem; white-space: normal; }
+.inbox-table td { white-space: nowrap; }
+
+select[size] option { padding: .3rem .5rem; white-space: normal; }
+select[size] option:checked { background: var(--bs-primary-bg-subtle); font-weight: 600; }

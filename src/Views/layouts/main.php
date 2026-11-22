@@ -45,7 +45,16 @@ $rolLabel = ['usuario' => 'Usuario', 'agente_ti' => 'Agente TI', 'admin_ti' => '
                     <li class="nav-item">
                         <a class="nav-link<?= $isActive('/') ?>" href="<?= e(url('/')) ?>"><i class="bi bi-speedometer2 me-1"></i>Inicio</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link<?= ($current === '/tickets' || (str_starts_with($current, '/tickets/') && $current !== '/tickets/nuevo')) ? ' active' : '' ?>" href="<?= e(url('/tickets')) ?>"><i class="bi bi-ticket-detailed me-1"></i>Mis tickets</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link<?= $current === '/tickets/nuevo' ? ' active' : '' ?>" href="<?= e(url('/tickets/nuevo')) ?>"><i class="bi bi-plus-circle me-1"></i>Nuevo ticket</a>
+                    </li>
                     <?php if ($esTi): ?>
+                        <li class="nav-item">
+                            <a class="nav-link<?= $isActive('/ti') ?>" href="<?= e(url('/ti/tickets')) ?>"><i class="bi bi-kanban me-1"></i>Bandeja TI</a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link<?= $isActive('/geca') ?>" href="<?= e(url('/geca')) ?>"><i class="bi bi-cloud-arrow-up me-1"></i>Carga GECA</a>
                         </li>

@@ -45,7 +45,15 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 * **Fase 1 (hecha):** estructura base, `.htaccess`, configuración, esquema, Singleton PDO, autoloader, Front Controller, sesión endurecida, CSRF, login/logout, asistente `/instalar` para el primer `admin_ti`.
 * **Fase 2 (hecha):** motor de sincronización GECA (`GecaSyncService`), lectores CSV/XLSX, módulo `/geca` (carga, historial, detalle, plantilla).
 * **Instalador (hecho):** asistente web `/instalacion` (`InstallerController` + `Services/Installer`). Sin `config/config.php` el Front Controller entra en *modo instalación* y solo responde el asistente. Cualquier cambio a `database/schema.sql` se instala automáticamente con él.
-* **Fase 3 (pendiente):** auto-registro por ficha, tickets con hostname y componente afectado, control de discrepancias de ubicación.
+* **Fase 3 (hecha):**
+  * Auto-registro por ficha (`RegistroController`, `/registro`).
+  * Portal del trabajador: `/tickets`, `/tickets/nuevo`, `/tickets/{id}` y comentarios; equipo principal en el inicio.
+  * Bandeja TI: `/ti/tickets` con filtros, "Tomar", gestión de estado, prioridad, departamento y agente, y notas internas.
+  * Las reglas C y D viven en `Services/TicketService`. Folio `TK-AAAA-NNNNNN`.
+  * El ticket `actualizacion_ubicacion` se genera una sola vez por equipo mientras siga abierto; los siguientes reportes se agregan como nota interna.
+  * Enrutamiento automático por tipo: incidencia y solicitud → Soporte Técnico en Sitio; garantía → Garantías y Proveedores; actualización de ubicación → Control de Resguardos GECA.
+  * Los cambios hechos por TI quedan en la bitácora del ticket y el solicitante los ve. Las notas internas solo las ve TI.
+  * Política de contraseñas: `Core/PasswordPolicy` (10 caracteres para trabajadores, 12 para el admin del instalador).
 * **Fase 4 (pendiente):** garantías, comentarios y tablero de agentes.
 
 ---
