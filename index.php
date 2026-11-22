@@ -1,0 +1,147 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Front Controller — Mesa de Ayuda TI / Control de Resguardos GECA
+ *
+ * Todas las peticiones amigables llegan aquí gracias al .htaccess.
+ */
+
+use App\Config\Database;
+use App\Controllers\AuthController;
+use App\Controllers\DashboardController;
+use App\Controllers\GecaController;
+use App\Controllers\InstallController;
+use App\Core\Autoloader;
+use App\Core\Auth;
+use App\Core\Csrf;
+use App\Core\HttpException;
+use App\Core\Router;
+use App\Core\Session;
+use App\Core\View;
+
+// Solo desarrollo local (php -S localhost:8080 index.php): sirve /assets tal cual.
+if (PHP_SAPI === 'cli-server') {
+    $staticPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+    if (str_starts_with($staticPath, '/assets/') && is_file(__DIR__ . $staticPath)) {
+        return false;
+    }
+}
+
+define('ROOT_PATH', __DIR__);
+define('STORAGE_PATH', ROOT_PATH . '/storage');
+
+// --- Versión mínima de PHP ---------------------------------------------------
+if (PHP_VERSION_ID < 80300) {
+    http_response_code(500);
+    header('Content-Type: text/plain; charset=UTF-8');
+    echo 'Se requiere PHP 8.3 o superior. Selecciónalo en cPanel > "MultiPHP Manager".';
+    exit;
+}
+
+// --- Configuración ------------------------------------------------------------
+$configFile = ROOT_PATH . '/config/config.php';
+if (!is_file($configFile)) {
+    http_response_code(500);
+    header('Content-Type: text/plain; charset=UTF-8');
+    echo "Falta config/config.php. Copia config/config.example.php como config/config.php y captura tus credenciales.";
+    exit;
+}
+/** @var array<string, mixed> $config */
+$config = require $configFile;
+$GLOBALS['__app_config'] = $config;
+
+$isProduction = ($config['app']['env'] ?? 'production') === 'production';
+$timezone = (string) ($config['app']['timezone'] ?? 'America/Mexico_City');
+
+date_default_timezone_set($timezone);
+mb_internal_encoding('UTF-8');
+
+// --- Errores: nunca al navegador en producción --------------------------------
+error_reporting(E_ALL);
+ini_set('display_errors', $isProduction ? '0' : '1');
+ini_set('log_errors', '1');
+if (is_dir(STORAGE_PATH . '/logs') && is_writable(STORAGE_PATH . '/logs')) {
+    ini_set('error_log', STORAGE_PATH . '/logs/php-error.log');
+}
+header_remove('X-Powered-By');
+
+// --- Autoload sin Composer ----------------------------------------------------
+require ROOT_PATH . '/src/Core/Autoloader.php';
+Autoloader::register('App', ROOT_PATH . '/src');
+require ROOT_PATH . '/src/Core/helpers.php';
+
+// --- Servicios base -----------------------------------------------------------
+Database::configure((array) ($config['db'] ?? []), $timezone);
+Session::start((array) ($config['session'] ?? []), STORAGE_PATH . '/sessions');
+View::setPath(ROOT_PATH . '/src/Views');
+
+// --- Rutas --------------------------------------------------------------------
+$router = new Router();
+
+$router->get('/', [DashboardController::class, 'index']);
+
+$router->get('/login', [AuthController::class, 'showLogin']);
+$router->post('/login', [AuthController::class, 'login']);
+$router->post('/logout', [AuthController::class, 'logout']);
+
+$router->get('/instalar', [InstallController::class, 'show']);
+$router->post('/instalar', [InstallController::class, 'store']);
+
+$router->get('/geca', [GecaController::class, 'index']);
+$router->post('/geca/cargar', [GecaController::class, 'upload']);
+$router->get('/geca/cargas/{id}', [GecaController::class, 'show']);
+$router->get('/geca/plantilla', [GecaController::class, 'template']);
+
+// --- Despacho con manejo centralizado de errores ------------------------------
+try {
+    View::share('appName', (string) ($config['app']['name'] ?? 'Mesa de Ayuda TI'));
+    View::share('flash', Session::pullFlash());
+    $old = Session::get('_old', []);
+    Session::remove('_old');
+    View::share('old', is_array($old) ? $old : []);
+    View::share('csrfToken', Csrf::token());
+
+    $router->dispatch((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'), (string) ($_SERVER['REQUEST_URI'] ?? '/'));
+} catch (HttpException $e) {
+    renderError($e->status(), $e->getMessage());
+} catch (Throwable $e) {
+    error_log(sprintf('[%s] %s en %s:%d', $e::class, $e->getMessage(), $e->getFile(), $e->getLine()));
+    renderError(500, $isProduction ? 'Ocurrió un error inesperado. Intenta de nuevo más tarde.' : $e->getMessage());
+}
+
+function renderError(int $status, string $message): void
+{
+    if (ob_get_level() > 0) {
+        ob_clean();
+    }
+    http_response_code($status);
+    header('Content-Type: text/html; charset=UTF-8');
+
+    $titles = [
+        400 => 'Solicitud inválida',
+        403 => 'Acceso denegado',
+        404 => 'Página no encontrada',
+        405 => 'Método no permitido',
+        500 => 'Error del servidor',
+    ];
+
+    try {
+        // Evita consultar la BD si el error fue justamente de conexión.
+        $user = $status === 500 ? null : Auth::user();
+    } catch (Throwable) {
+        $user = null;
+    }
+
+    try {
+        echo View::render('errors/error', [
+            'status'  => $status,
+            'title'   => $titles[$status] ?? 'Error',
+            'message' => $message,
+            'authUser' => $user,
+        ]);
+    } catch (Throwable) {
+        echo '<h1>' . $status . '</h1><p>' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p>';
+    }
+}

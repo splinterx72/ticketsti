@@ -1,226 +1,70 @@
-# ticketsti
-Solucion de requerimientos de los clientes, para una administracion de los soportes otorgados
-# Sistema de Mesa de Ayuda TI y Control de Resguardos (GECA)
+# ticketsti — Mesa de Ayuda TI y Control de Resguardos (GECA)
 
-## 1. Descripción General del Proyecto
-Sistema web ligero de tickets de soporte técnico integrado con el inventario oficial de resguardos (**GECA**). Permite a los trabajadores registrarse validando su **ficha**, levantar tickets asociados a su equipo principal, monitores o incidencias generales, detectar discrepancias de ubicación física frente al resguardo oficial y gestionar garantías de hardware.
+Sistema web ligero de tickets de soporte técnico integrado con el inventario oficial de resguardos **GECA**, diseñado para correr en **hosting compartido cPanel (NEUBOX)**: PHP 8.3+, MySQL/MariaDB y Apache, sin Docker, sin SSH y sin Composer.
 
----
+> Reglas de negocio, convenciones y estado por fases: ver [`CLAUDE.md`](CLAUDE.md).
+> Esquema de base de datos: [`database/schema.sql`](database/schema.sql).
 
-## 2. Stack Tecnológico (VPS Linux / Administración por SSH)
-* **Servidor / Despliegue:** VPS Ubuntu con Docker y Docker Compose (administrado vía SSH y Git).
-* **Servidor Web:** Nginx.
-* **Backend:** PHP 8.3 / 8.4 (arquitectura MVC limpia o modular sin dependencias pesadas, PDO con sentencias preparadas).
-* **Base de Datos:** MariaDB 11.8 LTS (`InnoDB`, `utf8mb4_unicode_ci`).
-* **Frontend:** HTML5, CSS3, Bootstrap 5 / Tabler UI (responsivo, limpio y rápido) + JavaScript (Fetch API).
-* **Procesamiento de Archivos:** `PhpSpreadsheet` (para importar los archivos `.xlsx` / `.csv` semanales del GECA).
+## Funcionalidad actual (Fases 1 y 2)
 
----
+* Front Controller con URLs amigables (`.htaccess` + `index.php`), funciona en la raíz o en una subcarpeta.
+* Carpetas internas (`src/`, `config/`, `database/`, `storage/`) y archivos sensibles (`.env`, `.sql`, `.md`, `.log`…) bloqueados por web.
+* Inicio de sesión por ficha o correo, sesiones aisladas en `storage/sessions`, CSRF en todos los formularios y bloqueo temporal tras intentos fallidos.
+* Asistente `/instalar` para crear el primer **Admin TI** (se desactiva solo).
+* **Carga semanal del GECA** (`/geca`): `.xlsx` o `.csv` (coma o punto y coma, UTF-8 o ANSI de Excel), validación de los 30 encabezados, **UPSERT** por `ficha` y `serie` en una sola transacción, historial de cargas, detalle con advertencias y plantilla descargable.
 
-## 3. Reglas de Negocio Críticas
+Rendimiento medido: 30 000 filas en ~5 s (CSV) / ~8 s (XLSX) usando 4–14 MB de RAM.
 
-### A. Sincronización Semanal del GECA (Cada Lunes — Estrategia UPSERT)
-* **Prohibido hacer `TRUNCATE` o borrar registros** de `usuarios` y `equipos`, ya que se perderían las cuentas activadas, contraseñas, historial de tickets, ubicaciones reales y garantías.
-* **Llaves naturales:** `ficha` para usuarios y `serie` para equipos.
-* **Flujo de importación:**
-  1. Se crea un registro de auditoría en `cargas_geca`.
-  2. Se actualiza todo el inventario actual a `vigente_en_geca = 0`.
-  3. Por cada fila del archivo GECA (30 columnas):
-     * Se inserta o recupera el ID en `ubicaciones` (`eps`, `subdireccion`, `gerencia`, `zona`, `sector`, `inmueble`).
-     * Si la `ficha` no existe en `usuarios`, se inserta con `registrado = 0`. Si ya existe, se actualizan `nombre` y `jefe_nombre` sin tocar su contraseña, correo ni rol.
-     * Si la `serie` no existe en `equipos`, se inserta con `vigente_en_geca = 1` y `ubicacion_real_id = ubicacion_geca_id`. Si ya existe, se actualizan los campos del GECA, `usuario_id`, `ubicacion_geca_id` y `vigente_en_geca = 1`, **preservando intactos** `ubicacion_real_id`, `es_principal`, `garantias` y `tickets`.
+## Requisitos del hosting
 
-### B. Registro y Autenticación de Usuarios
-* **Auto-registro por Ficha:** El trabajador ingresa su número de `ficha`. El sistema busca en `usuarios` (`registrado = 0`).
-* Si existe, muestra su nombre y jefe para confirmación; el usuario captura su `email`, `telefono_ext`, `contraseña` y selecciona su `ubicacion_habitual_id`, cambiando su estado a `registrado = 1`.
-* **Roles:** `usuario` (solicitante), `agente_ti` (técnico que atiende y sube GECA), `admin_ti` (gestión total).
+| Requisito | Dónde se configura en cPanel |
+|---|---|
+| PHP **8.3** o superior | *MultiPHP Manager* (o *Select PHP Version*) |
+| Extensiones `pdo_mysql`, `mbstring`, `zip`, `xmlreader` | *Select PHP Version* > *Extensions* (vienen activas normalmente) |
+| `upload_max_filesize` / `post_max_size` ≥ tamaño del GECA | `.user.ini` incluido (32 MB) o *MultiPHP INI Editor* |
+| MySQL 5.7+ o MariaDB 10.3+ | *MySQL® Databases* |
 
-### C. Creación de Tickets y Hostname
-* Al abrir el formulario de nuevo ticket, el sistema carga los equipos asignados al usuario ordenados por `es_principal DESC` (preseleccionando su equipo principal, permitiendo cambiar a otro equipo, a un monitor casado o a **"Sin equipo / Incidencia general"**).
-* **Hostname manual:** El usuario o técnico puede capturar el hostname completo (prefijo de 5 caracteres que inicia con `PM...`, ej. `PMPPP` + `serie`) en el campo `hostname_reportado`.
-* **Componente afectado:** Permite especificar si la falla es en `equipo`, `monitor_1`, `monitor_2` o `general`.
+## Despliegue en NEUBOX (paso a paso)
 
-### D. Control de Ubicaciones (Oficial GECA vs. Real Física)
-* Un usuario puede tener equipos en ubicaciones distintas; por ello la ubicación vive a nivel de cada equipo.
-* Al crear un ticket, el usuario confirma en qué ubicación se encuentra físicamente el equipo (`ubicacion_reportada_id`).
-* Si `ubicacion_reportada_id != equipos.ubicacion_geca_id`:
-  1. Se actualiza `equipos.ubicacion_real_id` con la nueva ubicación física.
-  2. Se marca el ticket con `discrepancia_ubicacion = 1`.
-  3. El sistema alerta a TI (o genera un ticket vinculado de tipo `actualizacion_ubicacion`) para tramitar el cambio de resguardo en GECA.
+1. **Base de datos**
+   1. cPanel > *MySQL® Databases*: crea la base (ej. `mesaayuda` → queda `usuario_mesaayuda`).
+   2. Crea un usuario (ej. `tickets` → `usuario_tickets`) con contraseña robusta.
+   3. *Add User To Database* con **ALL PRIVILEGES**.
+   4. *phpMyAdmin* > selecciona la base > pestaña **Importar** > `database/schema.sql` > *Continuar*.
+2. **Archivos**
+   1. Comprime el repositorio en `.zip` (sin la carpeta `.git`).
+   2. *Administrador de archivos* > entra a `public_html/` (o a la carpeta del subdominio, ej. `tickets.tudominio.com/`) > *Cargar* el zip > *Extraer*.
+   3. Activa *Configuración* > *Mostrar archivos ocultos* y confirma que `.htaccess` y `.user.ini` quedaron en la raíz.
+3. **Configuración**
+   1. Copia `config/config.example.php` como `config/config.php`.
+   2. Edita host (`localhost`), base, usuario y contraseña con prefijo de cPanel, y `base_url`.
+4. **Permisos**: carpetas `755`, archivos `644`; `storage/uploads`, `storage/logs` y `storage/sessions` deben ser escribibles (755 basta en cPanel con suPHP/PHP-FPM).
+5. **Primer administrador**: abre `https://tu-dominio/instalar`, captura ficha, nombre, correo y contraseña. Después pon `'install_enabled' => false` en `config/config.php`.
+6. **SSL**: cuando AutoSSL esté activo, descomenta el bloque *Forzar HTTPS* del `.htaccess`.
+7. **Verificación rápida**: `https://tu-dominio/config/config.php`, `/database/schema.sql` y `/src/` deben responder **403**.
 
-### E. Gestión de Garantías
-* Módulo vinculado a `equipos` que permite registrar pólizas/contratos indicando si cubren el `equipo`, `monitor_1` o `monitor_2`, con fechas de vigencia, proveedor y estado (`vigente`, `en_reclamacion`, `vencida`).
+### Si algo falla
 
----
+* **Error 500 inmediato**: algunos planes no permiten `Options` en `.htaccess`; comenta la línea `Options -Indexes -MultiViews` y desactiva *Indexes* desde cPanel > *Índices*.
+* **Las rutas dan 404 en subcarpeta**: descomenta y ajusta `RewriteBase /subcarpeta/` en `.htaccess`.
+* **“No fue posible conectar con la base de datos”**: revisa el prefijo `usuario_` en base y usuario, y que el usuario esté asignado a la base.
+* **Errores detallados**: `storage/logs/php-error.log` (descárgalo desde el Administrador de archivos).
 
-## 4. Esquema de Base de Datos (MariaDB / MySQL)
+## Carga semanal del GECA
 
-```sql
-CREATE DATABASE IF NOT EXISTS mesa_ayuda_ti
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
+* Menú **Carga GECA** (roles `agente_ti` y `admin_ti`) > elige el archivo > *Procesar archivo*.
+* Encabezados: los 30 de la plantilla (`/geca/plantilla`); se toleran acentos, mayúsculas y espacios.
+* Formatos: `.xlsx` (Excel 2007+) y `.csv`. Los `.xls` antiguos se deben guardar antes como `.xlsx` o CSV.
+* Qué hace: crea el registro en `cargas_geca`, marca todo el inventario como no vigente, y por cada fila inserta/recupera la ubicación, hace UPSERT del usuario (solo `nombre` y `jefe_nombre`) y del equipo. En equipos existentes **no se tocan** `ubicacion_real_id`, `es_principal`, garantías ni tickets. Si algo falla, nada cambia.
 
-USE mesa_ayuda_ti;
+## Desarrollo local
 
-CREATE TABLE ubicaciones (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    eps VARCHAR(80) NOT NULL,
-    subdireccion VARCHAR(120) NOT NULL,
-    gerencia VARCHAR(120) NOT NULL,
-    zona VARCHAR(100) NULL,
-    sector VARCHAR(100) NULL,
-    inmueble VARCHAR(150) NOT NULL,
-    activo TINYINT(1) NOT NULL DEFAULT 1,
-    UNIQUE KEY uk_ubicacion_completa (eps, subdireccion, gerencia, zona, sector, inmueble)
-) ENGINE=InnoDB;
+```bash
+cp config/config.example.php config/config.php
+```
 
-CREATE TABLE cargas_geca (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    nombre_archivo VARCHAR(255) NOT NULL,
-    usuario_ti_id INT UNSIGNED NULL,
-    total_registros INT UNSIGNED NOT NULL DEFAULT 0,
-    nuevos_insertados INT UNSIGNED NOT NULL DEFAULT 0,
-    actualizados INT UNSIGNED NOT NULL DEFAULT 0,
-    marcados_no_vigentes INT UNSIGNED NOT NULL DEFAULT 0,
-    fecha_carga TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+```bash
+php -S localhost:8080 index.php
+```
 
-CREATE TABLE usuarios (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    ficha VARCHAR(20) NOT NULL UNIQUE,
-    nombre VARCHAR(150) NOT NULL,
-    jefe_nombre VARCHAR(150) NULL,
-    email VARCHAR(150) NULL UNIQUE,
-    password_hash VARCHAR(255) NULL,
-    telefono_ext VARCHAR(30) NULL,
-    ubicacion_habitual_id INT UNSIGNED NULL,
-    rol ENUM('usuario', 'agente_ti', 'admin_ti') NOT NULL DEFAULT 'usuario',
-    registrado TINYINT(1) NOT NULL DEFAULT 0,
-    activo TINYINT(1) NOT NULL DEFAULT 1,
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_usuario_ubicacion
-        FOREIGN KEY (ubicacion_habitual_id) REFERENCES ubicaciones(id)
-        ON DELETE SET NULL
-) ENGINE=InnoDB;
-
-CREATE TABLE equipos (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    serie VARCHAR(60) NOT NULL UNIQUE,
-    usuario_id INT UNSIGNED NULL,
-    ubicacion_geca_id INT UNSIGNED NULL,
-    ubicacion_real_id INT UNSIGNED NULL,
-    es_principal TINYINT(1) NOT NULL DEFAULT 0,
-    folio_resguardo VARCHAR(40) NULL,
-    fecha_resguardo DATE NULL,
-    estado_resguardo VARCHAR(60) NULL,
-    numero_contrato VARCHAR(60) NULL,
-    estado_inventario VARCHAR(60) NULL,
-    marca VARCHAR(60) NULL,
-    modelo VARCHAR(80) NULL,
-    perfil VARCHAR(80) NULL,
-    usuario_fecha_aceptacion DATETIME NULL,
-    ti_fecha_validacion DATETIME NULL,
-    fecha_baja DATETIME NULL,
-    fecha_carga_resguardo DATETIME NULL,
-    fuera_consola VARCHAR(40) NULL,
-    motivo_baja VARCHAR(255) NULL,
-    serie_monitor1 VARCHAR(60) NULL,
-    marca_monitor1 VARCHAR(60) NULL,
-    modelo_monitor1 VARCHAR(80) NULL,
-    serie_monitor2 VARCHAR(60) NULL,
-    marca_monitor2 VARCHAR(60) NULL,
-    modelo_monitor2 VARCHAR(80) NULL,
-    ultima_carga_geca_id INT UNSIGNED NULL,
-    vigente_en_geca TINYINT(1) NOT NULL DEFAULT 1,
-    actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_equipo_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
-    CONSTRAINT fk_equipo_ubicacion_geca FOREIGN KEY (ubicacion_geca_id) REFERENCES ubicaciones(id) ON DELETE SET NULL,
-    CONSTRAINT fk_equipo_ubicacion_real FOREIGN KEY (ubicacion_real_id) REFERENCES ubicaciones(id) ON DELETE SET NULL,
-    CONSTRAINT fk_equipo_carga_geca FOREIGN KEY (ultima_carga_geca_id) REFERENCES cargas_geca(id) ON DELETE SET NULL,
-    INDEX idx_equipo_usuario (usuario_id),
-    INDEX idx_equipo_monitor1 (serie_monitor1),
-    INDEX idx_equipo_monitor2 (serie_monitor2)
-) ENGINE=InnoDB;
-
-CREATE TABLE garantias (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    equipo_id INT UNSIGNED NOT NULL,
-    elemento_cubierto ENUM('equipo', 'monitor_1', 'monitor_2') NOT NULL DEFAULT 'equipo',
-    proveedor VARCHAR(120) NOT NULL,
-    numero_poliza_contrato VARCHAR(80) NULL,
-    fecha_inicio DATE NOT NULL,
-    fecha_vencimiento DATE NOT NULL,
-    estado ENUM('vigente', 'en_reclamacion', 'vencida') NOT NULL DEFAULT 'vigente',
-    notas TEXT NULL,
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_garantia_equipo FOREIGN KEY (equipo_id) REFERENCES equipos(id) ON DELETE CASCADE,
-    INDEX idx_garantia_vencimiento (fecha_vencimiento, estado)
-) ENGINE=InnoDB;
-
-CREATE TABLE departamentos (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(80) NOT NULL UNIQUE,
-    descripcion VARCHAR(255) NULL,
-    activo TINYINT(1) NOT NULL DEFAULT 1
-) ENGINE=InnoDB;
-
-CREATE TABLE estados (
-    id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL UNIQUE,
-    color_hex CHAR(7) NOT NULL DEFAULT '#6c757d',
-    es_cierre TINYINT(1) NOT NULL DEFAULT 0
-) ENGINE=InnoDB;
-
-CREATE TABLE tickets (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    folio VARCHAR(25) NOT NULL UNIQUE,
-    tipo_ticket ENUM('incidencia', 'solicitud', 'actualizacion_ubicacion', 'garantia') NOT NULL DEFAULT 'incidencia',
-    titulo VARCHAR(180) NOT NULL,
-    descripcion TEXT NOT NULL,
-    prioridad ENUM('baja', 'media', 'alta', 'critica') NOT NULL DEFAULT 'media',
-    usuario_solicitante_id INT UNSIGNED NOT NULL,
-    agente_asignado_id INT UNSIGNED NULL,
-    departamento_id INT UNSIGNED NOT NULL,
-    estado_id TINYINT UNSIGNED NOT NULL,
-    equipo_id INT UNSIGNED NULL,
-    componente_afectado ENUM('equipo', 'monitor_1', 'monitor_2', 'general') NOT NULL DEFAULT 'general',
-    hostname_reportado VARCHAR(30) NULL,
-    ubicacion_reportada_id INT UNSIGNED NULL,
-    discrepancia_ubicacion TINYINT(1) NOT NULL DEFAULT 0,
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    cerrado_en TIMESTAMP NULL,
-    CONSTRAINT fk_ticket_solicitante FOREIGN KEY (usuario_solicitante_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
-    CONSTRAINT fk_ticket_agente FOREIGN KEY (agente_asignado_id) REFERENCES usuarios(id) ON DELETE SET NULL,
-    CONSTRAINT fk_ticket_depto FOREIGN KEY (departamento_id) REFERENCES departamentos(id) ON DELETE RESTRICT,
-    CONSTRAINT fk_ticket_estado FOREIGN KEY (estado_id) REFERENCES estados(id) ON DELETE RESTRICT,
-    CONSTRAINT fk_ticket_equipo FOREIGN KEY (equipo_id) REFERENCES equipos(id) ON DELETE SET NULL,
-    CONSTRAINT fk_ticket_ubicacion FOREIGN KEY (ubicacion_reportada_id) REFERENCES ubicaciones(id) ON DELETE SET NULL,
-    INDEX idx_tickets_tablero (estado_id, departamento_id),
-    INDEX idx_tickets_discrepancia (discrepancia_ubicacion)
-) ENGINE=InnoDB;
-
-CREATE TABLE comentarios (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    ticket_id INT UNSIGNED NOT NULL,
-    usuario_id INT UNSIGNED NOT NULL,
-    mensaje TEXT NOT NULL,
-    es_nota_interna TINYINT(1) NOT NULL DEFAULT 0,
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_comentario_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-    CONSTRAINT fk_comentario_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT
-) ENGINE=InnoDB;
-
--- Datos semilla iniciales
-INSERT INTO estados (nombre, color_hex, es_cierre) VALUES
-('Abierto', '#0d6efd', 0),
-('En proceso', '#ffc107', 0),
-('En espera de usuario', '#fd7e14', 0),
-('Resuelto', '#198754', 1),
-('Cerrado', '#6c757d', 1);
-
-INSERT INTO departamentos (nombre, descripcion) VALUES
-('Soporte Técnico en Sitio', 'Atención a equipos de cómputo, monitores y periféricos'),
-('Control de Resguardos GECA', 'Actualización de ubicaciones y validación de inventario'),
-('Garantías y Proveedores', 'Seguimiento de pólizas y garantías de hardware');
+(El servidor embebido de PHP ignora `.htaccess`; para probar las reglas de bloqueo usa Apache con `AllowOverride All`.)

@@ -1,0 +1,96 @@
+# =====================================================================
+#  Mesa de Ayuda TI / Control de Resguardos GECA
+#  .htaccess principal para hosting compartido cPanel (NEUBOX / Apache)
+# =====================================================================
+
+# --- Sin listado de directorios ni MultiViews (evita /index -> index.php) ---
+Options -Indexes -MultiViews
+
+# --- Documento por defecto ---
+DirectoryIndex index.php
+
+# --- Codificación por defecto ---
+AddDefaultCharset UTF-8
+
+# --- Bloquear archivos sensibles por nombre / extensión ---
+<IfModule mod_authz_core.c>
+    # Archivos ocultos (.env, .git, .htpasswd, .user.ini ...)
+    <FilesMatch "^\.">
+        Require all denied
+    </FilesMatch>
+    # Extensiones que jamás deben servirse
+    <FilesMatch "\.(env|sql|md|log|ini|sh|bak|old|orig|swp|dist|lock|json|yml|yaml|xml|csv|xlsx|phar|inc)$">
+        Require all denied
+    </FilesMatch>
+    # composer.*, package.*, CLAUDE.md, README, etc.
+    <FilesMatch "^(composer\.(json|lock)|package(-lock)?\.json|CLAUDE\.md|README(\.md)?|LICENSE)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+    # Compatibilidad Apache 2.2
+    <FilesMatch "^\.">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+    <FilesMatch "\.(env|sql|md|log|ini|sh|bak|old|orig|swp|dist|lock|json|yml|yaml|xml|csv|xlsx|phar|inc)$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Si la app vive en una subcarpeta (ej. public_html/tickets) y algo falla,
+    # descomenta y ajusta la siguiente línea:
+    # RewriteBase /tickets/
+
+    # --- Forzar HTTPS (descomenta cuando el SSL AutoSSL/Let's Encrypt esté activo) ---
+    # RewriteCond %{HTTPS} !=on
+    # RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    # RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # --- Bloquear carpetas internas: devuelve 403 ---
+    RewriteRule ^(src|config|database|storage|vendor|tests|\.git)(/|$) - [F,L]
+
+    # --- Bloquear archivos .php distintos del front controller ---
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteCond %{REQUEST_URI} !/index\.php$
+    RewriteRule \.php$ - [F,L]
+
+    # --- Archivos estáticos reales (assets/) se sirven directo ---
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # --- Todo lo demás va al Front Controller ---
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# --- Cabeceras de seguridad ---
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header unset X-Powered-By
+</IfModule>
+
+# --- Caché de recursos estáticos ---
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 7 days"
+    ExpiresByType application/javascript "access plus 7 days"
+    ExpiresByType image/png "access plus 30 days"
+    ExpiresByType image/svg+xml "access plus 30 days"
+</IfModule>
+
+# --- Ajustes PHP (solo si el hosting usa mod_php; con PHP-FPM usa .user.ini) ---
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_value upload_max_filesize 32M
+    php_value post_max_size 34M
+    php_value max_execution_time 300
+    php_value memory_limit 256M
+</IfModule>

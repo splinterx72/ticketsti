@@ -1,0 +1,15 @@
+# Credenciales reales (se crean a partir de config.example.php)
+/config/config.php
+.env
+
+# Archivos generados en ejecución
+/storage/uploads/*
+/storage/logs/*
+/storage/sessions/*
+!/storage/**/.gitignore
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
