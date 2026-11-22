@@ -6,6 +6,7 @@
  * @var list<array<string, mixed>> $estados
  * @var list<array<string, mixed>> $departamentos
  * @var list<array<string, mixed>> $agentes
+ * @var list<array<string, mixed>> $garantias
  * @var array<string, mixed> $authUser
  * @var array<string, string> $old
  */
@@ -187,6 +188,38 @@ $monitor = match ($t['componente_afectado']) {
                 <?php endif; ?>
             </dl>
         </div>
+
+        <?php if ($t['equipo_id'] !== null): ?>
+            <?php
+            $cubre = static fn (array $g): bool => $g['elemento_cubierto'] === $t['componente_afectado']
+                || ($t['componente_afectado'] === 'general' && $g['elemento_cubierto'] === 'equipo');
+            ?>
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-shield-check me-1"></i>Garantía</span>
+                    <?php if ($esTi): ?>
+                        <a class="small" href="<?= e(url('/ti/equipos/' . (int) $t['equipo_id'])) ?>">Ver equipo</a>
+                    <?php endif; ?>
+                </div>
+                <?php if ($garantias === []): ?>
+                    <div class="card-body small text-body-secondary">El equipo no tiene garantías activas registradas.</div>
+                <?php else: ?>
+                    <ul class="list-group list-group-flush small">
+                        <?php foreach ($garantias as $g): ?>
+                            <li class="list-group-item <?= $cubre($g) ? 'bg-success-subtle' : '' ?>">
+                                <div class="d-flex justify-content-between gap-2">
+                                    <strong><?= e(\App\Services\GarantiaService::ELEMENTOS[$g['elemento_cubierto']]) ?></strong>
+                                    <?= garantia_badge($g['estado']) ?>
+                                </div>
+                                <div class="text-body-secondary"><?= e($g['proveedor']) ?> · vence <?= e(fecha_mx($g['fecha_vencimiento'], false)) ?></div>
+                                <?php if ($esTi && $g['numero_poliza_contrato']): ?><div class="text-body-secondary">Póliza <?= e($g['numero_poliza_contrato']) ?></div><?php endif; ?>
+                                <?php if ($cubre($g)): ?><div class="text-success-emphasis fw-semibold"><i class="bi bi-check2-circle me-1"></i>Cubre el componente reportado</div><?php endif; ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
 
         <?php if ($esTi): ?>
             <div class="card border-0 shadow-sm">

@@ -54,7 +54,14 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
   * Enrutamiento automático por tipo: incidencia y solicitud → Soporte Técnico en Sitio; garantía → Garantías y Proveedores; actualización de ubicación → Control de Resguardos GECA.
   * Los cambios hechos por TI quedan en la bitácora del ticket y el solicitante los ve. Las notas internas solo las ve TI.
   * Política de contraseñas: `Core/PasswordPolicy` (10 caracteres para trabajadores, 12 para el admin del instalador).
-* **Fase 4 (pendiente):** garantías, comentarios y tablero de agentes.
+* **Fase 4 (hecha):**
+  * Garantías (`GarantiaService`, `/ti/garantias`): alta por serie de CPU o de monitor y validación del monitor casado. Las vigentes con fecha pasada se marcan como vencidas al consultarlas (sin cron). "Por vencer" = 60 días.
+  * Inventario TI (`/ti/equipos`, `/ti/equipos/{id}`): ficha GECA, ubicaciones, garantías e historial de tickets. El detalle del ticket muestra la garantía que cubre el componente reportado.
+  * Avisos por correo (`Services/Mail`): `Mailer` con drivers `off`, `mail` o `smtp` (SSL/STARTTLS nativo) y `Notifier`, que encola y envía al terminar la petición (`fastcgi_finish_request`). Un fallo de correo solo se registra en el log. Las notas internas nunca se notifican.
+  * Reportes y tablero de agentes (`/ti/reportes`, exportación CSV con protección contra fórmulas).
+  * Usuarios (`/ti/usuarios`, solo `admin_ti`): rol, activo, contraseña temporal y correo de prueba. Un admin no puede cambiarse a sí mismo y debe quedar al menos un `admin_ti` activo. Solo cuentas activadas pueden recibir rol de TI.
+  * Mi cuenta (`/cuenta`): contacto, ubicación habitual y cambio de contraseña.
+  * Confirmaciones con `data-confirm` (nunca JS en línea con datos).
 
 ---
 

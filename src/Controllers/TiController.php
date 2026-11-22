@@ -10,6 +10,7 @@ use App\Core\HttpException;
 use App\Core\Session;
 use App\Core\ValidationException;
 use App\Services\Catalog;
+use App\Services\Mail\Notifier;
 use App\Services\TicketService;
 
 /**
@@ -155,6 +156,14 @@ final class TiController extends Controller
 
         try {
             $n = $service->manage($ticket, Auth::user(), $input);
+            if ($n > 0) {
+                Notifier::ticketActualizado(
+                    $id,
+                    (int) Auth::id(),
+                    (int) $input['estado_id'] !== (int) $ticket['estado_id'],
+                    (int) $input['agente_asignado_id'] !== (int) ($ticket['agente_asignado_id'] ?? 0)
+                );
+            }
             Session::flash($n > 0 ? 'success' : 'info', $n > 0 ? 'Ticket actualizado.' : 'No hubo cambios.');
         } catch (ValidationException $e) {
             foreach ($e->errors() as $error) {
@@ -186,6 +195,7 @@ final class TiController extends Controller
             'departamento_id'    => (string) $ticket['departamento_id'],
             'agente_asignado_id' => (string) Auth::id(),
         ]);
+        Notifier::ticketActualizado($id, (int) Auth::id(), $estado !== (int) $ticket['estado_id'], false);
         Session::flash('success', "Tomaste el ticket {$ticket['folio']}.");
         $back = (string) ($_POST['volver'] ?? '');
         redirect($back === 'bandeja' ? '/ti/tickets' : '/tickets/' . $id);

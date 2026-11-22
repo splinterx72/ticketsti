@@ -53,23 +53,54 @@ $rolLabel = ['usuario' => 'Usuario', 'agente_ti' => 'Agente TI', 'admin_ti' => '
                     </li>
                     <?php if ($esTi): ?>
                         <li class="nav-item">
-                            <a class="nav-link<?= $isActive('/ti') ?>" href="<?= e(url('/ti/tickets')) ?>"><i class="bi bi-kanban me-1"></i>Bandeja TI</a>
+                            <a class="nav-link<?= $isActive('/ti/tickets') ?>" href="<?= e(url('/ti/tickets')) ?>"><i class="bi bi-kanban me-1"></i>Bandeja TI</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link<?= $isActive('/geca') ?>" href="<?= e(url('/geca')) ?>"><i class="bi bi-cloud-arrow-up me-1"></i>Carga GECA</a>
+                        <?php
+                        $gestion = [
+                            ['/ti/equipos', 'bi-pc-display', 'Inventario'],
+                            ['/ti/garantias', 'bi-shield-check', 'Garantías'],
+                            ['/ti/reportes', 'bi-bar-chart', 'Reportes'],
+                            ['/geca', 'bi-cloud-arrow-up', 'Carga GECA'],
+                        ];
+                        if ($rol === 'admin_ti') {
+                            $gestion[] = ['/ti/usuarios', 'bi-people', 'Usuarios'];
+                        }
+                        $gestionActiva = false;
+                        foreach ($gestion as [$path]) {
+                            $gestionActiva = $gestionActiva || str_starts_with($current, $path);
+                        }
+                        ?>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle<?= $gestionActiva ? ' active' : '' ?>" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-grid me-1"></i>Gestión
+                            </a>
+                            <ul class="dropdown-menu">
+                                <?php foreach ($gestion as [$path, $icon, $label]): ?>
+                                    <li><a class="dropdown-item<?= str_starts_with($current, $path) ? ' active' : '' ?>" href="<?= e(url($path)) ?>"><i class="bi <?= e($icon) ?> me-2"></i><?= e($label) ?></a></li>
+                                <?php endforeach; ?>
+                            </ul>
                         </li>
                     <?php endif; ?>
                 </ul>
-                <div class="d-flex align-items-center gap-2 text-white">
-                    <span class="small text-truncate" style="max-width: 16rem;">
-                        <i class="bi bi-person-circle me-1"></i><?= e($authUser['nombre']) ?>
-                        <span class="badge text-bg-light ms-1"><?= e($rolLabel[$rol] ?? $rol) ?></span>
-                    </span>
-                    <form method="post" action="<?= e(url('/logout')) ?>" class="m-0">
-                        <?= csrf_field() ?>
-                        <button type="submit" class="btn btn-sm btn-outline-light"><i class="bi bi-box-arrow-right"></i> Salir</button>
-                    </form>
-                </div>
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-truncate<?= $isActive('/cuenta') ?>" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="max-width: 18rem;">
+                            <i class="bi bi-person-circle me-1"></i><?= e($authUser['nombre']) ?>
+                            <span class="badge text-bg-light ms-1"><?= e($rolLabel[$rol] ?? $rol) ?></span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><span class="dropdown-item-text small text-body-secondary">Ficha <?= e($authUser['ficha']) ?></span></li>
+                            <li><a class="dropdown-item" href="<?= e(url('/cuenta')) ?>"><i class="bi bi-person-gear me-2"></i>Mi cuenta</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="post" action="<?= e(url('/logout')) ?>" class="m-0">
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right me-2"></i>Cerrar sesión</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
             </div>
         <?php endif; ?>
     </div>

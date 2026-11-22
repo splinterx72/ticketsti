@@ -1,0 +1,193 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Config\Database;
+use App\Core\Auth;
+use App\Core\HttpException;
+use App\Core\Session;
+use App\Services\Mail\Mailer;
+use App\Services\Mail\Notifier;
+
+/**
+ * Administración de usuarios (solo admin_ti): roles, activación y
+ * restablecimiento de contraseña. Los usuarios nacen del GECA, por eso aquí
+ * no se crean ni se borran (regla 3.A).
+ */
+final class UsuarioController extends Controller
+{
+    private const PER_PAGE = 30;
+    private const ROLES = ['usuario' => 'Usuario', 'agente_ti' => 'Agente TI', 'admin_ti' => 'Admin TI'];
+
+    public function index(): void
+    {
+        $this->requireRole(['admin_ti']);
+        $pdo = Database::getInstance();
+
+        $q = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 60);
+        $rol = (string) ($_GET['rol'] ?? '');
+        $estado = (string) ($_GET['estado'] ?? 'registrados');
+        if (!array_key_exists($rol, self::ROLES)) {
+            $rol = '';
+        }
+        if (!in_array($estado, ['registrados', 'sin_activar', 'inactivos', 'todos'], true)) {
+            $estado = 'registrados';
+        }
+
+        $where = match ($estado) {
+            'registrados' => ['u.registrado = 1', 'u.activo = 1'],
+            'sin_activar' => ['u.registrado = 0', 'u.activo = 1'],
+            'inactivos'   => ['u.activo = 0'],
+            default       => ['1 = 1'],
+        };
+        $params = [];
+        if ($rol !== '') {
+            $where[] = 'u.rol = ?';
+            $params[] = $rol;
+        }
+        if ($q !== '') {
+            $like = '%' . addcslashes($q, '%_\\') . '%';
+            $where[] = '(u.ficha = ? OR u.nombre LIKE ? OR u.email LIKE ?)';
+            array_push($params, $q, $like, $like);
+        }
+        $whereSql = implode(' AND ', $where);
+
+        $count = $pdo->prepare("SELECT COUNT(*) FROM usuarios u WHERE {$whereSql}");
+        $count->execute($params);
+        $total = (int) $count->fetchColumn();
+        [$page, $pages, $offset] = TicketController::paginate($total, self::PER_PAGE);
+
+        $stmt = $pdo->prepare(
+            "SELECT u.id, u.ficha, u.nombre, u.email, u.telefono_ext, u.rol, u.registrado, u.activo, u.actualizado_en,
+                    (SELECT COUNT(*) FROM equipos e WHERE e.usuario_id = u.id AND e.vigente_en_geca = 1) AS equipos
+               FROM usuarios u WHERE {$whereSql}
+              ORDER BY FIELD(u.rol, 'admin_ti', 'agente_ti', 'usuario'), u.nombre
+              LIMIT " . self::PER_PAGE . " OFFSET {$offset}"
+        );
+        $stmt->execute($params);
+
+        $this->view('usuarios/index', [
+            'title'    => 'Usuarios',
+            'usuarios' => $stmt->fetchAll(),
+            'roles'    => self::ROLES,
+            'q'        => $q,
+            'rol'      => $rol,
+            'estado'   => $estado,
+            'page'     => $page,
+            'pages'    => $pages,
+            'total'    => $total,
+            'mailDriver' => (string) config('mail.driver', 'off'),
+        ]);
+    }
+
+    public function update(int $id): void
+    {
+        $this->requireRole(['admin_ti']);
+        $this->verifyCsrf();
+        $pdo = Database::getInstance();
+        $target = $this->findUser($id);
+
+        $rol = $this->input('rol');
+        $activo = $this->input('activo') === '1' ? 1 : 0;
+        if (!array_key_exists($rol, self::ROLES)) {
+            Session::flash('danger', 'Rol inválido.');
+            redirect($this->back());
+        }
+        if ($id === (int) Auth::id() && ($rol !== $target['rol'] || $activo !== (int) $target['activo'])) {
+            Session::flash('danger', 'No puedes cambiar tu propio rol ni desactivar tu propia cuenta.');
+            redirect($this->back());
+        }
+        if (in_array($rol, ['agente_ti', 'admin_ti'], true) && (int) $target['registrado'] !== 1) {
+            Session::flash('danger', 'Solo puedes dar rol de TI a cuentas que ya fueron activadas por el trabajador.');
+            redirect($this->back());
+        }
+        if ($target['rol'] === 'admin_ti' && ($rol !== 'admin_ti' || $activo === 0)) {
+            $admins = (int) $pdo->query("SELECT COUNT(*) FROM usuarios WHERE rol = 'admin_ti' AND activo = 1 AND registrado = 1")->fetchColumn();
+            if ($admins <= 1) {
+                Session::flash('danger', 'Debe quedar al menos un Admin TI activo.');
+                redirect($this->back());
+            }
+        }
+
+        $pdo->prepare('UPDATE usuarios SET rol = ?, activo = ? WHERE id = ?')->execute([$rol, $activo, $id]);
+        Session::flash('success', "Usuario {$target['nombre']} actualizado: " . self::ROLES[$rol] . ($activo ? '' : ' (desactivado)') . '.');
+        redirect($this->back());
+    }
+
+    public function resetPassword(int $id): void
+    {
+        $this->requireRole(['admin_ti']);
+        $this->verifyCsrf();
+        $target = $this->findUser($id);
+        if ((int) $target['registrado'] !== 1) {
+            Session::flash('warning', 'Esa ficha aún no activa su cuenta; puede hacerlo ella misma desde "Activa tu cuenta".');
+            redirect($this->back());
+        }
+        if ($id === (int) Auth::id()) {
+            Session::flash('warning', 'Para cambiar tu contraseña usa "Mi cuenta".');
+            redirect($this->back());
+        }
+
+        $temporal = self::temporaryPassword();
+        Database::getInstance()->prepare('UPDATE usuarios SET password_hash = ? WHERE id = ?')
+            ->execute([password_hash($temporal, PASSWORD_DEFAULT), $id]);
+
+        Session::flash('warning', "Contraseña temporal de {$target['nombre']} (ficha {$target['ficha']}): {$temporal} — compártela en persona y pídele que la cambie en \"Mi cuenta\". No se volverá a mostrar.");
+        redirect($this->back());
+    }
+
+    public function testMail(): void
+    {
+        $this->requireRole(['admin_ti']);
+        $this->verifyCsrf();
+        $email = Mailer::cleanAddress((string) (Auth::user()['email'] ?? ''));
+        if ($email === '') {
+            Session::flash('danger', 'Tu cuenta no tiene un correo válido.');
+            redirect('/ti/usuarios');
+        }
+        $error = Notifier::sendTest($email);
+        Session::flash($error === null ? 'success' : 'danger', $error === null
+            ? "Correo de prueba enviado a {$email}. Revisa también la carpeta de spam."
+            : 'No se pudo enviar el correo de prueba: ' . $error);
+        redirect('/ti/usuarios');
+    }
+
+    /** @return array<string, mixed> */
+    private function findUser(int $id): array
+    {
+        $stmt = Database::getInstance()->prepare('SELECT id, ficha, nombre, rol, activo, registrado FROM usuarios WHERE id = ?');
+        $stmt->execute([$id]);
+        $u = $stmt->fetch();
+        if (!$u) {
+            throw new HttpException(404, 'El usuario no existe.');
+        }
+        return $u;
+    }
+
+    private function back(): string
+    {
+        $qs = (string) ($_POST['volver'] ?? '');
+        return '/ti/usuarios' . (preg_match('/^[A-Za-z0-9_=&%+.-]*$/', $qs) === 1 && $qs !== '' ? '?' . $qs : '');
+    }
+
+    /** 12 caracteres legibles que cumplen la política de contraseñas. */
+    private static function temporaryPassword(): string
+    {
+        $sets = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnpqrstuvwxyz', '23456789', '#$%*+?'];
+        $chars = [];
+        foreach ($sets as $set) {
+            $chars[] = $set[random_int(0, strlen($set) - 1)];
+        }
+        $all = implode('', $sets);
+        while (count($chars) < 12) {
+            $chars[] = $all[random_int(0, strlen($all) - 1)];
+        }
+        for ($i = count($chars) - 1; $i > 0; $i--) {
+            $j = random_int(0, $i);
+            [$chars[$i], $chars[$j]] = [$chars[$j], $chars[$i]];
+        }
+        return implode('', $chars);
+    }
+}

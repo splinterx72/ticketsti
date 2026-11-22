@@ -64,3 +64,9 @@
 
 select[size] option { padding: .3rem .5rem; white-space: normal; }
 select[size] option:checked { background: var(--bs-primary-bg-subtle); font-weight: 600; }
+
+/* --- Reportes: barras horizontales de una sola serie --- */
+.bar-table th { width: 38%; white-space: normal; line-height: 1.25; }
+.bar-table .bar-cell { width: 42%; }
+.bar-track { height: 10px; background: var(--bs-tertiary-bg); border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--bs-primary); border-radius: 0 4px 4px 0; min-width: 2px; }

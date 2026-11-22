@@ -624,6 +624,12 @@ final class Installer
         $x = static fn (mixed $v): string => var_export($v, true);
         $now = (new DateTimeImmutable('now', new DateTimeZone((string) $site['timezone'])))->format('Y-m-d H:i:s T');
         $secure = $site['force_https'] ? 'true' : 'null';
+        $domain = (string) preg_replace('/^www\./i', '', (string) (parse_url((string) $site['base_url'], PHP_URL_HOST) ?: 'localhost'));
+        $fromEmail = 'no-responder@' . $domain;
+        // Con un dominio sin punto o una IP no hay remitente válido: correo desactivado.
+        $mailDriver = filter_var($fromEmail, FILTER_VALIDATE_EMAIL) && str_contains($domain, '.') && !filter_var($domain, FILTER_VALIDATE_IP)
+            ? 'mail'
+            : 'off';
 
         return <<<PHP
 <?php
@@ -665,6 +671,23 @@ return [
     'geca' => [
         'max_upload_mb'      => 30,
         'max_execution_time' => 300,
+    ],
+
+    // Avisos por correo. 'mail' usa la función mail() del hosting; para mejor
+    // entrega cambia a 'smtp' con una cuenta de cPanel (Email Accounts).
+    'mail' => [
+        'driver'     => '{$mailDriver}',
+        'from_email' => {$x($fromEmail)},
+        'from_name'  => {$x($site['name'])},
+        'notify_new_tickets_to' => [],
+        'smtp' => [
+            'host'       => {$x('mail.' . $domain)},
+            'port'       => 465,
+            'encryption' => 'ssl',
+            'username'   => {$x($fromEmail)},
+            'password'   => '',
+            'timeout'    => 10,
+        ],
     ],
 
     'security' => [

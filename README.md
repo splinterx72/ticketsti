@@ -15,6 +15,11 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 * **Portal del trabajador**: *Mis tickets*, *Nuevo ticket* (equipo principal preseleccionado, monitores casados, hostname `PM…`, componente afectado y ubicación física) y seguimiento con comentarios.
 * **Detección de discrepancias de ubicación**: si el equipo está en otra ubicación que la del GECA, se actualiza su ubicación real y se abre un ticket para Control de Resguardos.
 * **Bandeja de TI** (`/ti/tickets`): filtros, búsqueda, "Tomar", cambio de estado, prioridad, departamento y agente, y notas internas.
+* **Garantías** (`/ti/garantias`): pólizas por equipo, monitor 1 o monitor 2, con alertas de "por vencer" y vencimiento automático; el ticket muestra si la falla está cubierta.
+* **Inventario** (`/ti/equipos`): búsqueda por serie, monitor, ficha o inmueble, y ficha completa del equipo con su historial.
+* **Avisos por correo**: ticket nuevo, respuestas, cambios de estado y asignaciones (función `mail()` del hosting o SMTP de cPanel).
+* **Reportes** (`/ti/reportes`): indicadores por periodo, tablero de agentes, equipos con fallas recurrentes y exportación a CSV/Excel.
+* **Usuarios** (`/ti/usuarios`): asignar roles de TI, desactivar cuentas y generar contraseñas temporales; **Mi cuenta** para que cada quien actualice sus datos y contraseña.
 * **Carga semanal del GECA** (`/geca`): `.xlsx` o `.csv` (coma o punto y coma, UTF-8 o ANSI de Excel), validación de los 30 encabezados, **UPSERT** por `ficha` y `serie` en una sola transacción, historial de cargas, detalle con advertencias y plantilla descargable.
 
 Rendimiento medido: 30 000 filas en ~5 s (CSV) / ~8 s (XLSX) usando 4–14 MB de RAM.
@@ -63,6 +68,16 @@ Si el servidor no deja escribir `config/config.php`, la pantalla final te permit
 ### Instalación manual (alternativa)
 
 Importa `database/schema.sql` en phpMyAdmin, copia `config/config.example.php` como `config/config.php` con tus credenciales y abre `/instalar` para crear el primer Admin TI (se desactiva solo al existir uno).
+
+### Correo (avisos automáticos)
+
+El instalador deja activo el envío con la función `mail()` del hosting, que funciona sin configurar nada pero puede caer en spam. Para mejor entrega:
+
+1. cPanel › *Email Accounts* › crea `no-responder@tudominio.com`.
+2. Edita `config/config.php` (Administrador de archivos › *Edit*). En la sección `mail` pon `'driver' => 'smtp'` y la contraseña de esa cuenta en `smtp.password`.
+3. En *Gestión › Usuarios* pulsa **Enviarme un correo de prueba**.
+
+Para que los avisos de tickets nuevos lleguen a un buzón del área en lugar de a cada agente, llena `notify_new_tickets_to`.
 
 ### Si algo falla
 

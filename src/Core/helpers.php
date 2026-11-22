@@ -173,3 +173,16 @@ if (!function_exists('query_url')) {
         return url($path) . ($qs !== '' ? '?' . $qs : '');
     }
 }
+
+if (!function_exists('garantia_badge')) {
+    /** Estado de garantía con ícono + texto (nunca solo color). */
+    function garantia_badge(string $estado): string
+    {
+        [$label, $class, $icon] = match ($estado) {
+            'vigente'        => ['Vigente', 'text-bg-success', 'bi-shield-check'],
+            'en_reclamacion' => ['En reclamación', 'text-bg-warning', 'bi-tools'],
+            default          => ['Vencida', 'text-bg-secondary', 'bi-shield-x'],
+        };
+        return '<span class="badge ' . $class . '"><i class="bi ' . $icon . ' me-1"></i>' . e($label) . '</span>';
+    }
+}

@@ -60,6 +60,27 @@ return [
         'max_execution_time' => 300,
     ],
 
+    'mail' => [
+        // 'off' = sin correos, 'mail' = función mail() del hosting (funciona en
+        // cPanel sin configurar nada), 'smtp' = cuenta de correo de cPanel
+        // (recomendado: menos probabilidad de caer en spam).
+        'driver'     => 'off',
+        'from_email' => 'no-responder@tudominio.com',
+        'from_name'  => 'Mesa de Ayuda TI',
+        // Correos que reciben el aviso de cada ticket nuevo (ej. buzón del área).
+        // Vacío = se avisa a todos los agentes TI activos.
+        'notify_new_tickets_to' => [],
+        // Solo para driver 'smtp'. En cPanel: Email Accounts > Connect Devices.
+        'smtp' => [
+            'host'       => 'mail.tudominio.com',
+            'port'       => 465,          // 465 = SSL, 587 = STARTTLS
+            'encryption' => 'ssl',        // 'ssl', 'tls' o '' (sin cifrado)
+            'username'   => 'no-responder@tudominio.com',
+            'password'   => '',
+            'timeout'    => 10,
+        ],
+    ],
+
     'security' => [
         // Intentos de login fallidos antes de bloquear temporalmente.
         'login_max_attempts' => 5,

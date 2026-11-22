@@ -10,14 +10,19 @@ declare(strict_types=1);
 
 use App\Config\Database;
 use App\Controllers\AuthController;
+use App\Controllers\CuentaController;
 use App\Controllers\DashboardController;
 use App\Controllers\EquipoController;
+use App\Controllers\GarantiaController;
 use App\Controllers\GecaController;
 use App\Controllers\InstallController;
 use App\Controllers\InstallerController;
+use App\Controllers\InventarioController;
 use App\Controllers\RegistroController;
+use App\Controllers\ReporteController;
 use App\Controllers\TicketController;
 use App\Controllers\TiController;
+use App\Controllers\UsuarioController;
 use App\Core\Autoloader;
 use App\Core\Auth;
 use App\Core\Csrf;
@@ -132,6 +137,31 @@ if (!$installMode) {
     $router->get('/ti/tickets', [TiController::class, 'inbox']);
     $router->post('/tickets/{id}/gestion', [TiController::class, 'manage']);
     $router->post('/tickets/{id}/tomar', [TiController::class, 'take']);
+
+    // Mi cuenta.
+    $router->get('/cuenta', [CuentaController::class, 'show']);
+    $router->post('/cuenta', [CuentaController::class, 'update']);
+    $router->post('/cuenta/password', [CuentaController::class, 'password']);
+
+    // Inventario y garantías (TI).
+    $router->get('/ti/equipos', [InventarioController::class, 'index']);
+    $router->get('/ti/equipos/{id}', [InventarioController::class, 'show']);
+    $router->get('/ti/garantias', [GarantiaController::class, 'index']);
+    $router->get('/ti/garantias/nueva', [GarantiaController::class, 'create']);
+    $router->post('/ti/garantias', [GarantiaController::class, 'store']);
+    $router->get('/ti/garantias/{id}/editar', [GarantiaController::class, 'edit']);
+    $router->post('/ti/garantias/{id}', [GarantiaController::class, 'update']);
+    $router->post('/ti/garantias/{id}/eliminar', [GarantiaController::class, 'destroy']);
+
+    // Reportes y tablero de agentes (TI).
+    $router->get('/ti/reportes', [ReporteController::class, 'index']);
+    $router->get('/ti/reportes/exportar', [ReporteController::class, 'export']);
+
+    // Administración de usuarios (admin_ti).
+    $router->get('/ti/usuarios', [UsuarioController::class, 'index']);
+    $router->post('/ti/usuarios/correo-prueba', [UsuarioController::class, 'testMail']);
+    $router->post('/ti/usuarios/{id}', [UsuarioController::class, 'update']);
+    $router->post('/ti/usuarios/{id}/restablecer', [UsuarioController::class, 'resetPassword']);
 
     $router->get('/geca', [GecaController::class, 'index']);
     $router->post('/geca/cargar', [GecaController::class, 'upload']);

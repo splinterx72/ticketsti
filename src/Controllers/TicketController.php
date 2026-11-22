@@ -10,6 +10,8 @@ use App\Core\HttpException;
 use App\Core\Session;
 use App\Core\ValidationException;
 use App\Services\Catalog;
+use App\Services\GarantiaService;
+use App\Services\Mail\Notifier;
 use App\Services\TicketService;
 
 /**
@@ -115,6 +117,7 @@ final class TicketController extends Controller
             redirect('/tickets/nuevo');
         }
 
+        Notifier::ticketCreado($result['id']);
         Session::flash('success', "Ticket {$result['folio']} creado. Te avisaremos por aquí cuando TI lo atienda.");
         if ($result['discrepancia']) {
             Session::flash('warning', "La ubicación que indicaste no coincide con la del resguardo GECA. Ya actualizamos la ubicación real del equipo y TI dará seguimiento al cambio de resguardo ({$result['vinculado']}).");
@@ -139,6 +142,9 @@ final class TicketController extends Controller
             'title'        => $ticket['folio'],
             'ticket'       => $ticket,
             'comentarios'  => $service->comentarios($id, $esTi),
+            'garantias'    => $ticket['equipo_id'] !== null
+                ? (new GarantiaService(Database::getInstance()))->activasDeEquipo((int) $ticket['equipo_id'])
+                : [],
             'esTi'         => $esTi,
             'estados'      => $esTi ? Catalog::estados() : [],
             'departamentos' => $esTi ? Catalog::departamentos() : [],
@@ -161,7 +167,9 @@ final class TicketController extends Controller
 
         $mensaje = is_string($_POST['mensaje'] ?? null) ? (string) $_POST['mensaje'] : '';
         try {
-            $service->addComment($ticket, $user, $mensaje, !empty($_POST['es_nota_interna']));
+            $interna = $esTi && !empty($_POST['es_nota_interna']);
+            $service->addComment($ticket, $user, $mensaje, $interna);
+            Notifier::comentario($id, (int) $user['id'], trim($mensaje), $interna);
             Session::flash('success', !empty($_POST['es_nota_interna']) && $esTi ? 'Nota interna agregada.' : 'Comentario enviado.');
         } catch (ValidationException $e) {
             foreach ($e->errors() as $error) {
