@@ -52,7 +52,7 @@ $monitor = match ($t['componente_afectado']) {
         <div class="timeline mb-4">
             <?php foreach ($comentarios as $c):
                 $sistema = str_starts_with((string) $c['mensaje'], '[Sistema]');
-                $deTi = in_array($c['autor_rol'], ['agente_ti', 'admin_ti'], true);
+                $deTi = \App\Core\Roles::esTi($c['autor_rol']);
                 ?>
                 <?php if ($sistema): ?>
                     <div class="timeline-item timeline-system small text-body-secondary">

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Roles;
 use App\Config\Database;
 use App\Core\Auth;
 use App\Core\HttpException;
@@ -19,7 +20,7 @@ use App\Services\Mail\Notifier;
 final class UsuarioController extends Controller
 {
     private const PER_PAGE = 30;
-    private const ROLES = ['usuario' => 'Usuario', 'agente_ti' => 'Agente TI', 'admin_ti' => 'Admin TI'];
+    private const ROLES = Roles::LABELS;
 
     public function index(): void
     {
@@ -63,7 +64,7 @@ final class UsuarioController extends Controller
             "SELECT u.id, u.ficha, u.nombre, u.email, u.telefono_ext, u.rol, u.registrado, u.activo, u.actualizado_en,
                     (SELECT COUNT(*) FROM equipos e WHERE e.usuario_id = u.id AND e.vigente_en_geca = 1) AS equipos
                FROM usuarios u WHERE {$whereSql}
-              ORDER BY FIELD(u.rol, 'admin_ti', 'agente_ti', 'usuario'), u.nombre
+              ORDER BY FIELD(u.rol, 'admin_ti', 'supervisor', 'agente_ti', 'usuario'), u.nombre
               LIMIT " . self::PER_PAGE . " OFFSET {$offset}"
         );
         $stmt->execute($params);
@@ -99,7 +100,7 @@ final class UsuarioController extends Controller
             Session::flash('danger', 'No puedes cambiar tu propio rol ni desactivar tu propia cuenta.');
             redirect($this->back());
         }
-        if (in_array($rol, ['agente_ti', 'admin_ti'], true) && (int) $target['registrado'] !== 1) {
+        if (Roles::esTi($rol) && (int) $target['registrado'] !== 1) {
             Session::flash('danger', 'Solo puedes dar rol de TI a cuentas que ya fueron activadas por el trabajador.');
             redirect($this->back());
         }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Roles;
 use App\Config\Database;
 use App\Core\HttpException;
 use App\Core\Session;
@@ -15,7 +16,7 @@ use App\Services\GarantiaService;
  */
 final class GarantiaController extends Controller
 {
-    private const ROLES = ['agente_ti', 'admin_ti'];
+    private const ROLES = Roles::TI;
     private const PER_PAGE = 25;
     private const FIELDS = ['serie', 'elemento_cubierto', 'proveedor', 'numero_poliza_contrato', 'fecha_inicio', 'fecha_vencimiento', 'estado', 'notas'];
 

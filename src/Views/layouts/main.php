@@ -10,11 +10,11 @@
  */
 $authUser = $authUser ?? null;
 $rol = $authUser['rol'] ?? null;
-$esTi = in_array($rol, ['agente_ti', 'admin_ti'], true);
+$esTi = \App\Core\Roles::esTi($rol);
 $current = \App\Core\Router::currentPath((string) ($_SERVER['REQUEST_URI'] ?? '/'));
 $isActive = static fn (string $prefix): string =>
     ($prefix === '/' ? $current === '/' : str_starts_with($current, $prefix)) ? ' active' : '';
-$rolLabel = ['usuario' => 'Usuario', 'agente_ti' => 'Agente TI', 'admin_ti' => 'Admin TI'];
+$rolLabel = \App\Core\Roles::LABELS;
 ?>
 <!doctype html>
 <html lang="es-MX">

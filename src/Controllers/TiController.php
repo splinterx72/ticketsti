@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Roles;
 use App\Config\Database;
 use App\Core\Auth;
 use App\Core\HttpException;
@@ -18,7 +19,7 @@ use App\Services\TicketService;
  */
 final class TiController extends Controller
 {
-    private const ROLES = ['agente_ti', 'admin_ti'];
+    private const ROLES = Roles::TI;
     private const PER_PAGE = 25;
 
     public function inbox(): void

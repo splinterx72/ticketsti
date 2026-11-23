@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Roles;
 use App\Config\Database;
 use App\Core\HttpException;
 use App\Services\Catalog;
@@ -14,7 +15,7 @@ use App\Services\GarantiaService;
  */
 final class InventarioController extends Controller
 {
-    private const ROLES = ['agente_ti', 'admin_ti'];
+    private const ROLES = Roles::TI;
     private const PER_PAGE = 30;
 
     public function index(): void

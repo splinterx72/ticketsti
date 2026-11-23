@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Roles;
 use App\Config\Database;
 use App\Core\Auth;
 use App\Services\TicketService;
@@ -20,7 +21,7 @@ final class DashboardController extends Controller
         $pdo = Database::getInstance();
         $user = Auth::user();
         $userId = (int) $user['id'];
-        $esTi = Auth::hasRole(['agente_ti', 'admin_ti']);
+        $esTi = Auth::hasRole(Roles::TI);
 
         $recientes = $pdo->prepare(
             'SELECT t.id, t.folio, t.titulo, t.prioridad, t.actualizado_en,

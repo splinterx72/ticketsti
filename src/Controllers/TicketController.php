@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Roles;
 use App\Config\Database;
 use App\Core\Auth;
 use App\Core\HttpException;
@@ -90,7 +91,7 @@ final class TicketController extends Controller
             'ubicaciones' => Catalog::ubicaciones(),
             'ubicacionHabitual' => ($h = $habitual->fetchColumn()) !== false && $h !== null ? (int) $h : null,
             'tipos'       => array_intersect_key(Catalog::TIPOS, array_flip(Catalog::TIPOS_USUARIO)),
-            'prioridades' => Auth::hasRole(['agente_ti', 'admin_ti'])
+            'prioridades' => Auth::hasRole(Roles::TI)
                 ? Catalog::PRIORIDADES
                 : array_intersect_key(Catalog::PRIORIDADES, array_flip(Catalog::PRIORIDADES_USUARIO)),
         ]);
@@ -129,7 +130,7 @@ final class TicketController extends Controller
     {
         $this->requireLogin();
         $user = Auth::user();
-        $esTi = Auth::hasRole(['agente_ti', 'admin_ti']);
+        $esTi = Auth::hasRole(Roles::TI);
         $service = new TicketService(Database::getInstance());
 
         $ticket = $service->find($id);
@@ -157,7 +158,7 @@ final class TicketController extends Controller
         $this->requireLogin();
         $this->verifyCsrf();
         $user = Auth::user();
-        $esTi = Auth::hasRole(['agente_ti', 'admin_ti']);
+        $esTi = Auth::hasRole(Roles::TI);
         $service = new TicketService(Database::getInstance());
 
         $ticket = $service->find($id);

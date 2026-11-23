@@ -308,7 +308,7 @@ final class Notifier
         }
         $rows = Database::getInstance()->query(
             "SELECT email FROM usuarios
-              WHERE rol IN ('agente_ti', 'admin_ti') AND registrado = 1 AND activo = 1 AND email IS NOT NULL"
+              WHERE rol IN ('agente_ti', 'supervisor', 'admin_ti') AND registrado = 1 AND activo = 1 AND email IS NOT NULL"
         )->fetchAll(\PDO::FETCH_COLUMN);
         return array_values(array_map('strval', $rows));
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Roles;
 use App\Config\Database;
 use App\Services\Catalog;
 use App\Services\GarantiaService;
@@ -14,7 +15,7 @@ use DateTimeImmutable;
  */
 final class ReporteController extends Controller
 {
-    private const ROLES = ['agente_ti', 'admin_ti'];
+    private const ROLES = Roles::TI;
     private const MAX_DIAS = 366;
 
     public function index(): void
@@ -79,7 +80,7 @@ final class ReporteController extends Controller
                     (SELECT COUNT(*) FROM comentarios c WHERE c.usuario_id = u.id AND c.creado_en BETWEEN ? AND ?
                         AND c.mensaje NOT LIKE '[Sistema]%') AS respuestas
                FROM usuarios u
-              WHERE u.rol IN ('agente_ti', 'admin_ti') AND u.registrado = 1 AND u.activo = 1
+              WHERE u.rol IN ('agente_ti', 'supervisor', 'admin_ti') AND u.registrado = 1 AND u.activo = 1
               ORDER BY cerrados DESC, abiertos DESC, u.nombre"
         );
         $agentes->execute([...$p, ...$p, ...$p]);

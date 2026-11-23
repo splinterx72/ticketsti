@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Roles;
 use App\Config\Database;
 use App\Core\Auth;
 use App\Core\HttpException;
@@ -16,11 +17,11 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Módulo de carga semanal del GECA (solo agente_ti y admin_ti).
+ * Módulo de carga semanal del GECA (personal de TI).
  */
 final class GecaController extends Controller
 {
-    private const ROLES = ['agente_ti', 'admin_ti'];
+    private const ROLES = Roles::TI;
 
     private const ALLOWED_EXT = ['csv', 'xlsx'];
 

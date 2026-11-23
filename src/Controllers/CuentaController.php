@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Roles;
 use App\Config\Database;
 use App\Core\Auth;
 use App\Core\PasswordPolicy;
@@ -29,7 +30,7 @@ final class CuentaController extends Controller
             'title'       => 'Mi cuenta',
             'cuenta'      => $stmt->fetch(),
             'ubicaciones' => Catalog::ubicaciones(),
-            'minPassword' => in_array(Auth::user()['rol'] ?? '', ['agente_ti', 'admin_ti'], true) ? PasswordPolicy::MIN_ADMIN : PasswordPolicy::MIN_USER,
+            'minPassword' => Roles::esTi(Auth::user()['rol'] ?? null) ? PasswordPolicy::MIN_ADMIN : PasswordPolicy::MIN_USER,
         ]);
     }
 
@@ -93,7 +94,7 @@ final class CuentaController extends Controller
         if (!password_verify($actual, $hash)) {
             $errors[] = 'La contraseña actual no es correcta.';
         }
-        $min = in_array($user['rol'], ['agente_ti', 'admin_ti'], true) ? PasswordPolicy::MIN_ADMIN : PasswordPolicy::MIN_USER;
+        $min = Roles::esTi($user['rol']) ? PasswordPolicy::MIN_ADMIN : PasswordPolicy::MIN_USER;
         $errors = array_merge($errors, PasswordPolicy::errors($nueva, [(string) $user['ficha'], (string) $user['email'], (string) $user['nombre']], $min));
         if (!hash_equals($nueva, $confirm)) {
             $errors[] = 'La confirmación no coincide con la nueva contraseña.';

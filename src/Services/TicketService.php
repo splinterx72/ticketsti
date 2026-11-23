@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Core\Roles;
 use App\Core\ValidationException;
 use PDO;
 use Throwable;
@@ -126,7 +127,7 @@ final class TicketService
     public function create(array $user, array $in): array
     {
         $userId = (int) $user['id'];
-        $esTi = in_array($user['rol'], ['agente_ti', 'admin_ti'], true);
+        $esTi = Roles::esTi($user['rol']);
         $errors = [];
 
         $tipo = $in['tipo_ticket'] ?? '';
@@ -336,7 +337,7 @@ final class TicketService
      */
     public function addComment(array $ticket, array $user, string $mensaje, bool $interna): void
     {
-        $esTi = in_array($user['rol'], ['agente_ti', 'admin_ti'], true);
+        $esTi = Roles::esTi($user['rol']);
         $mensaje = self::cleanText($mensaje);
         $errors = [];
         if (mb_strlen($mensaje) < 2 || mb_strlen($mensaje) > 5000) {

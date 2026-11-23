@@ -169,7 +169,7 @@ final class Catalog
             static fn (array $r): array => ['id' => (int) $r['id'], 'nombre' => (string) $r['nombre']],
             Database::getInstance()->query(
                 "SELECT id, nombre FROM usuarios
-                  WHERE rol IN ('agente_ti', 'admin_ti') AND registrado = 1 AND activo = 1
+                  WHERE rol IN ('agente_ti', 'supervisor', 'admin_ti') AND registrado = 1 AND activo = 1
                   ORDER BY nombre"
             )->fetchAll()
         );

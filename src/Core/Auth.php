@@ -8,7 +8,7 @@ use App\Config\Database;
 
 /**
  * Autenticación y autorización por rol.
- * Roles: usuario, agente_ti, admin_ti.
+ * Roles: ver App\Core\Roles (usuario, agente_ti, supervisor, admin_ti).
  */
 final class Auth
 {
