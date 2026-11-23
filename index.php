@@ -9,6 +9,7 @@ declare(strict_types=1);
  */
 
 use App\Config\Database;
+use App\Controllers\AdminLocalController;
 use App\Controllers\AuthController;
 use App\Controllers\CuentaController;
 use App\Controllers\DashboardController;
@@ -128,6 +129,10 @@ if (!$installMode) {
     $router->get('/registro/completar', [RegistroController::class, 'showCompletar']);
     $router->post('/registro/completar', [RegistroController::class, 'completar']);
 
+    // Contraseña de admin local (pantalla de bloqueo).
+    $router->get('/admin-local', [AdminLocalController::class, 'show']);
+    $router->post('/admin-local', [AdminLocalController::class, 'store']);
+
     // Verificación del correo de la empresa.
     $router->get('/verificar-correo', [VerificacionController::class, 'show']);
     $router->post('/verificar-correo', [VerificacionController::class, 'send']);
@@ -215,6 +220,15 @@ try {
     }
 
     $router->dispatch((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'), (string) ($_SERVER['REQUEST_URI'] ?? '/'));
+
+    // Respaldo de la Tarea Cron: la primera petición del día revisa los recordatorios.
+    if (!$installMode) {
+        try {
+            (new \App\Services\Recordatorios(Database::getInstance()))->ejecutarSiPendiente();
+        } catch (Throwable $e) {
+            error_log('[Recordatorios] ' . $e->getMessage());
+        }
+    }
 } catch (HttpException $e) {
     renderError($e->status(), $e->getMessage());
 } catch (Throwable $e) {

@@ -52,7 +52,7 @@ AddDefaultCharset UTF-8
     # RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
     # --- Bloquear carpetas internas: devuelve 403 ---
-    RewriteRule ^(src|config|database|storage|vendor|tests|\.git)(/|$) - [F,L]
+    RewriteRule ^(src|config|database|storage|bin|docs|vendor|tests|\.git)(/|$) - [F,L]
 
     # --- Bloquear archivos .php distintos del front controller ---
     RewriteCond %{REQUEST_FILENAME} -f

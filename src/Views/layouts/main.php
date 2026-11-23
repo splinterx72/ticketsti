@@ -125,6 +125,17 @@ $rolLabel = \App\Core\Roles::LABELS;
 </nav>
 
 <main class="container py-4 flex-grow-1">
+    <?php if ($authUser !== null && \App\Services\AdminLocalService::enAviso($authUser)):
+        $diasAL = \App\Services\AdminLocalService::diasRestantes($authUser['admin_local_cambiado_en']); ?>
+        <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert">
+            <i class="bi bi-shield-exclamation fs-5"></i>
+            <div class="me-auto">
+                <strong>Tu contraseña de admin local vence en <?= e($diasAL) ?> día<?= $diasAL === 1 ? '' : 's' ?>.</strong>
+                Cámbiala ya: a 5 días tu acceso se bloquea hasta registrar el cambio.
+            </div>
+            <a class="btn btn-sm btn-warning" href="<?= e(url('/admin-local')) ?>">Registrar cambio</a>
+        </div>
+    <?php endif; ?>
     <?php foreach ($flash ?? [] as $msg): ?>
         <div class="alert alert-<?= e($msg['type']) ?> alert-dismissible fade show" role="alert">
             <?= e($msg['message']) ?>

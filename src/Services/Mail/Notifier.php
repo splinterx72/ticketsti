@@ -183,6 +183,50 @@ final class Notifier
         }
     }
 
+    /**
+     * Recordatorio de la contraseña de admin local (spec 7.5).
+     *
+     * @param array<string, mixed> $u
+     * @param list<string>         $responsables
+     */
+    public static function adminLocal(array $u, int $dias, string $vence, array $responsables): void
+    {
+        $cuando = match (true) {
+            $dias < 0  => 'venció hace ' . abs($dias) . ' día' . (abs($dias) === 1 ? '' : 's'),
+            $dias === 0 => 'vence HOY',
+            default    => "vence en {$dias} día" . ($dias === 1 ? '' : 's'),
+        };
+        $bloqueado = $dias <= \App\Services\AdminLocalService::DIAS_BLOQUEO;
+        $url = self::baseUrl() . '/admin-local';
+        $datos = ['Vencimiento' => date('d/m/Y', (int) strtotime($vence))];
+
+        self::queue(
+            (string) $u['email'],
+            ($bloqueado ? 'URGENTE: ' : '') . "Tu contraseña de admin local {$cuando}",
+            $bloqueado ? 'Tu acceso está bloqueado' : 'Cambia tu contraseña de admin local',
+            $bloqueado
+                ? "Tu contraseña de admin local {$cuando}. Cámbiala ya: si se vence, reactivarla puede tardar meses. Tu acceso al sistema seguirá bloqueado hasta que registres el cambio."
+                : "Tu contraseña de admin local {$cuando}. Cámbiala antes de que falten 5 días; a partir de ahí tu acceso al sistema se bloquea hasta registrar el cambio.",
+            $datos,
+            $url,
+            'Registrar el cambio'
+        );
+        foreach (self::unicos($responsables) as $email) {
+            if (strcasecmp($email, (string) $u['email']) === 0) {
+                continue;
+            }
+            self::queue(
+                $email,
+                ($bloqueado ? 'URGENTE: ' : '') . "Contraseña de admin local de {$u['nombre']}: {$cuando}",
+                'Seguimiento de contraseña de admin local',
+                "La contraseña de admin local de {$u['nombre']} {$cuando}." . ($bloqueado ? ' Su acceso al sistema está bloqueado hasta que registre el cambio.' : ''),
+                $datos,
+                self::baseUrl() . '/supervisor',
+                'Ver semáforo'
+            );
+        }
+    }
+
     /** Enlace de verificación de correo (envío inmediato: el usuario lo espera). */
     public static function enlaceVerificacion(string $email, string $nombre, string $token): ?string
     {

@@ -9,6 +9,7 @@ use App\Core\Csrf;
 use App\Core\HttpException;
 use App\Core\Session;
 use App\Core\View;
+use App\Services\AdminLocalService;
 
 /**
  * Controlador base con utilidades de render, CSRF y control de acceso.
@@ -45,6 +46,10 @@ abstract class Controller
         // Correo de la empresa sin verificar (spec 7.6 bis): solo puede verificarlo.
         if (Auth::requiereVerificacion()) {
             redirect('/verificar-correo');
+        }
+        // Contraseña de admin local a 5 días o menos: bloqueo total (spec 7.5).
+        if (AdminLocalService::bloqueado(Auth::user())) {
+            redirect('/admin-local');
         }
     }
 
