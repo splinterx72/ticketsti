@@ -26,7 +26,7 @@ final class Recordatorios
     /** @return array{enviados: int} */
     public function ejecutar(string $hoy): array
     {
-        $enviados = $this->adminLocal($hoy);
+        $enviados = $this->adminLocal($hoy) + $this->tareasPorVencer($hoy);
         $this->pdo->prepare(
             'INSERT INTO sistema_estado (clave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)'
         )->execute([self::ESTADO, $hoy]);
@@ -103,6 +103,19 @@ final class Recordatorios
             $enviados++;
         }
         return $enviados;
+    }
+
+    /** Tareas cuya entrega es mañana y aún no se entregan: un aviso al agente. */
+    private function tareasPorVencer(string $hoy): int
+    {
+        $n = 0;
+        foreach ((new TareaService($this->pdo))->vencenManana($hoy) as $row) {
+            if ($this->marcar((int) $row['agente_id'], 'tarea_manana:' . (int) $row['id'] . ':' . substr((string) $row['entrega_en'], 0, 10))) {
+                Notifier::tareaPorVencer($row);
+                $n++;
+            }
+        }
+        return $n;
     }
 
     /** Registra el aviso; false si ya se había enviado. */

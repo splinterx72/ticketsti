@@ -25,6 +25,7 @@ use App\Controllers\RegistroController;
 use App\Controllers\SupervisorController;
 use App\Controllers\ReporteController;
 use App\Controllers\TicketController;
+use App\Controllers\TareaController;
 use App\Controllers\TiController;
 use App\Controllers\UsuarioController;
 use App\Controllers\VerificacionController;
@@ -146,6 +147,17 @@ if (!$installMode) {
     $router->get('/tickets/{id}', [TicketController::class, 'show']);
     $router->post('/tickets/{id}/comentarios', [TicketController::class, 'comment']);
     $router->post('/equipos/{id}/principal', [EquipoController::class, 'setPrincipal']);
+
+    // Tareas del supervisor a sus agentes.
+    $router->get('/tareas', [TareaController::class, 'index']);
+    $router->get('/tareas/nueva', [TareaController::class, 'create']);
+    $router->post('/tareas/nueva', [TareaController::class, 'store']);
+    $router->get('/tareas/{id}', [TareaController::class, 'show']);
+    $router->get('/tareas/archivo/{id}', [TareaController::class, 'archivo']);
+    $router->post('/tareas/asignacion/{id}/iniciar', [TareaController::class, 'iniciar']);
+    $router->post('/tareas/asignacion/{id}/entregar', [TareaController::class, 'entregar']);
+    $router->post('/tareas/asignacion/{id}/aceptar', [TareaController::class, 'aceptar']);
+    $router->post('/tareas/asignacion/{id}/devolver', [TareaController::class, 'devolver']);
 
     // Bandeja de TI.
     $router->get('/ti/tickets', [TiController::class, 'inbox']);

@@ -55,6 +55,9 @@ $rolLabel = \App\Core\Roles::LABELS;
                         <li class="nav-item">
                             <a class="nav-link<?= $isActive('/ti/tickets') ?>" href="<?= e(url('/ti/tickets')) ?>"><i class="bi bi-kanban me-1"></i>Bandeja TI</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link<?= $isActive('/tareas') ?>" href="<?= e(url('/tareas')) ?>"><i class="bi bi-list-task me-1"></i>Tareas</a>
+                        </li>
                         <?php
                         $gestion = [
                             ['/ti/equipos', 'bi-pc-display', 'Inventario'],

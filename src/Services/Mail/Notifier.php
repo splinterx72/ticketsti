@@ -227,6 +227,101 @@ final class Notifier
         }
     }
 
+    // ------------------------------------------------------------------
+    //  Tareas del supervisor (spec 7.6)
+    // ------------------------------------------------------------------
+
+    public static function tareaAsignada(int $tareaId): void
+    {
+        $t = (new \App\Services\TareaService(Database::getInstance()))->detalle($tareaId);
+        if ($t === null) {
+            return;
+        }
+        $datos = [
+            'Folio' => (string) $t['folio'], 'Entrega' => date('d/m/Y H:i', (int) strtotime((string) $t['entrega_en'])),
+            'Prioridad' => ucfirst((string) $t['prioridad']), 'Asigna' => (string) ($t['supervisor_nombre'] ?? ''),
+        ];
+        if ($t['evidencias'] !== []) {
+            $datos['Evidencias'] = implode('; ', array_map(static fn (array $e): string => $e['descripcion'], $t['evidencias']));
+        }
+        foreach ($t['asignaciones'] as $a) {
+            self::queue(
+                (string) $a['agente_email'],
+                "[{$t['folio']}] Nueva tarea: {$t['titulo']}",
+                'Tienes una tarea nueva',
+                (string) $t['instrucciones'],
+                $datos,
+                self::baseUrl() . '/tareas/' . $tareaId,
+                'Ver tarea'
+            );
+        }
+    }
+
+    public static function tareaEntregada(int $asignacionId): void
+    {
+        $a = self::asignacionTarea($asignacionId);
+        if ($a === null) {
+            return;
+        }
+        self::queue(
+            (string) $a['supervisor_email'],
+            "[{$a['folio']}] {$a['agente_nombre']} entregó: {$a['titulo']}",
+            'Entrega lista para revisar',
+            "{$a['agente_nombre']} entregó la tarea. Revísala para aceptarla o devolverla.",
+            ['Comentario' => (string) ($a['comentario_entrega'] ?? '—')],
+            self::baseUrl() . '/tareas/' . (int) $a['tarea_id'],
+            'Revisar entrega'
+        );
+    }
+
+    public static function tareaRevisada(int $asignacionId): void
+    {
+        $a = self::asignacionTarea($asignacionId);
+        if ($a === null) {
+            return;
+        }
+        $aceptada = $a['estado'] === 'aceptada';
+        self::queue(
+            (string) $a['agente_email'],
+            "[{$a['folio']}] " . ($aceptada ? 'Tarea aceptada' : 'Tarea devuelta para corregir') . ": {$a['titulo']}",
+            $aceptada ? 'Tu entrega fue aceptada' : 'Tu entrega fue devuelta',
+            $aceptada ? 'El supervisor aceptó tu entrega. ¡Gracias!' : 'El supervisor pidió correcciones:',
+            ['Comentario' => (string) ($a['comentario_revision'] ?? '—')],
+            self::baseUrl() . '/tareas/' . (int) $a['tarea_id'],
+            'Ver tarea'
+        );
+    }
+
+    /** @param array<string, mixed> $row fila de TareaService::vencenManana() */
+    public static function tareaPorVencer(array $row): void
+    {
+        self::queue(
+            (string) $row['email'],
+            "[{$row['folio']}] La tarea vence mañana: {$row['titulo']}",
+            'Tu tarea vence mañana',
+            "La entrega de \"{$row['titulo']}\" vence el " . date('d/m/Y H:i', (int) strtotime((string) $row['entrega_en'])) . '.',
+            [],
+            self::baseUrl() . '/tareas/' . (int) $row['tarea_id'],
+            'Ver tarea'
+        );
+    }
+
+    /** @return array<string, mixed>|null */
+    private static function asignacionTarea(int $asignacionId): ?array
+    {
+        $stmt = Database::getInstance()->prepare(
+            'SELECT a.*, t.folio, t.titulo, t.id AS tarea_id, ag.nombre AS agente_nombre, ag.email AS agente_email,
+                    s.email AS supervisor_email
+               FROM tarea_asignaciones a
+               JOIN tareas t ON t.id = a.tarea_id
+               JOIN usuarios ag ON ag.id = a.agente_id
+               LEFT JOIN usuarios s ON s.id = t.supervisor_id
+              WHERE a.id = ?'
+        );
+        $stmt->execute([$asignacionId]);
+        return $stmt->fetch() ?: null;
+    }
+
     /** Enlace de verificación de correo (envío inmediato: el usuario lo espera). */
     public static function enlaceVerificacion(string $email, string $nombre, string $token): ?string
     {
