@@ -33,6 +33,10 @@ acerca a cómo opera realmente el área:
 7. **Correo de ticket nuevo** a los supervisores de la instalación y a la mesa de ayuda
    institucional (`mesadeayuda@pemex.com`, configurable) para que entre a Remedy.
 8. **Diseño visual:** Roboto y Roboto Condensed en todo el sistema, paleta moderna.
+9. **Registro con correo de empresa verificado**, extensión y ubicación actual obligatorios,
+   y aviso al supervisor de la instalación.
+10. **Encabezado del trabajador** con su instalación, ubicación y extensión, y un pequeño
+    tablero de sus tickets.
 
 ## 3. No-objetivos
 
@@ -110,7 +114,11 @@ Jerarquía y ejemplos reales:
 
 ### 7.3 Supervisores, agentes y préstamos
 
-- Nuevo rol `supervisor` (además de `usuario`, `agente_ti`, `admin_ti`).
+- Nuevo rol `supervisor` (además de `usuario`, `agente_ti`, `admin_ti`). **Es un agente con
+  funciones adicionales:** atiende tickets (tomar, estados, notas internas), carga el GECA,
+  consulta inventario y garantías, aparece en la lista de agentes asignables y **tiene su
+  propia contraseña de admin local** con los mismos avisos y bloqueo total. Sus avisos de
+  contraseña los recibe el admin TI.
 - **Supervisor ↔ instalaciones**: una o más; cada asignación con `desde`/`hasta` opcionales
   (titular o suplencia por vacaciones/ausencia). La responsabilidad es por instalación
   completa.
@@ -119,9 +127,13 @@ Jerarquía y ejemplos reales:
 - Los préstamos los registra un supervisor sobre sus propios agentes hacia otra instalación.
   Durante el préstamo, el agente atiende tickets de la instalación que lo recibe y ese
   supervisor puede mandarle tareas; su supervisor de origen lo sigue viendo.
-- **Visibilidad de tickets:** el agente ve los de sus instalaciones vigentes (incluidas las
-  de préstamo) más los que tenga asignados; el supervisor, los de sus instalaciones; el
+- **Visibilidad de tickets (confirmado):** cada quien ve los tickets de las instalaciones
+  donde está cargado. El agente ve los de sus instalaciones vigentes (incluidas las de
+  préstamo) más los que tenga asignados; el supervisor, los de sus instalaciones; el
   admin, todos.
+- **Inventario y garantías (confirmado):** visibles completos para todo el personal de TI
+  (agentes, supervisores, admin). Los reportes del supervisor se filtran a sus
+  instalaciones; el admin ve todo.
 
 ### 7.4 Avisos en el inicio
 
@@ -159,6 +171,35 @@ Jerarquía y ejemplos reales:
   la tarea, el admin y el agente dueño de esa entrega (los de referencia, todos los
   agentes de la tarea). No se borran automáticamente.
 - Correos: al asignar, al entregar, al devolver/aceptar y un día antes de la fecha de entrega.
+
+### 7.6 bis Registro del trabajador con correo verificado
+
+- **Obligatorios:** correo **de la empresa**, extensión telefónica y **ubicación actual**
+  (instalación → ubicación → nivel → ala, más referencia opcional).
+- **Dominios permitidos (configurable):** `registro.dominios_permitidos`, por defecto
+  `['pemex.com']`. Se rechaza cualquier otro dominio.
+- **Verificación:**
+  1. Al completar el registro se envía un enlace de verificación al correo (válido 24 h,
+     un solo uso, token guardado con hash).
+  2. La cuenta **no se activa** (`registrado = 0`) hasta que el trabajador abre el enlace
+     desde su buzón.
+  3. Al verificar, la cuenta se activa, inicia sesión y se envía aviso al supervisor o
+     supervisores vigentes de la instalación elegida.
+  4. Se puede pedir el reenvío del enlace (con límite de intentos).
+- **Cuentas ya activas antes de esta fase:** en su siguiente ingreso deben verificar su
+  correo (se envía el enlace y quedan bloqueadas hasta verificar). Si su correo no es del
+  dominio permitido, deben capturar uno válido.
+- **Riesgo crítico:** la verificación depende de que el correo **llegue** a los buzones
+  institucionales. Antes de activar esta regla en producción hay que confirmar la entrega
+  con el correo de prueba (SMTP con cuenta propia recomendado). El admin TI puede marcar
+  manualmente un correo como verificado como respaldo.
+
+### 7.6 ter Encabezado y tablero del trabajador
+
+- El encabezado muestra, para el usuario con sesión: **instalación, ubicación** (y nivel
+  y ala si aplican) y **extensión**. Al hacer clic se va a “Mi cuenta” para actualizarlos.
+- El inicio del trabajador incluye un pequeño tablero de sus tickets: abiertos, en espera
+  de su respuesta, resueltos en los últimos 30 días y los más recientes.
 
 ### 7.7 Correo de ticket nuevo
 
@@ -201,10 +242,13 @@ Tablas nuevas:
 - `recordatorios_enviados` (usuario_id/tarea_asignacion_id, tipo, clave, enviado_en; UNIQUE)
   para no duplicar correos
 - `sistema_estado` (clave PK, valor) — p. ej. última ejecución del cron diario
+- `verificaciones_email` (id, usuario_id, email, token_hash UNIQUE, expira_en, usado_en NULL,
+  creado_en)
 
 Columnas nuevas (todas NULL, se conservan las del GECA):
 
 - `usuarios.rol` + `'supervisor'`; `usuarios.admin_local_cambiado_en DATE NULL`;
+  `usuarios.email_verificado_en DATETIME NULL`; `habitual_referencia VARCHAR(255) NULL`;
   ubicación habitual física: `habitual_ubicacion_fisica_id`, `habitual_nivel_id`, `habitual_ala`.
 - `equipos`: `real_ubicacion_fisica_id`, `real_nivel_id`, `real_ala`.
 - `tickets`: `reportada_ubicacion_fisica_id`, `reportada_nivel_id`, `reportada_ala`,
@@ -216,8 +260,9 @@ obtiene de la ubicación física.
 ## 8.1 Decisiones del diseñador (propuestas tras la revisión; el usuario puede corregirlas)
 
 - **Tickets sin instalación.** La ubicación física es obligatoria en ticket nuevo cuando
-  la instalación del trabajador ya tiene ubicaciones capturadas. Si el catálogo aún está
-  vacío, el ticket se acepta sin ubicación física. Los tickets sin `instalacion_id` (todos
+  hay al menos una instalación con ubicaciones capturadas (el registro también la exige).
+  Mientras el catálogo esté completamente vacío, el registro y el ticket se aceptan sin
+  ubicación física. Los tickets sin `instalacion_id` (todos
   los existentes y los nuevos sin catálogo) los ven **todos los agentes, supervisores y
   el admin**, en una vista "Sin instalación". Así nadie pierde la cola actual al desplegar.
 - **Qué supervisor recibe los avisos de contraseña.** Los supervisores vigentes (titular
