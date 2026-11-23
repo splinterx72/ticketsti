@@ -70,6 +70,9 @@ function test_registrar_valida_fecha(): void
     $svc = new AdminLocalService(test_pdo());
     assert_throws(ValidationException::class, fn () => $svc->registrar($u['id'], date('Y-m-d', strtotime('+1 day'))), 'fecha futura');
     assert_throws(ValidationException::class, fn () => $svc->registrar($u['id'], date('Y-m-d', strtotime('-4 months'))), 'fecha que ya venció');
+    $tresDias = (new DateTimeImmutable('today'))->modify('-3 months')->modify('+3 days')->format('Y-m-d');
+    assert_eq(AdminLocalService::diasRestantes($tresDias), 3, 'fecha de prueba deja 3 días');
+    assert_throws(ValidationException::class, fn () => $svc->registrar($u['id'], $tresDias), 'fecha que seguiría bloqueada (≤ 5 días) se rechaza');
     $svc->registrar($u['id'], date('Y-m-d'));
     assert_eq(scalar('SELECT admin_local_cambiado_en FROM usuarios WHERE id = ?', [$u['id']]), date('Y-m-d'), 'fecha registrada');
 }

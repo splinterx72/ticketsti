@@ -6,9 +6,11 @@ namespace App\Controllers;
 
 use App\Core\Roles;
 use App\Config\Database;
+use App\Core\Auth;
 use App\Core\HttpException;
 use App\Services\Catalog;
 use App\Services\GarantiaService;
+use App\Services\TicketService;
 use App\Services\UbicacionFisicaService;
 
 /**
@@ -118,22 +120,12 @@ final class InventarioController extends Controller
         $instGeca = $fisicas->instalacionDeInmuebleGeca($equipo['g_inmueble'] ?? null);
         $equipo['discrepancia'] = $instReal !== null && $instGeca !== null && $instReal !== $instGeca;
 
-        $tickets = $pdo->prepare(
-            'SELECT t.id, t.folio, t.titulo, t.tipo_ticket, t.prioridad, t.componente_afectado, t.creado_en,
-                    es.nombre AS estado_nombre, es.color_hex AS estado_color, s.nombre AS solicitante_nombre
-               FROM tickets t
-               JOIN estados es ON es.id = t.estado_id
-               JOIN usuarios s ON s.id = t.usuario_solicitante_id
-              WHERE t.equipo_id = ?
-              ORDER BY t.id DESC'
-        );
-        $tickets->execute([$id]);
 
         $this->view('inventario/show', [
             'title'     => 'Equipo ' . $equipo['serie'],
             'equipo'    => $equipo,
             'garantias' => (new GarantiaService($pdo))->deEquipo($id),
-            'tickets'   => $tickets->fetchAll(),
+            'tickets'   => (new TicketService($pdo))->historialEquipo($id, Auth::user()),
         ]);
     }
 }

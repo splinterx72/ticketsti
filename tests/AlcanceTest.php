@@ -115,3 +115,41 @@ function test_filtro_sql_coincide_con_puedeVerTicket(): void
         assert_eq($porSql, $porPhp, "filtro SQL = puedeVerTicket para {$u['rol']}");
     }
 }
+
+function test_reportes_incluyen_tickets_sin_instalacion_como_la_bandeja(): void
+{
+    $a = instalacion('A');
+    $b = instalacion('B');
+    $sol = usuario('U1');
+    $ticketA = ticket_de($sol, $a);
+    $ticketB = ticket_de($sol, $b);
+    $ticketSin = ticket_de($sol, null);
+
+    $ids = function (string $filtro): array {
+        $r = array_map('intval', test_pdo()->query("SELECT t.id FROM tickets t WHERE 1 = 1{$filtro} ORDER BY t.id")->fetchAll(PDO::FETCH_COLUMN));
+        return $r;
+    };
+    assert_eq($ids(Alcance::filtroReporteSql([$a], false, 0)), [$ticketA['id'], $ticketSin['id']], 'agente: su instalación + tickets sin instalación (como la bandeja)');
+    assert_eq($ids(Alcance::filtroReporteSql([$a], false, $a)), [$ticketA['id']], 'instalación elegida');
+    assert_eq($ids(Alcance::filtroReporteSql([$a], false, $b)), [$ticketA['id'], $ticketSin['id']], 'una instalación ajena elegida se ignora');
+    assert_eq($ids(Alcance::filtroReporteSql([], false, 0)), [$ticketSin['id']], 'sin instalaciones: solo los que no tienen');
+    assert_eq($ids(Alcance::filtroReporteSql([$a, $b], true, 0)), [$ticketA['id'], $ticketB['id'], $ticketSin['id']], 'admin ve todo');
+}
+
+function test_historial_del_equipo_respeta_alcance(): void
+{
+    $a = instalacion('A');
+    $b = instalacion('B');
+    $sol = usuario('U1');
+    $equipo = equipo_geca($sol, 'SER-H1');
+    $ag = usuario('AG1', 'agente_ti');
+    asignar_agente($ag['id'], $a);
+    $enA = ticket_de($sol, $a);
+    $enB = ticket_de($sol, $b);
+    test_pdo()->exec('UPDATE tickets SET equipo_id = ' . $equipo);
+
+    $svc = new \App\Services\TicketService(test_pdo());
+    assert_eq(array_map('intval', array_column($svc->historialEquipo($equipo, $ag), 'id')), [$enA['id']], 'el agente solo ve los tickets de su instalación');
+    assert_eq(count($svc->historialEquipo($equipo, usuario('ADM1', 'admin_ti'))), 2, 'admin ve todo el historial');
+    assert_true($enB['id'] > 0, 'ticket ajeno existe');
+}

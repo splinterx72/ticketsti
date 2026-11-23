@@ -138,7 +138,8 @@ if (!$installMode) {
     // Verificación del correo de la empresa.
     $router->get('/verificar-correo', [VerificacionController::class, 'show']);
     $router->post('/verificar-correo', [VerificacionController::class, 'send']);
-    $router->get('/verificar/{token}', [VerificacionController::class, 'verify']);
+    $router->get('/verificar/{token}', [VerificacionController::class, 'confirm']);
+    $router->post('/verificar/{token}', [VerificacionController::class, 'verify']);
 
     // Portal del trabajador.
     $router->get('/tickets', [TicketController::class, 'index']);

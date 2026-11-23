@@ -195,4 +195,27 @@ final class Alcance
         }
         return ['(' . implode(' OR ', $cond) . ')', $params];
     }
+
+    /**
+     * Filtro de instalación para reportes, coherente con la bandeja
+     * (filtroTicketsSql): el admin ve todo; los demás, sus instalaciones
+     * vigentes más los tickets sin instalación. Los ids vienen de la BD
+     * (enteros), por eso van en línea con intval().
+     *
+     * @param list<int> $ids instalaciones vigentes del usuario
+     */
+    public static function filtroReporteSql(array $ids, bool $veTodo, int $seleccionada, string $alias = 't'): string
+    {
+        $a = preg_match('/^[a-z_]+$/', $alias) === 1 ? $alias : 't';
+        if ($seleccionada > 0 && in_array($seleccionada, $ids, true)) {
+            return " AND {$a}.instalacion_id = " . $seleccionada;
+        }
+        if ($veTodo) {
+            return '';
+        }
+        if ($ids === []) {
+            return " AND {$a}.instalacion_id IS NULL";
+        }
+        return " AND ({$a}.instalacion_id IN (" . implode(',', array_map('intval', $ids)) . ") OR {$a}.instalacion_id IS NULL)";
+    }
 }

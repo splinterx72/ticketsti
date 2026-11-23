@@ -158,14 +158,8 @@ final class ReporteController extends Controller
             )->fetchAll();
         }
         $sel = (int) ($_GET['inst'] ?? 0);
-        if ($sel > 0 && in_array($sel, $ids, true)) {
-            return [" AND t.instalacion_id = {$sel}", $instalaciones, $sel];
-        }
-        if ($veTodo) {
-            return ['', $instalaciones, 0];
-        }
-        $lista = $ids === [] ? '0' : implode(',', array_map('intval', $ids));
-        return [" AND t.instalacion_id IN ({$lista})", $instalaciones, 0];
+        $sel = $sel > 0 && in_array($sel, $ids, true) ? $sel : 0;
+        return [Alcance::filtroReporteSql($ids, $veTodo, $sel), $instalaciones, $sel];
     }
 
     /** Descarga CSV (compatible con Excel) de los tickets creados en el periodo. */

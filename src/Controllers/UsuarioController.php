@@ -10,6 +10,7 @@ use App\Core\Auth;
 use App\Core\HttpException;
 use App\Core\Session;
 use App\Services\Mail\Mailer;
+use App\Services\VerificacionEmailService;
 use App\Services\Mail\Notifier;
 
 /**
@@ -61,7 +62,9 @@ final class UsuarioController extends Controller
         [$page, $pages, $offset] = TicketController::paginate($total, self::PER_PAGE);
 
         $stmt = $pdo->prepare(
-            "SELECT u.id, u.ficha, u.nombre, u.email, u.telefono_ext, u.rol, u.registrado, u.activo, u.actualizado_en,
+            "SELECT u.id, u.ficha, u.nombre,
+                    COALESCE(u.email, (SELECT v.email FROM verificaciones_email v WHERE v.usuario_id = u.id ORDER BY v.id DESC LIMIT 1)) AS email,
+                    u.telefono_ext, u.rol, u.registrado, u.activo, u.actualizado_en,
                     u.email_verificado_en, (u.password_hash IS NOT NULL) AS tiene_password,
                     (SELECT COUNT(*) FROM equipos e WHERE e.usuario_id = u.id AND e.vigente_en_geca = 1) AS equipos
                FROM usuarios u WHERE {$whereSql}
@@ -155,11 +158,18 @@ final class UsuarioController extends Controller
         if (!$u) {
             throw new HttpException(404, 'El usuario no existe.');
         }
+        $verificacion = new VerificacionEmailService(Database::getInstance());
+        // En un registro pendiente el correo capturado vive solo en el enlace.
+        $u['email'] = $u['email'] ?? $verificacion->correoPendiente($id);
         if ($u['email'] === null || $u['password_hash'] === null) {
             Session::flash('warning', 'Esa ficha aún no completa su registro (correo y contraseña).');
             redirect($this->back());
         }
-        Database::getInstance()->prepare('UPDATE usuarios SET email_verificado_en = NOW(), registrado = 1 WHERE id = ?')->execute([$id]);
+        if ($verificacion->correoOcupado((string) $u['email'], $id)) {
+            Session::flash('danger', "El correo {$u['email']} ya lo usa otra cuenta activa.");
+            redirect($this->back());
+        }
+        Database::getInstance()->prepare('UPDATE usuarios SET email = ?, email_verificado_en = NOW(), registrado = 1 WHERE id = ?')->execute([$u['email'], $id]);
         Session::flash('success', "Correo {$u['email']} marcado como verificado para {$u['nombre']}.");
         redirect($this->back());
     }

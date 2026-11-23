@@ -538,4 +538,27 @@ final class TicketService
         $value = (string) preg_replace("/\n{3,}/", "\n\n", $value);
         return trim($value);
     }
+
+    /**
+     * Historial de tickets de un equipo, limitado a lo que el usuario puede ver
+     * (el inventario es visible para todo TI; los tickets, por instalación).
+     *
+     * @param array<string, mixed> $user
+     * @return list<array<string, mixed>>
+     */
+    public function historialEquipo(int $equipoId, array $user): array
+    {
+        [$filtro, $params] = (new Alcance($this->pdo))->filtroTicketsSql($user, 't');
+        $stmt = $this->pdo->prepare(
+            "SELECT t.id, t.folio, t.titulo, t.tipo_ticket, t.prioridad, t.componente_afectado, t.creado_en,
+                    es.nombre AS estado_nombre, es.color_hex AS estado_color, s.nombre AS solicitante_nombre
+               FROM tickets t
+               JOIN estados es ON es.id = t.estado_id
+               JOIN usuarios s ON s.id = t.usuario_solicitante_id
+              WHERE t.equipo_id = ? AND {$filtro}
+              ORDER BY t.id DESC"
+        );
+        $stmt->execute(array_merge([$equipoId], $params));
+        return $stmt->fetchAll();
+    }
 }

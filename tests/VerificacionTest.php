@@ -7,6 +7,8 @@ use App\Core\Session;
 use App\Services\Mail\Notifier;
 use App\Services\VerificacionEmailService;
 
+const CLAVE_T = 'Clave#Segura2026';
+
 function pendiente(string $ficha, string $email): int
 {
     return insert('usuarios', [
@@ -35,9 +37,9 @@ function test_token_un_solo_uso(): void
     $token = $svc->emitir($id, 'u1@pemex.com');
     assert_eq(strlen($token), 43, 'token base64url de 32 bytes');
     assert_eq(scalar('SELECT COUNT(*) FROM verificaciones_email WHERE token_hash = ?', [$token]), 0, 'no se guarda el token en claro');
-    assert_eq($svc->verificar($token), $id, 'primer uso verifica');
+    assert_eq($svc->verificar($token, CLAVE_T), $id, 'primer uso verifica');
     assert_eq(scalar('SELECT CONCAT(registrado, "|", email_verificado_en IS NOT NULL) FROM usuarios WHERE id = ?', [$id]), '1|1', 'cuenta activada y verificada');
-    assert_eq($svc->verificar($token), null, 'segundo uso rechazado');
+    assert_eq($svc->verificar($token, CLAVE_T), null, 'segundo uso rechazado');
 }
 
 function test_token_vencido(): void
@@ -46,13 +48,13 @@ function test_token_vencido(): void
     $svc = new VerificacionEmailService(test_pdo());
     $token = $svc->emitir($id, 'u1@pemex.com');
     test_pdo()->exec('UPDATE verificaciones_email SET expira_en = NOW() - INTERVAL 1 MINUTE');
-    assert_eq($svc->verificar($token), null, 'token vencido rechazado');
+    assert_eq($svc->verificar($token, CLAVE_T), null, 'token vencido rechazado');
     assert_eq(scalar('SELECT registrado FROM usuarios WHERE id = ?', [$id]), 0, 'la cuenta sigue sin activar');
 
     $nuevo = $svc->emitir($id, 'u1@pemex.com');
     $otro = $svc->emitir($id, 'u1@pemex.com');
-    assert_eq($svc->verificar($nuevo), null, 'emitir de nuevo invalida el token anterior');
-    assert_eq($svc->verificar($otro), $id, 'el último token sí funciona');
+    assert_eq($svc->verificar($nuevo, CLAVE_T), null, 'emitir de nuevo invalida el token anterior');
+    assert_eq($svc->verificar($otro, CLAVE_T), $id, 'el último token sí funciona');
 }
 
 function test_token_ajeno_no_activa_otra_cuenta(): void
@@ -62,18 +64,19 @@ function test_token_ajeno_no_activa_otra_cuenta(): void
     $svc = new VerificacionEmailService(test_pdo());
     $tokenA = $svc->emitir($a, 'ua@pemex.com');
     $svc->emitir($b, 'ub@pemex.com');
-    assert_eq($svc->verificar($tokenA), $a, 'el token de A solo activa a A');
+    assert_eq($svc->verificar($tokenA, CLAVE_T), $a, 'el token de A solo activa a A');
     assert_eq(scalar('SELECT registrado FROM usuarios WHERE id = ?', [$b]), 0, 'B sigue pendiente');
-    assert_eq($svc->verificar('x' . substr($tokenA, 1)), null, 'token alterado rechazado');
+    assert_eq($svc->verificar('x' . substr($tokenA, 1), CLAVE_T), null, 'token alterado rechazado');
 }
 
 function test_cambio_de_correo_se_aplica_al_verificar(): void
 {
     $u = usuario('U1', 'usuario', 'viejo@pemex.com');
+    test_pdo()->prepare('UPDATE usuarios SET password_hash = ? WHERE id = ?')->execute([password_hash(CLAVE_T, PASSWORD_DEFAULT), $u['id']]);
     $svc = new VerificacionEmailService(test_pdo());
     $token = $svc->emitir($u['id'], 'nuevo@pemex.com');
     assert_eq(scalar('SELECT email FROM usuarios WHERE id = ?', [$u['id']]), 'viejo@pemex.com', 'el correo no cambia antes de verificar');
-    $svc->verificar($token);
+    $svc->verificar($token, CLAVE_T);
     assert_eq(scalar('SELECT email FROM usuarios WHERE id = ?', [$u['id']]), 'nuevo@pemex.com', 'el correo cambia al verificar');
 }
 
@@ -101,7 +104,7 @@ function test_verificar_activa_y_notifica_supervisor(): void
 
         $svc = new VerificacionEmailService(test_pdo());
         $nuevo = $svc->esRegistroNuevo($id);
-        $svc->verificar($svc->emitir($id, 'u1@pemex.com'));
+        $svc->verificar($svc->emitir($id, 'u1@pemex.com'), CLAVE_T);
         assert_true($nuevo, 'era un registro nuevo');
         Notifier::usuarioRegistrado($id);
         assert_eq(array_column(Notifier::cola(), 'to'), ['sup1@pemex.com'], 'aviso al supervisor de la instalación elegida');
@@ -121,4 +124,54 @@ function test_cuenta_existente_sin_verificar_queda_bloqueada(): void
     Auth::refrescar();
     assert_true(!Auth::requiereVerificacion(), 'tras verificar ya no se pide');
     $_SESSION = [];
+}
+
+/** Ficha del GECA aún sin registrar (sin correo ni contraseña). */
+function ficha_geca(string $ficha): int
+{
+    return insert('usuarios', ['ficha' => $ficha, 'nombre' => "Persona {$ficha}", 'rol' => 'usuario', 'registrado' => 0, 'activo' => 1]);
+}
+
+function test_registro_pendiente_no_ocupa_el_correo(): void
+{
+    $intruso = ficha_geca('X1');
+    $victima = ficha_geca('V1');
+    $svc = new VerificacionEmailService(test_pdo());
+
+    $token = $svc->prepararRegistro($intruso, 'victima@pemex.com', '1234', 'Otra#Clave2026xx', null);
+    assert_true($token !== null, 'el registro pendiente emite enlace');
+    assert_eq(scalar('SELECT email FROM usuarios WHERE id = ?', [$intruso]), null, 'el correo sin verificar no se guarda en la cuenta');
+    assert_true(!$svc->correoOcupado('victima@pemex.com', $victima), 'un registro pendiente no aparta el correo de otra persona');
+
+    $tokenV = $svc->prepararRegistro($victima, 'victima@pemex.com', '5678', CLAVE_T, null);
+    assert_eq($svc->verificar((string) $tokenV, CLAVE_T), $victima, 'la dueña del correo sí puede verificarlo');
+    assert_eq(scalar('SELECT email FROM usuarios WHERE id = ?', [$victima]), 'victima@pemex.com', 'el correo se aplica al verificar');
+    assert_true($svc->correoOcupado('victima@pemex.com', $intruso), 'ya verificado, el correo queda ocupado');
+    assert_eq($svc->verificar((string) $token, 'Otra#Clave2026xx'), null, 'el enlace del intruso ya no puede tomar el correo');
+}
+
+function test_verificar_exige_la_contrasena_de_la_cuenta(): void
+{
+    $intruso = ficha_geca('X1');
+    $svc = new VerificacionEmailService(test_pdo());
+    $token = (string) $svc->prepararRegistro($intruso, 'victima@pemex.com', '1234', 'Otra#Clave2026xx', null);
+
+    assert_eq($svc->verificar($token, CLAVE_T), null, 'quien abre el enlace sin conocer la contraseña elegida no activa la cuenta');
+    assert_eq(scalar('SELECT registrado FROM usuarios WHERE id = ?', [$intruso]), 0, 'la cuenta sigue pendiente');
+    assert_eq(scalar('SELECT COUNT(*) FROM verificaciones_email WHERE usuario_id = ? AND usado_en IS NULL', [$intruso]), 1, 'una contraseña equivocada no gasta el enlace');
+    assert_eq($svc->verificar($token, 'Otra#Clave2026xx'), $intruso, 'con su contraseña sí se activa');
+}
+
+function test_consultar_enlace_no_lo_gasta_y_distingue_ya_verificado(): void
+{
+    $id = ficha_geca('U1');
+    $svc = new VerificacionEmailService(test_pdo());
+    $token = (string) $svc->prepararRegistro($id, 'u1@pemex.com', '1234', CLAVE_T, null);
+
+    $c = $svc->consultar($token);
+    assert_eq([$c['estado'] ?? null, $c['ficha'] ?? null, $c['email'] ?? null], ['valido', 'U1', 'u1@pemex.com'], 'el enlace se puede consultar (GET de un escáner)');
+    assert_eq($svc->consultar($token)['estado'] ?? null, 'valido', 'consultar no lo gasta');
+    $svc->verificar($token, CLAVE_T);
+    assert_eq($svc->consultar($token)['estado'] ?? null, 'verificado', 'enlace usado de cuenta ya verificada');
+    assert_eq($svc->consultar(str_repeat('a', 43)), null, 'enlace desconocido');
 }

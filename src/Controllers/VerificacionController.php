@@ -36,7 +36,7 @@ final class VerificacionController extends Controller
             'persona'   => $persona,
             'enviadoA'  => $svc->correoPendiente((int) $persona['id']),
             'dominios'  => VerificacionEmailService::dominios(),
-            'dominioOk' => $svc->dominioPermitido((string) $persona['email']),
+            'dominioOk' => $svc->dominioPermitido((string) ($persona['email'] ?? '')),
         ], 200, 'layouts/guest');
     }
 
@@ -52,14 +52,12 @@ final class VerificacionController extends Controller
         $svc = new VerificacionEmailService($pdo);
         $id = (int) $persona['id'];
 
-        $email = mb_strtolower($this->input('email', (string) $persona['email']));
+        $email = mb_strtolower($this->input('email', (string) ($svc->correoPendiente($id) ?? $persona['email'])));
         if (mb_strlen($email) > 150 || !$svc->dominioPermitido($email)) {
             Session::flash('danger', 'Usa tu correo de la empresa (@' . implode(', @', VerificacionEmailService::dominios()) . ').');
             redirect('/verificar-correo');
         }
-        $dup = $pdo->prepare('SELECT 1 FROM usuarios WHERE email = ? AND id <> ?');
-        $dup->execute([$email, $id]);
-        if ($dup->fetchColumn()) {
+        if ($svc->correoOcupado($email, $id)) {
             Session::flash('danger', 'Ese correo ya está registrado en otra cuenta.');
             redirect('/verificar-correo');
         }
@@ -73,17 +71,48 @@ final class VerificacionController extends Controller
         redirect('/verificar-correo');
     }
 
-    /** Enlace recibido por correo: /verificar/{token} */
-    public function verify(string $token): void
+    /**
+     * Enlace recibido por correo: GET /verificar/{token}. Solo muestra la
+     * confirmación (no gasta el enlace): los escáneres de correo de la empresa
+     * abren los enlaces antes que la persona.
+     */
+    public function confirm(string $token): void
     {
         $svc = new VerificacionEmailService(Database::getInstance());
-        $idDelToken = $this->usuarioDelToken($token);
-        $nuevo = $idDelToken !== null && $svc->esRegistroNuevo($idDelToken);
-
-        $id = $svc->verificar($token);
-        if ($id === null) {
+        $enlace = $svc->consultar($token);
+        if ($enlace === null) {
             Session::flash('danger', 'El enlace no es válido, ya se usó o venció (dura 24 horas). Solicita uno nuevo.');
             redirect($this->persona() !== null ? '/verificar-correo' : '/login');
+        }
+        if ($enlace['estado'] === 'verificado') {
+            Session::flash('success', 'Tu correo ya está verificado.' . (Auth::check() ? '' : ' Inicia sesión.'));
+            redirect(Auth::check() ? '/' : '/login');
+        }
+
+        $this->view('auth/verificacion_confirmar', [
+            'title'    => 'Confirma tu correo',
+            'authUser' => null,
+            'enlace'   => $enlace,
+            'token'    => $token,
+        ], 200, 'layouts/guest');
+    }
+
+    /** POST /verificar/{token}: verifica con la contraseña de la cuenta. */
+    public function verify(string $token): void
+    {
+        $this->verifyCsrf();
+        $svc = new VerificacionEmailService(Database::getInstance());
+        $enlace = $svc->consultar($token);
+        if ($enlace === null || $enlace['estado'] !== 'valido') {
+            redirect('/verificar/' . rawurlencode($token));
+        }
+        $idDelToken = $enlace['usuario_id'];
+        $nuevo = $svc->esRegistroNuevo($idDelToken);
+
+        $id = $svc->verificar($token, (string) ($_POST['password'] ?? ''));
+        if ($id === null) {
+            Session::flash('danger', 'La contraseña no coincide con la de esa cuenta (o el correo ya lo usa otra cuenta).');
+            redirect('/verificar/' . rawurlencode($token));
         }
 
         Session::remove(self::PENDIENTE);
@@ -113,18 +142,5 @@ final class VerificacionController extends Controller
         );
         $stmt->execute([$pendiente]);
         return $stmt->fetch() ?: null;
-    }
-
-    private function usuarioDelToken(string $token): ?int
-    {
-        if (preg_match('/^[A-Za-z0-9_-]{43}$/', $token) !== 1) {
-            return null;
-        }
-        $stmt = Database::getInstance()->prepare(
-            'SELECT usuario_id FROM verificaciones_email WHERE token_hash = ? AND usado_en IS NULL AND expira_en > NOW()'
-        );
-        $stmt->execute([hash('sha256', $token)]);
-        $id = $stmt->fetchColumn();
-        return $id === false ? null : (int) $id;
     }
 }

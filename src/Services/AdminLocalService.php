@@ -87,8 +87,12 @@ final class AdminLocalService
         if ($fecha > date('Y-m-d')) {
             throw new ValidationException(['La fecha de cambio no puede ser futura.']);
         }
-        if ((self::diasRestantes($fecha) ?? -1) < 0) {
+        $dias = self::diasRestantes($fecha) ?? -1;
+        if ($dias < 0) {
             throw new ValidationException(['Con esa fecha la contraseña ya estaría vencida. Cámbiala y registra la fecha del cambio.']);
+        }
+        if ($dias <= self::DIAS_BLOQUEO) {
+            throw new ValidationException(["Con esa fecha vencería en {$dias} días y seguirías bloqueado. Cambia la contraseña de admin local y registra la fecha de hoy."]);
         }
         $this->pdo->prepare('UPDATE usuarios SET admin_local_cambiado_en = ? WHERE id = ?')->execute([$fecha, $usuarioId]);
     }

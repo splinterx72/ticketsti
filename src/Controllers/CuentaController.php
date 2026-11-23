@@ -72,9 +72,7 @@ final class CuentaController extends Controller
         }
         $cambiaCorreo = $errors === [] && strcasecmp($email, (string) $user['email']) !== 0;
         if ($cambiaCorreo) {
-            $dup = $pdo->prepare('SELECT 1 FROM usuarios WHERE email = ? AND id <> ?');
-            $dup->execute([$email, $id]);
-            if ($dup->fetchColumn()) {
+            if ($verificacion->correoOcupado($email, $id)) {
                 $errors[] = 'Ese correo ya está registrado en otra cuenta.';
             } elseif (!$verificacion->puedeReenviar($id)) {
                 $errors[] = 'Ya enviamos varios enlaces en la última hora; inténtalo más tarde.';

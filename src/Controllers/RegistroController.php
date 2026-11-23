@@ -12,7 +12,6 @@ use App\Core\ValidationException;
 use App\Services\Mail\Notifier;
 use App\Services\UbicacionFisicaService;
 use App\Services\VerificacionEmailService;
-use PDOException;
 
 /**
  * Auto-registro por ficha (CLAUDE.md, sección 3.B).
@@ -129,12 +128,8 @@ final class RegistroController extends Controller
         if (!hash_equals($password, $confirm)) {
             $errors[] = 'La confirmación no coincide con la contraseña.';
         }
-        if ($errors === []) {
-            $stmt = $pdo->prepare('SELECT 1 FROM usuarios WHERE email = ? AND id <> ?');
-            $stmt->execute([$email, (int) $user['id']]);
-            if ($stmt->fetchColumn()) {
-                $errors[] = 'Ese correo ya está registrado en otra cuenta.';
-            }
+        if ($errors === [] && $verificacion->correoOcupado($email, (int) $user['id'])) {
+            $errors[] = 'Ese correo ya está registrado en otra cuenta.';
         }
 
         if ($errors !== []) {
@@ -145,35 +140,18 @@ final class RegistroController extends Controller
             redirect('/registro/completar');
         }
 
-        try {
-            // La cuenta queda pendiente (registrado = 0) hasta verificar el correo.
-            $stmt = $pdo->prepare(
-                'UPDATE usuarios
-                    SET email = ?, telefono_ext = ?, password_hash = ?,
-                        habitual_ubicacion_fisica_id = ?, habitual_nivel_id = ?, habitual_ala = ?, habitual_referencia = ?
-                  WHERE id = ? AND registrado = 0 AND activo = 1'
-            );
-            $stmt->execute([
-                $email, $ext, password_hash($password, PASSWORD_DEFAULT),
-                $fisica['ubicacion_fisica_id'] ?? null, $fisica['nivel_id'] ?? null, $fisica['ala'] ?? null, $fisica['referencia'] ?? null,
-                (int) $user['id'],
-            ]);
-        } catch (PDOException $e) {
-            if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
-                Session::flash('danger', 'Ese correo ya está registrado en otra cuenta.');
-                redirect('/registro/completar');
-            }
-            throw $e;
-        }
+        // La cuenta queda pendiente (registrado = 0) y el correo solo viaja en el
+        // enlace: se guarda en la cuenta hasta que su dueño lo verifica.
+        $token = $verificacion->prepararRegistro((int) $user['id'], $email, $ext, $password, $fisica);
 
         Session::remove(self::SESSION_KEY);
-        if ($stmt->rowCount() !== 1) {
+        if ($token === null) {
             Session::flash('info', 'Esta cuenta ya fue activada. Inicia sesión.');
             redirect('/login');
         }
 
         Session::set(VerificacionController::PENDIENTE, (int) $user['id']);
-        $error = Notifier::enlaceVerificacion($email, (string) $user['nombre'], $verificacion->emitir((int) $user['id'], $email));
+        $error = Notifier::enlaceVerificacion($email, (string) $user['nombre'], $token);
         if ($error !== null) {
             Session::flash('danger', $error);
         }
