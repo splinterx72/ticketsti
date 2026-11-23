@@ -70,3 +70,9 @@ select[size] option:checked { background: var(--bs-primary-bg-subtle); font-weig
 .bar-table .bar-cell { width: 42%; }
 .bar-track { height: 10px; background: var(--bs-tertiary-bg); border-radius: 4px; overflow: hidden; }
 .bar-fill { height: 100%; background: var(--bs-primary); border-radius: 0 4px 4px 0; min-width: 2px; }
+
+/* --- Avisos --- */
+.aviso { border-left: 4px solid var(--bs-info) !important; }
+.aviso-importante { border-left-color: var(--bs-warning) !important; }
+.aviso-urgente { border-left-color: var(--bs-danger) !important; }
+.aviso-icono { font-size: 1.5rem; line-height: 1; }

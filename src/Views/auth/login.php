@@ -1,6 +1,10 @@
 <?php
-/** @var array<string, string> $old */
+/**
+ * @var array<string, string> $old
+ * @var list<array<string, mixed>> $avisos
+ */
 ?>
+<?= partial('avisos', ['avisos' => $avisos ?? []]) ?>
 <div class="card shadow border-0">
     <div class="card-body p-4">
         <h2 class="h5 mb-3">Iniciar sesión</h2>

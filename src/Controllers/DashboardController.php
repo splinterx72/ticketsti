@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Roles;
 use App\Config\Database;
 use App\Core\Auth;
+use App\Services\AvisoService;
 use App\Services\TicketService;
 
 /**
@@ -45,6 +46,7 @@ final class DashboardController extends Controller
             'misTickets'    => $recientes->fetchAll(),
             'misAbiertos'   => (int) $abiertos->fetchColumn(),
             'misEquipos'    => (new TicketService($pdo))->equiposDeUsuario($userId),
+            'avisos'        => (new AvisoService($pdo))->vigentesPara($user),
             'stats'         => [],
             'ticketStats'   => [],
             'ultimaCarga'   => null,

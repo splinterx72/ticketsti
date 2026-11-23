@@ -18,7 +18,13 @@ final class AuthController extends Controller
         if (Auth::check()) {
             redirect('/');
         }
-        $this->view('auth/login', ['title' => 'Iniciar sesión', 'authUser' => null], 200, 'layouts/guest');
+        $avisos = [];
+        try {
+            $avisos = (new \App\Services\AvisoService(\App\Config\Database::getInstance()))->vigentesPara(null);
+        } catch (\Throwable $e) {
+            error_log('[Avisos] ' . $e->getMessage());
+        }
+        $this->view('auth/login', ['title' => 'Iniciar sesión', 'authUser' => null, 'avisos' => $avisos], 200, 'layouts/guest');
     }
 
     public function login(): void

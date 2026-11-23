@@ -87,6 +87,7 @@ $rolLabel = \App\Core\Roles::LABELS;
                             ['/supervisor', 'bi-speedometer', 'Panel'],
                             ['/supervisor/ubicaciones', 'bi-geo-alt', 'Ubicaciones'],
                             ['/supervisor/agentes', 'bi-people', 'Agentes'],
+                            ['/supervisor/avisos', 'bi-megaphone', 'Avisos'],
                         ]; ?>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle<?= str_starts_with($current, '/supervisor') ? ' active' : '' ?>" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">

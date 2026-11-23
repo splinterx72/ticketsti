@@ -8,6 +8,7 @@
  * @var array<string, int> $ticketStats
  * @var array<string, mixed>|null $ultimaCarga
  * @var array<string, mixed> $authUser
+ * @var list<array<string, mixed>> $avisos
  */
 $n = static fn (array $src, string $k): string => number_format((int) ($src[$k] ?? 0));
 ?>
@@ -23,6 +24,8 @@ $n = static fn (array $src, string $k): string => number_format((int) ($src[$k] 
         <a href="<?= e(url('/tickets/nuevo')) ?>" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo ticket</a>
     </div>
 </div>
+
+<?= partial('avisos', ['avisos' => $avisos]) ?>
 
 <?php if ($esTi): ?>
     <div class="row g-3 mb-4">
