@@ -248,3 +248,10 @@ INSERT INTO niveles (nombre, orden) VALUES
 
 INSERT INTO ubicacion_tipos (nombre) VALUES
 ('Edificio'), ('Nave'), ('Taller'), ('Área'), ('Caseta'), ('Otro');
+
+-- Los Admin TI que ya existían quedan con el correo verificado: si el correo del
+-- hosting fallara al actualizar, nadie más podría marcarlos como verificados.
+-- El resto de las cuentas verifica su correo en su siguiente ingreso.
+UPDATE usuarios
+   SET email_verificado_en = NOW()
+ WHERE rol = 'admin_ti' AND activo = 1 AND email IS NOT NULL AND email <> '' AND email_verificado_en IS NULL;

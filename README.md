@@ -20,6 +20,12 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 * **Avisos por correo**: ticket nuevo, respuestas, cambios de estado y asignaciones (función `mail()` del hosting o SMTP de cPanel).
 * **Reportes** (`/ti/reportes`): indicadores por periodo, tablero de agentes, equipos con fallas recurrentes y exportación a CSV/Excel.
 * **Usuarios** (`/ti/usuarios`): asignar roles de TI, desactivar cuentas y generar contraseñas temporales; **Mi cuenta** para que cada quien actualice sus datos y contraseña.
+* **Supervisores por instalación**: cada supervisor responde por una o varias instalaciones (con suplencias), asigna agentes y los presta temporalmente; los tickets y tareas se ven solo donde cada quien está cargado.
+* **Ubicaciones físicas**: Instalación → Ubicación (edificio, nave, taller, área) → Nivel → Ala, con indicaciones del lugar para los agentes; se muestran junto a la del GECA.
+* **Registro con correo de la empresa verificado** y aviso al supervisor de la instalación.
+* **Contraseña de admin local**: semáforo para el supervisor, avisos desde 10 días antes y bloqueo total a 5 días.
+* **Avisos** en el inicio con fechas de publicación, y **tareas** con folio, fecha de entrega y evidencias por agente.
+* **Correo a la mesa institucional** (`mesadeayuda@pemex.com`, configurable) por cada ticket nuevo, para Remedy.
 * **Carga semanal del GECA** (`/geca`): `.xlsx` o `.csv` (coma o punto y coma, UTF-8 o ANSI de Excel), validación de los 30 encabezados, **UPSERT** por `ficha` y `serie` en una sola transacción, historial de cargas, detalle con advertencias y plantilla descargable.
 
 Rendimiento medido: 30 000 filas en ~5 s (CSV) / ~8 s (XLSX) usando 4–14 MB de RAM.
@@ -68,6 +74,25 @@ Si el servidor no deja escribir `config/config.php`, la pantalla final te permit
 ### Instalación manual (alternativa)
 
 Importa `database/schema.sql` en phpMyAdmin, copia `config/config.example.php` como `config/config.php` con tus credenciales y abre `/instalar` para crear el primer Admin TI (se desactiva solo al existir uno).
+
+### Actualizar una instalación existente (de la Fase 4 a la Fase 5)
+
+1. **Respalda** la base (phpMyAdmin › Exportar) y los archivos (Administrador de archivos › Comprimir).
+2. phpMyAdmin › tu base › **Importar** › `database/migraciones/2026-11-23_fase5.sql` (una sola vez).
+3. Sube y extrae el zip de cambios sobre la carpeta del sistema (sobrescribe).
+4. En `config/config.php` agrega dentro de `'mail' => [...]` la línea `'mesa_institucional' => 'mesadeayuda@pemex.com',` y, al final del arreglo, la sección `'registro' => ['dominios_permitidos' => ['pemex.com']],` (si faltan, el sistema usa esos mismos valores por defecto).
+5. Crea la **Tarea Cron** (abajo) y prueba el correo antes de avisar a los usuarios: todas las cuentas deberán **verificar su correo** y el personal de TI **registrar la fecha de su contraseña de admin local** en su siguiente ingreso.
+6. Como Admin TI: *Gestión › Instalaciones* (crear instalaciones, asignar supervisores y llenar las equivalencias GECA). Cada supervisor: *Supervisión › Ubicaciones* y *Agentes*.
+
+### Tarea Cron diaria (recordatorios)
+
+cPanel › **Cron Jobs** › *Common Settings: Once Per Day* › Command:
+
+```
+/usr/local/bin/php /home/USUARIO/public_html/bin/cron.php
+```
+
+Ajusta la ruta a donde está el sistema. Si el hosting no permitiera Cron, la primera visita del día hace la revisión automáticamente.
 
 ### Correo (avisos automáticos)
 

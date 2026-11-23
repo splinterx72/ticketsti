@@ -86,6 +86,21 @@ function test_migracion_iguala_schema(): void
     assert_eq((int) $old->query('SELECT COUNT(*) FROM niveles')->fetchColumn(), 14, 'migración siembra niveles');
 }
 
+function test_migracion_no_deja_sin_acceso_al_admin_existente(): void
+{
+    $old = fresh_db('usr_mesa_test_mig');
+    import_sql($old, schema_fase4());
+    $old->exec("INSERT INTO usuarios (ficha, nombre, email, password_hash, rol, registrado, activo) VALUES
+        ('900001', 'Admin', 'admin@pemex.com', 'x', 'admin_ti', 1, 1),
+        ('12345', 'José Peña', 'jose@pemex.com', 'x', 'usuario', 1, 1)");
+
+    import_sql($old, (string) file_get_contents(ROOT_PATH . '/database/migraciones/2026-11-23_fase5.sql'));
+
+    $v = $old->query("SELECT ficha, email_verificado_en IS NOT NULL FROM usuarios ORDER BY ficha")->fetchAll(PDO::FETCH_KEY_PAIR);
+    assert_eq((int) $v['900001'], 1, 'el admin_ti existente queda verificado (si el correo falla no habría quien lo desbloquee)');
+    assert_eq((int) $v['12345'], 0, 'los demás deben verificar su correo');
+}
+
 function test_installer_reconoce_reinstalacion(): void
 {
     $installer = new Installer(ROOT_PATH);
