@@ -37,12 +37,30 @@ final class VerificacionEmailService
 
     public function dominioPermitido(string $email): bool
     {
+        return self::esDeLaEmpresa($email);
+    }
+
+    private static function esDeLaEmpresa(string $email): bool
+    {
         $email = trim($email);
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return false;
         }
         $dominio = strtolower(substr((string) strrchr($email, '@'), 1));
         return in_array($dominio, self::dominios(), true);
+    }
+
+    /** Un correo heredado que no cambia se conserva; uno nuevo debe ser de la empresa. */
+    public static function correoAceptable(string $nuevo, string $actual): bool
+    {
+        $nuevo = trim($nuevo);
+        if ($nuevo === '' || mb_strlen($nuevo) > 150) {
+            return false;
+        }
+        if ($actual !== '' && strcasecmp($nuevo, trim($actual)) === 0) {
+            return true;
+        }
+        return self::esDeLaEmpresa($nuevo);
     }
 
     public function emitir(int $usuarioId, string $email): string

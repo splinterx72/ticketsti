@@ -195,3 +195,23 @@ function test_lista_del_supervisor_con_avance(): void
     assert_eq(count($lista), 1, 'el supervisor ve su tarea');
     assert_eq([(int) $lista[0]['total'], (int) $lista[0]['entregadas'], (int) $lista[0]['por_revisar']], [2, 1, 1], 'avance en la lista');
 }
+
+function test_entrega_simultanea_no_se_duplica(): void
+{
+    $t = equipo_tareas();
+    $svc = new TareaService(test_pdo());
+    $id = $svc->crear($t['sup'], tarea_form([$t['a1']], ['evidencias' => []]), []);
+    $asig = asignacion_de($id, $t['a1']);
+    $svc->cambiarEstado($asig, $t['a1'], 'iniciar', null);
+
+    // Otra petición (doble clic) entrega primero y tarda en confirmar.
+    $c = test_db_config();
+    $sql = "BEGIN; SELECT id FROM tarea_asignaciones WHERE id = {$asig} FOR UPDATE;"
+         . " UPDATE tarea_asignaciones SET estado = 'entregada', entregado_en = NOW() WHERE id = {$asig}; DO SLEEP(1.5); COMMIT;";
+    $p = proc_open(['mariadb', '-h', $c['host'], '-u', $c['username'], '-p' . $c['password'], $c['database'], '-e', $sql], [], $pipes);
+    usleep(400000);
+    assert_throws(ValidationException::class, fn () => $svc->cambiarEstado($asig, $t['a1'], 'entregar', 'segunda vez', []),
+        'la segunda entrega simultánea se rechaza');
+    proc_close($p);
+    assert_eq(scalar('SELECT COUNT(comentario_entrega) FROM tarea_asignaciones WHERE id = ?', [$asig]), 0, 'la segunda entrega no sobrescribió la primera');
+}

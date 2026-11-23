@@ -175,3 +175,32 @@ function test_consultar_enlace_no_lo_gasta_y_distingue_ya_verificado(): void
     assert_eq($svc->consultar($token)['estado'] ?? null, 'verificado', 'enlace usado de cuenta ya verificada');
     assert_eq($svc->consultar(str_repeat('a', 43)), null, 'enlace desconocido');
 }
+
+function test_sin_supervisor_vigente_avisa_al_admin_ti(): void
+{
+    $GLOBALS['__app_config']['mail']['driver'] = 'smtp';
+    Notifier::reiniciarCola();
+    try {
+        $e = ejemplos_usuario();
+        $sup = usuario('SUP1', 'supervisor', 'sup1@pemex.com');
+        // El titular terminó ayer y la suplencia empieza mañana: hoy nadie está a cargo.
+        asignar_supervisor($sup['id'], $e['laguna'], 'titular', null, date('Y-m-d', strtotime('-1 day')));
+        usuario('ADM1', 'admin_ti', 'adm1@pemex.com');
+        $id = pendiente('U1', 'u1@pemex.com');
+        test_pdo()->prepare('UPDATE usuarios SET habitual_ubicacion_fisica_id = ? WHERE id = ?')->execute([$e['carga'], $id]);
+
+        Notifier::usuarioRegistrado($id);
+        assert_eq(array_column(Notifier::cola(), 'to'), ['adm1@pemex.com'], 'sin supervisor vigente el aviso va al Admin TI');
+    } finally {
+        Notifier::reiniciarCola();
+        $GLOBALS['__app_config']['mail']['driver'] = 'off';
+    }
+}
+
+function test_correo_aceptable_solo_exige_dominio_si_cambia(): void
+{
+    assert_true(VerificacionEmailService::correoAceptable('externo@gmail.com', 'Externo@gmail.com'), 'correo heredado sin cambio se conserva');
+    assert_true(!VerificacionEmailService::correoAceptable('otro@gmail.com', 'externo@gmail.com'), 'cambiar a otro externo se rechaza');
+    assert_true(VerificacionEmailService::correoAceptable('nuevo@pemex.com', 'externo@gmail.com'), 'cambiar al de la empresa se acepta');
+    assert_true(!VerificacionEmailService::correoAceptable('', 'externo@gmail.com'), 'vacío se rechaza');
+}

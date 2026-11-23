@@ -524,11 +524,19 @@ final class Notifier
     private static function responsables(?int $instalacionId): array
     {
         if ($instalacionId !== null) {
-            $emails = array_map(
+            $emails = self::unicos(array_map(
                 static fn (array $s): string => (string) $s['email'],
                 (new Alcance(Database::getInstance()))->supervisoresDe($instalacionId)
-            );
-            return self::unicos($emails);
+            ));
+            if ($emails !== []) {
+                return $emails;
+            }
+            // Nadie a cargo hoy (p. ej. entre el fin del titular y una suplencia): Admin TI.
+            $rows = Database::getInstance()->query(
+                "SELECT email FROM usuarios
+                  WHERE rol = 'admin_ti' AND registrado = 1 AND activo = 1 AND email IS NOT NULL"
+            )->fetchAll(\PDO::FETCH_COLUMN);
+            return self::unicos(array_map('strval', $rows));
         }
         $rows = Database::getInstance()->query(
             "SELECT email FROM usuarios

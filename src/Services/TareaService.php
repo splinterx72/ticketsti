@@ -152,13 +152,20 @@ final class TareaService
 
         $this->pdo->beginTransaction();
         try {
+            // Solo si sigue en el estado esperado: un doble envío, o el supervisor
+            // aceptando mientras el agente reentrega, no deben aplicarse dos veces.
+            $estadoOk = ' AND estado IN (' . implode(',', array_fill(0, count($desde), '?')) . ')';
             $sql = match ($accion) {
                 'iniciar'  => 'UPDATE tarea_asignaciones SET estado = ? WHERE id = ?',
                 'entregar' => 'UPDATE tarea_asignaciones SET estado = ?, comentario_entrega = ?, entregado_en = NOW() WHERE id = ?',
                 default    => 'UPDATE tarea_asignaciones SET estado = ?, comentario_revision = ?, revisado_en = NOW() WHERE id = ?',
-            };
+            } . $estadoOk;
             $params = $accion === 'iniciar' ? [$hacia, $asignacionId] : [$hacia, $comentario !== '' ? $comentario : null, $asignacionId];
-            $this->pdo->prepare($sql)->execute($params);
+            $upd = $this->pdo->prepare($sql);
+            $upd->execute(array_merge($params, $desde));
+            if ($upd->rowCount() !== 1) {
+                throw new ValidationException(['La tarea cambió de estado mientras tanto; recarga la página.']);
+            }
             if ($accion === 'entregar') {
                 $this->guardarArchivos((int) $a['tarea_id'], $asignacionId, $uid, $evidencias);
             }

@@ -56,7 +56,7 @@ final class CuentaController extends Controller
         $ext = $this->input('telefono_ext');
 
         $errors = [];
-        if (mb_strlen($email) > 150 || !$verificacion->dominioPermitido($email)) {
+        if (!VerificacionEmailService::correoAceptable($email, (string) ($user['email'] ?? ''))) {
             $errors[] = 'Usa tu correo de la empresa (@' . implode(', @', VerificacionEmailService::dominios()) . ').';
         }
         if ($ext === '' || preg_match('/^[0-9 +()\/-]{2,30}$/', $ext) !== 1) {
