@@ -9,8 +9,10 @@ use App\Config\Database;
 use App\Core\Auth;
 use App\Core\PasswordPolicy;
 use App\Core\Session;
-use App\Services\Catalog;
-use PDOException;
+use App\Core\ValidationException;
+use App\Services\Mail\Notifier;
+use App\Services\UbicacionFisicaService;
+use App\Services\VerificacionEmailService;
 
 /**
  * "Mi cuenta": datos de contacto, ubicación habitual y cambio de contraseña.
@@ -22,14 +24,20 @@ final class CuentaController extends Controller
     {
         $this->requireLogin();
         $stmt = Database::getInstance()->prepare(
-            'SELECT ficha, nombre, jefe_nombre, email, telefono_ext, ubicacion_habitual_id, rol FROM usuarios WHERE id = ?'
+            'SELECT ficha, nombre, jefe_nombre, email, telefono_ext, rol,
+                    habitual_ubicacion_fisica_id AS ubicacion_fisica_id, habitual_nivel_id AS nivel_id,
+                    habitual_ala AS ala, habitual_referencia AS referencia
+               FROM usuarios WHERE id = ?'
         );
         $stmt->execute([(int) Auth::id()]);
+        $fisicas = new UbicacionFisicaService(Database::getInstance());
 
         $this->view('cuenta/index', [
             'title'       => 'Mi cuenta',
             'cuenta'      => $stmt->fetch(),
-            'ubicaciones' => Catalog::ubicaciones(),
+            'catalogo'    => $fisicas->catalogo(),
+            'hayCatalogo' => $fisicas->hayCatalogo(),
+            'dominios'    => VerificacionEmailService::dominios(),
             'minPassword' => Roles::esTi(Auth::user()['rol'] ?? null) ? PasswordPolicy::MIN_ADMIN : PasswordPolicy::MIN_USER,
         ]);
     }
@@ -38,40 +46,61 @@ final class CuentaController extends Controller
     {
         $this->requireLogin();
         $this->verifyCsrf();
-        $id = (int) Auth::id();
+        $user = Auth::user();
+        $id = (int) $user['id'];
+        $pdo = Database::getInstance();
+        $verificacion = new VerificacionEmailService($pdo);
+        $fisicas = new UbicacionFisicaService($pdo);
 
         $email = mb_strtolower($this->input('email'));
         $ext = $this->input('telefono_ext');
-        $ubicacionId = (int) $this->input('ubicacion_habitual_id');
 
         $errors = [];
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 150) {
-            $errors[] = 'Captura un correo electrónico válido.';
+        if (mb_strlen($email) > 150 || !$verificacion->dominioPermitido($email)) {
+            $errors[] = 'Usa tu correo de la empresa (@' . implode(', @', VerificacionEmailService::dominios()) . ').';
         }
         if ($ext === '' || preg_match('/^[0-9 +()\/-]{2,30}$/', $ext) !== 1) {
             $errors[] = 'Captura tu teléfono o extensión (solo números, espacios, +, -, /).';
         }
-        if ($ubicacionId <= 0 || !Catalog::ubicacionExiste($ubicacionId)) {
-            $errors[] = 'Selecciona tu ubicación habitual.';
-        }
-        if ($errors === []) {
+        $fisica = null;
+        if ($fisicas->hayCatalogo() || (int) $this->input('habitual_ubicacion_fisica_id') > 0) {
             try {
-                Database::getInstance()
-                    ->prepare('UPDATE usuarios SET email = ?, telefono_ext = ?, ubicacion_habitual_id = ? WHERE id = ?')
-                    ->execute([$email, $ext, $ubicacionId, $id]);
-                Session::flash('success', 'Datos actualizados.');
-                redirect('/cuenta');
-            } catch (PDOException $e) {
-                if ((int) ($e->errorInfo[1] ?? 0) !== 1062) {
-                    throw $e;
-                }
-                $errors[] = 'Ese correo ya está registrado en otra cuenta.';
+                $fisica = $fisicas->validar($_POST, 'habitual');
+            } catch (ValidationException $e) {
+                $errors = array_merge($errors, $e->errors());
             }
         }
-        foreach ($errors as $error) {
-            Session::flash('danger', $error);
+        $cambiaCorreo = $errors === [] && strcasecmp($email, (string) $user['email']) !== 0;
+        if ($cambiaCorreo) {
+            $dup = $pdo->prepare('SELECT 1 FROM usuarios WHERE email = ? AND id <> ?');
+            $dup->execute([$email, $id]);
+            if ($dup->fetchColumn()) {
+                $errors[] = 'Ese correo ya está registrado en otra cuenta.';
+            } elseif (!$verificacion->puedeReenviar($id)) {
+                $errors[] = 'Ya enviamos varios enlaces en la última hora; inténtalo más tarde.';
+            }
         }
-        $this->rememberInput(['email', 'telefono_ext', 'ubicacion_habitual_id']);
+
+        if ($errors !== []) {
+            foreach ($errors as $error) {
+                Session::flash('danger', $error);
+            }
+            $this->rememberInput(['email', 'telefono_ext', 'habitual_instalacion_id', 'habitual_ubicacion_fisica_id', 'habitual_nivel_id', 'habitual_ala', 'habitual_referencia']);
+            redirect('/cuenta');
+        }
+
+        $pdo->prepare(
+            'UPDATE usuarios SET telefono_ext = ?, habitual_ubicacion_fisica_id = ?, habitual_nivel_id = ?, habitual_ala = ?, habitual_referencia = ?
+              WHERE id = ?'
+        )->execute([$ext, $fisica['ubicacion_fisica_id'] ?? null, $fisica['nivel_id'] ?? null, $fisica['ala'] ?? null, $fisica['referencia'] ?? null, $id]);
+
+        if ($cambiaCorreo) {
+            // El correo nuevo se aplica solo cuando se confirma desde el buzón.
+            $error = Notifier::enlaceVerificacion($email, (string) $user['nombre'], $verificacion->emitir($id, $email));
+            Session::flash($error === null ? 'info' : 'danger', $error ?? "Datos guardados. Para cambiar tu correo, abre el enlace que enviamos a {$email}; mientras tanto seguimos usando {$user['email']}.");
+        } else {
+            Session::flash('success', 'Datos actualizados.');
+        }
         redirect('/cuenta');
     }
 

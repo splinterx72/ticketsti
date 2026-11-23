@@ -83,6 +83,11 @@ return [
         ],
     ],
 
+    'registro' => [
+        // Dominios de correo aceptados al registrarse (correo de la empresa).
+        'dominios_permitidos' => ['pemex.com'],
+    ],
+
     'security' => [
         // Intentos de login fallidos antes de bloquear temporalmente.
         'login_max_attempts' => 5,

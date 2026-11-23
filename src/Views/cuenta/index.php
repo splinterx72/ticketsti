@@ -1,11 +1,16 @@
 <?php
 /**
  * @var array<string, mixed> $cuenta
- * @var list<array{id: int, etiqueta: string}> $ubicaciones
+ * @var list<array<string, mixed>> $catalogo
+ * @var bool $hayCatalogo
+ * @var list<string> $dominios
  * @var int $minPassword
  * @var array<string, string> $old
  */
-$sel = (int) ($old['ubicacion_habitual_id'] ?? $cuenta['ubicacion_habitual_id'] ?? 0);
+$sel = $old !== [] ? [
+    'instalacion_id' => $old['habitual_instalacion_id'] ?? 0, 'ubicacion_fisica_id' => $old['habitual_ubicacion_fisica_id'] ?? 0,
+    'nivel_id' => $old['habitual_nivel_id'] ?? 0, 'ala' => $old['habitual_ala'] ?? '', 'referencia' => $old['habitual_referencia'] ?? '',
+] : $cuenta;
 ?>
 <h1 class="h4 mb-3"><i class="bi bi-person-gear me-1"></i>Mi cuenta</h1>
 
@@ -27,7 +32,7 @@ $sel = (int) ($old['ubicacion_habitual_id'] ?? $cuenta['ubicacion_habitual_id'] 
                 <?= csrf_field() ?>
                 <div class="row g-3">
                     <div class="col-sm-7">
-                        <label for="email" class="form-label fw-semibold">Correo electrónico</label>
+                        <label for="email" class="form-label fw-semibold">Correo de la empresa</label>
                         <input type="email" class="form-control" id="email" name="email" maxlength="150" required
                                value="<?= e($old['email'] ?? $cuenta['email'] ?? '') ?>" autocomplete="email">
                     </div>
@@ -37,14 +42,11 @@ $sel = (int) ($old['ubicacion_habitual_id'] ?? $cuenta['ubicacion_habitual_id'] 
                                value="<?= e($old['telefono_ext'] ?? $cuenta['telefono_ext'] ?? '') ?>">
                     </div>
                     <div class="col-12">
-                        <label for="ubicacion_habitual_id" class="form-label fw-semibold">Ubicación habitual</label>
-                        <input type="search" class="form-control form-control-sm mb-1" placeholder="Buscar inmueble o gerencia…"
-                               data-filter-select="#ubicacion_habitual_id" aria-label="Buscar ubicación">
-                        <select class="form-select" id="ubicacion_habitual_id" name="ubicacion_habitual_id" size="5" required>
-                            <?php foreach ($ubicaciones as $u): ?>
-                                <option value="<?= e($u['id']) ?>" <?= $u['id'] === $sel ? 'selected' : '' ?>><?= e($u['etiqueta']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <span class="form-label fw-semibold d-block">Ubicación actual</span>
+                        <?= partial('ubicacion_picker', [
+                            'catalogo' => $catalogo, 'prefijo' => 'habitual', 'sel' => $sel, 'requerido' => $hayCatalogo,
+                            'refPlaceholder' => 'Ej. cubículo 14, junto a recepción',
+                        ]) ?>
                     </div>
                 </div>
             </div>

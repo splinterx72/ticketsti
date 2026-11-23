@@ -73,8 +73,14 @@ $driverLabel = ['off' => 'Desactivado', 'mail' => 'mail() del hosting', 'smtp' =
                             <div class="small text-body-secondary font-monospace"><?= e($u['ficha']) ?></div>
                         </td>
                         <td class="small">
-                            <?php if ((int) $u['registrado'] === 1): ?>
-                                <?= e($u['email'] ?? '—') ?><div class="text-body-secondary"><?= e($u['telefono_ext'] ?? '') ?></div>
+                            <?php if ($u['email'] !== null): ?>
+                                <?= e($u['email']) ?>
+                                <?php if ($u['email_verificado_en'] !== null): ?>
+                                    <i class="bi bi-patch-check-fill text-success" title="Correo verificado"></i><span class="visually-hidden">verificado</span>
+                                <?php else: ?>
+                                    <span class="badge text-bg-warning">Sin verificar</span>
+                                <?php endif; ?>
+                                <div class="text-body-secondary"><?= e($u['telefono_ext'] ?? '') ?></div>
                             <?php else: ?>
                                 <span class="text-body-secondary">Cuenta sin activar</span>
                             <?php endif; ?>
@@ -95,6 +101,14 @@ $driverLabel = ['off' => 'Desactivado', 'mail' => 'mail() del hosting', 'smtp' =
                             </form>
                         </td>
                         <td class="text-end">
+                            <?php if ($u['email'] !== null && $u['email_verificado_en'] === null && (int) $u['tiene_password'] === 1): ?>
+                                <form method="post" action="<?= e(url('/ti/usuarios/' . (int) $u['id'] . '/verificar-correo')) ?>" class="m-0"
+                                      data-confirm="¿Confirmaste en persona que <?= e($u['email']) ?> es el correo de <?= e($u['nombre']) ?>?">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="volver" value="<?= e($volver) ?>">
+                                    <button type="submit" class="btn btn-sm btn-link text-nowrap"><i class="bi bi-patch-check me-1"></i>Marcar verificado</button>
+                                </form>
+                            <?php endif; ?>
                             <?php if (!$self && (int) $u['registrado'] === 1): ?>
                                 <form method="post" action="<?= e(url('/ti/usuarios/' . (int) $u['id'] . '/restablecer')) ?>" class="m-0"
                                       data-confirm="¿Generar una contraseña temporal para <?= e($u['nombre']) ?>? La actual dejará de funcionar.">

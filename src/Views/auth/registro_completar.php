@@ -1,12 +1,17 @@
 <?php
 /**
  * @var array<string, mixed> $pendiente
- * @var list<array{id: int, etiqueta: string}> $ubicaciones
- * @var int|null $ubicacionSugerida
+ * @var list<array<string, mixed>> $catalogo
+ * @var bool $hayCatalogo
+ * @var array<string, mixed> $sugerida
+ * @var list<string> $dominios
  * @var int $minPassword
  * @var array<string, string> $old
  */
-$seleccion = (int) ($old['ubicacion_habitual_id'] ?? $ubicacionSugerida ?? 0);
+$sel = $old !== [] ? [
+    'instalacion_id' => $old['habitual_instalacion_id'] ?? 0, 'ubicacion_fisica_id' => $old['habitual_ubicacion_fisica_id'] ?? 0,
+    'nivel_id' => $old['habitual_nivel_id'] ?? 0, 'ala' => $old['habitual_ala'] ?? '', 'referencia' => $old['habitual_referencia'] ?? '',
+] : $sugerida;
 ?>
 <div class="card shadow border-0">
     <div class="card-body p-4">
@@ -30,9 +35,10 @@ $seleccion = (int) ($old['ubicacion_habitual_id'] ?? $ubicacionSugerida ?? 0);
 
             <div class="row g-3">
                 <div class="col-sm-7">
-                    <label for="email" class="form-label fw-semibold">Correo electrónico</label>
+                    <label for="email" class="form-label fw-semibold">Correo de la empresa</label>
                     <input type="email" class="form-control" id="email" name="email" value="<?= e($old['email'] ?? '') ?>"
-                           maxlength="150" autocomplete="email" required>
+                           maxlength="150" autocomplete="email" required placeholder="nombre@<?= e($dominios[0]) ?>">
+                    <div class="form-text">Te enviaremos un enlace para confirmarlo.</div>
                 </div>
                 <div class="col-sm-5">
                     <label for="telefono_ext" class="form-label fw-semibold">Teléfono / ext.</label>
@@ -40,17 +46,11 @@ $seleccion = (int) ($old['ubicacion_habitual_id'] ?? $ubicacionSugerida ?? 0);
                            maxlength="30" inputmode="tel" required>
                 </div>
                 <div class="col-12">
-                    <label for="ubicacion_habitual_id" class="form-label fw-semibold">¿Dónde trabajas normalmente?</label>
-                    <input type="search" class="form-control form-control-sm mb-1" placeholder="Buscar inmueble o gerencia…"
-                           data-filter-select="#ubicacion_habitual_id" aria-label="Buscar ubicación">
-                    <select class="form-select" id="ubicacion_habitual_id" name="ubicacion_habitual_id" size="5" required>
-                        <?php foreach ($ubicaciones as $u): ?>
-                            <option value="<?= e($u['id']) ?>" <?= $u['id'] === $seleccion ? 'selected' : '' ?>><?= e($u['etiqueta']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <?php if ($ubicacionSugerida !== null): ?>
-                        <div class="form-text">Preseleccionamos la ubicación de tu equipo en el GECA.</div>
-                    <?php endif; ?>
+                    <span class="form-label fw-semibold d-block">¿Dónde estás actualmente?</span>
+                    <?= partial('ubicacion_picker', [
+                        'catalogo' => $catalogo, 'prefijo' => 'habitual', 'sel' => $sel, 'requerido' => $hayCatalogo,
+                        'refPlaceholder' => 'Ej. cubículo 14, junto a recepción',
+                    ]) ?>
                 </div>
                 <div class="col-sm-6">
                     <label for="password" class="form-label fw-semibold">Contraseña</label>
@@ -78,7 +78,7 @@ $seleccion = (int) ($old['ubicacion_habitual_id'] ?? $ubicacionSugerida ?? 0);
             </div>
 
             <button type="submit" class="btn btn-primary w-100 mt-4">
-                <i class="bi bi-person-check me-1"></i>Activar mi cuenta
+                <i class="bi bi-envelope-check me-1"></i>Continuar y verificar mi correo
             </button>
         </form>
     </div>

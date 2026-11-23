@@ -146,6 +146,66 @@ final class Notifier
         }
     }
 
+    /** Aviso a los supervisores de la instalación habitual de un trabajador recién verificado. */
+    public static function usuarioRegistrado(int $usuarioId): void
+    {
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare(
+            'SELECT u.ficha, u.nombre, u.email, u.telefono_ext, u.jefe_nombre, u.habitual_ubicacion_fisica_id,
+                    u.habitual_nivel_id, u.habitual_ala, uf.instalacion_id
+               FROM usuarios u LEFT JOIN ubicaciones_fisicas uf ON uf.id = u.habitual_ubicacion_fisica_id
+              WHERE u.id = ?'
+        );
+        $stmt->execute([$usuarioId]);
+        $u = $stmt->fetch();
+        if (!$u || $u['instalacion_id'] === null) {
+            return;
+        }
+        $ubicacion = (new \App\Services\UbicacionFisicaService($pdo))->etiqueta(
+            (int) $u['habitual_ubicacion_fisica_id'],
+            $u['habitual_nivel_id'] !== null ? (int) $u['habitual_nivel_id'] : null,
+            $u['habitual_ala']
+        );
+        foreach (self::responsables((int) $u['instalacion_id']) as $email) {
+            self::queue(
+                $email,
+                "Nuevo registro: {$u['nombre']} (ficha {$u['ficha']})",
+                'Un trabajador activó su cuenta',
+                "{$u['nombre']} verificó su correo y se registró en una instalación a tu cargo.",
+                [
+                    'Ficha' => (string) $u['ficha'], 'Correo' => (string) $u['email'],
+                    'Extensión' => (string) ($u['telefono_ext'] ?? '—'), 'Jefe' => (string) ($u['jefe_nombre'] ?? '—'),
+                    'Ubicación' => $ubicacion,
+                ],
+                self::baseUrl() . '/ti/usuarios?q=' . rawurlencode((string) $u['ficha']) . '&estado=todos',
+                'Ver usuario'
+            );
+        }
+    }
+
+    /** Enlace de verificación de correo (envío inmediato: el usuario lo espera). */
+    public static function enlaceVerificacion(string $email, string $nombre, string $token): ?string
+    {
+        $mailer = self::mailer();
+        if (!$mailer->enabled()) {
+            return 'El envío de correos está desactivado; pide a Soporte TI que active tu cuenta.';
+        }
+        [$text, $html] = self::render(
+            'Confirma tu correo',
+            "Hola {$nombre}, abre el siguiente enlace para confirmar tu correo y activar tu cuenta. Vence en 24 horas y solo funciona una vez.",
+            ['Correo' => $email],
+            self::baseUrl() . '/verificar/' . $token,
+            'Confirmar mi correo'
+        );
+        try {
+            $mailer->send($email, 'Confirma tu correo — Mesa de Ayuda TI', $text, $html);
+            return null;
+        } catch (Throwable $e) {
+            error_log('[Correo] Verificación a ' . $email . ': ' . $e->getMessage());
+            return 'No pudimos enviar el correo de verificación. Inténtalo más tarde o avisa a Soporte TI.';
+        }
+    }
+
     /**
      * Envío inmediato (página de prueba). Devuelve null si salió bien o el error.
      */

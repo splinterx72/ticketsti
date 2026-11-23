@@ -25,6 +25,7 @@ use App\Controllers\ReporteController;
 use App\Controllers\TicketController;
 use App\Controllers\TiController;
 use App\Controllers\UsuarioController;
+use App\Controllers\VerificacionController;
 use App\Core\Autoloader;
 use App\Core\Auth;
 use App\Core\Csrf;
@@ -127,6 +128,11 @@ if (!$installMode) {
     $router->get('/registro/completar', [RegistroController::class, 'showCompletar']);
     $router->post('/registro/completar', [RegistroController::class, 'completar']);
 
+    // Verificación del correo de la empresa.
+    $router->get('/verificar-correo', [VerificacionController::class, 'show']);
+    $router->post('/verificar-correo', [VerificacionController::class, 'send']);
+    $router->get('/verificar/{token}', [VerificacionController::class, 'verify']);
+
     // Portal del trabajador.
     $router->get('/tickets', [TicketController::class, 'index']);
     $router->get('/tickets/nuevo', [TicketController::class, 'create']);
@@ -164,6 +170,7 @@ if (!$installMode) {
     $router->post('/ti/usuarios/correo-prueba', [UsuarioController::class, 'testMail']);
     $router->post('/ti/usuarios/{id}', [UsuarioController::class, 'update']);
     $router->post('/ti/usuarios/{id}/restablecer', [UsuarioController::class, 'resetPassword']);
+    $router->post('/ti/usuarios/{id}/verificar-correo', [UsuarioController::class, 'verifyEmail']);
 
     // Instalaciones, plantilla y equivalencias GECA (admin_ti).
     $router->get('/ti/instalaciones', [InstalacionController::class, 'index']);

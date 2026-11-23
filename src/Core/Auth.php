@@ -30,7 +30,8 @@ final class Auth
         }
 
         $stmt = Database::getInstance()->prepare(
-            'SELECT id, ficha, nombre, email, rol, registrado, activo
+            'SELECT id, ficha, nombre, email, rol, registrado, activo, telefono_ext, email_verificado_en,
+                    admin_local_cambiado_en, habitual_ubicacion_fisica_id, habitual_nivel_id, habitual_ala
                FROM usuarios WHERE id = ? LIMIT 1'
         );
         $stmt->execute([$id]);
@@ -42,6 +43,19 @@ final class Auth
         }
 
         return self::$cached = $user;
+    }
+
+    /** El usuario con sesión aún no verifica su correo de la empresa (spec 7.6 bis). */
+    public static function requiereVerificacion(): bool
+    {
+        $user = self::user();
+        return $user !== null && $user['email_verificado_en'] === null;
+    }
+
+    /** Olvida el usuario en caché (tras cambiar sus datos en la misma petición). */
+    public static function refrescar(): void
+    {
+        self::$cached = false;
     }
 
     public static function id(): ?int

@@ -603,15 +603,17 @@ final class Installer
         }
 
         $stmt = $pdo->prepare(
-            "INSERT INTO usuarios (ficha, nombre, email, password_hash, rol, registrado, activo)
-             VALUES (?, ?, ?, ?, 'admin_ti', 1, 1)
+            "INSERT INTO usuarios (ficha, nombre, email, password_hash, rol, registrado, activo, email_verificado_en, admin_local_cambiado_en)
+             VALUES (?, ?, ?, ?, 'admin_ti', 1, 1, NOW(), CURDATE())
              ON DUPLICATE KEY UPDATE
                  id = LAST_INSERT_ID(id),
                  email = VALUES(email),
                  password_hash = VALUES(password_hash),
                  rol = 'admin_ti',
                  registrado = 1,
-                 activo = 1"
+                 activo = 1,
+                 email_verificado_en = NOW(),
+                 admin_local_cambiado_en = COALESCE(admin_local_cambiado_en, CURDATE())"
         );
         $stmt->execute([$admin['ficha'], $admin['nombre'], $admin['email'], $admin['password_hash']]);
         return (int) $pdo->lastInsertId();
@@ -695,6 +697,10 @@ return [
             'password'   => '',
             'timeout'    => 10,
         ],
+    ],
+
+    'registro' => [
+        'dominios_permitidos' => ['pemex.com'],
     ],
 
     'security' => [

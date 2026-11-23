@@ -42,6 +42,10 @@ abstract class Controller
             Session::flash('warning', 'Inicia sesión para continuar.');
             redirect('/login');
         }
+        // Correo de la empresa sin verificar (spec 7.6 bis): solo puede verificarlo.
+        if (Auth::requiereVerificacion()) {
+            redirect('/verificar-correo');
+        }
     }
 
     /** @param list<string> $roles */

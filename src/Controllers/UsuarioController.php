@@ -62,6 +62,7 @@ final class UsuarioController extends Controller
 
         $stmt = $pdo->prepare(
             "SELECT u.id, u.ficha, u.nombre, u.email, u.telefono_ext, u.rol, u.registrado, u.activo, u.actualizado_en,
+                    u.email_verificado_en, (u.password_hash IS NOT NULL) AS tiene_password,
                     (SELECT COUNT(*) FROM equipos e WHERE e.usuario_id = u.id AND e.vigente_en_geca = 1) AS equipos
                FROM usuarios u WHERE {$whereSql}
               ORDER BY FIELD(u.rol, 'admin_ti', 'supervisor', 'agente_ti', 'usuario'), u.nombre
@@ -136,6 +137,30 @@ final class UsuarioController extends Controller
             ->execute([password_hash($temporal, PASSWORD_DEFAULT), $id]);
 
         Session::flash('warning', "Contraseña temporal de {$target['nombre']} (ficha {$target['ficha']}): {$temporal} — compártela en persona y pídele que la cambie en \"Mi cuenta\". No se volverá a mostrar.");
+        redirect($this->back());
+    }
+
+    /**
+     * Respaldo cuando el correo de verificación no llega (spec 7.6 bis): el
+     * admin confirma el correo en persona. Activa la cuenta si ya capturó
+     * contraseña en el registro.
+     */
+    public function verifyEmail(int $id): void
+    {
+        $this->requireRole(['admin_ti']);
+        $this->verifyCsrf();
+        $stmt = Database::getInstance()->prepare('SELECT nombre, email, password_hash FROM usuarios WHERE id = ?');
+        $stmt->execute([$id]);
+        $u = $stmt->fetch();
+        if (!$u) {
+            throw new HttpException(404, 'El usuario no existe.');
+        }
+        if ($u['email'] === null || $u['password_hash'] === null) {
+            Session::flash('warning', 'Esa ficha aún no completa su registro (correo y contraseña).');
+            redirect($this->back());
+        }
+        Database::getInstance()->prepare('UPDATE usuarios SET email_verificado_en = NOW(), registrado = 1 WHERE id = ?')->execute([$id]);
+        Session::flash('success', "Correo {$u['email']} marcado como verificado para {$u['nombre']}.");
         redirect($this->back());
     }
 
