@@ -5,6 +5,7 @@
  * @var array<string, int> $resumen
  * @var list<array<string, mixed>> $estados
  * @var list<array<string, mixed>> $departamentos
+ * @var list<array<string, mixed>> $instalaciones
  * @var int $page
  * @var int $pages
  * @var int $total
@@ -13,6 +14,7 @@ $vistas = [
     'abiertos'      => ['Abiertos', $resumen['abiertos'] ?? 0, 'bi-inbox'],
     'mios'          => ['Asignados a mí', $resumen['mios'] ?? 0, 'bi-person-check'],
     'sin_asignar'   => ['Sin asignar', $resumen['sin_asignar'] ?? 0, 'bi-person-dash'],
+    'sin_instalacion' => ['Sin instalación', $resumen['sin_instalacion'] ?? 0, 'bi-question-circle'],
     'discrepancias' => ['Discrepancias', $resumen['discrepancias'] ?? 0, 'bi-geo-alt'],
     'cerrados'      => ['Cerrados', null, 'bi-archive'],
     'todos'         => ['Todos', null, 'bi-list'],
@@ -40,6 +42,17 @@ $vistas = [
 <form method="get" action="<?= e(url('/ti/tickets')) ?>" class="card border-0 shadow-sm mb-3">
     <input type="hidden" name="vista" value="<?= e($filtros['vista']) ?>">
     <div class="card-body row g-2 align-items-end">
+        <?php if (count($instalaciones) > 1): ?>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label small mb-1" for="inst">Instalación</label>
+                <select class="form-select form-select-sm" id="inst" name="inst">
+                    <option value="0">Todas las mías</option>
+                    <?php foreach ($instalaciones as $i): ?>
+                        <option value="<?= e($i['id']) ?>" <?= (int) $i['id'] === $filtros['inst'] ? 'selected' : '' ?>><?= e($i['nombre']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        <?php endif; ?>
         <div class="col-12 col-lg-3">
             <label class="form-label small mb-1" for="q">Buscar</label>
             <input type="search" class="form-control form-control-sm" id="q" name="q" value="<?= e($filtros['q']) ?>"
@@ -110,7 +123,7 @@ $vistas = [
                         <td class="subject-cell">
                             <a href="<?= e(url('/tickets/' . (int) $t['id'])) ?>" class="fw-semibold text-body text-decoration-none d-block text-truncate"><?= e($t['titulo']) ?></a>
                             <div class="small text-body-secondary text-truncate">
-                                <?= e(tipo_label($t['tipo_ticket'])) ?> · <?= e($t['departamento_nombre']) ?>
+                                <?= e($t['instalacion_nombre'] ?? 'Sin instalación') ?> · <?= e(tipo_label($t['tipo_ticket'])) ?>
                                 <?php if ($t['serie'] !== null): ?> · <span class="font-monospace"><?= e($t['serie']) ?></span><?php endif; ?>
                                 <?php if ((int) $t['discrepancia_ubicacion'] === 1): ?> · <span class="text-warning-emphasis"><i class="bi bi-geo-alt"></i> discrepancia</span><?php endif; ?>
                             </div>

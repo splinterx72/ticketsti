@@ -10,6 +10,7 @@ use App\Core\Auth;
 use App\Core\HttpException;
 use App\Core\Session;
 use App\Core\ValidationException;
+use App\Services\Alcance;
 use App\Services\Catalog;
 use App\Services\Mail\Notifier;
 use App\Services\TicketService;
@@ -34,9 +35,10 @@ final class TiController extends Controller
             'depto'  => (int) ($_GET['depto'] ?? 0),
             'tipo'   => (string) ($_GET['tipo'] ?? ''),
             'prioridad' => (string) ($_GET['prioridad'] ?? ''),
+            'inst'   => (int) ($_GET['inst'] ?? 0),
             'q'      => trim((string) ($_GET['q'] ?? '')),
         ];
-        if (!in_array($f['vista'], ['abiertos', 'mios', 'sin_asignar', 'discrepancias', 'cerrados', 'todos'], true)) {
+        if (!in_array($f['vista'], ['abiertos', 'mios', 'sin_asignar', 'sin_instalacion', 'discrepancias', 'cerrados', 'todos'], true)) {
             $f['vista'] = 'abiertos';
         }
         if (!array_key_exists($f['tipo'], Catalog::TIPOS)) {
@@ -47,8 +49,16 @@ final class TiController extends Controller
         }
         $f['q'] = mb_substr($f['q'], 0, 60);
 
-        $where = ['1 = 1'];
-        $params = [];
+        // Alcance (spec 7.3): cada quien ve las instalaciones donde está cargado.
+        $alcance = new Alcance($pdo);
+        $user = Auth::user();
+        [$scopeSql, $scopeParams] = $alcance->filtroTicketsSql($user, 't');
+        $misInstalaciones = $alcance->instalacionesDe($me);
+        if ($f['inst'] > 0 && !in_array($f['inst'], $misInstalaciones, true)) {
+            $f['inst'] = 0;
+        }
+        $where = [$scopeSql];
+        $params = $scopeParams;
         switch ($f['vista']) {
             case 'abiertos':
                 $where[] = 'es.es_cierre = 0';
@@ -59,6 +69,9 @@ final class TiController extends Controller
                 break;
             case 'sin_asignar':
                 $where[] = 'es.es_cierre = 0 AND t.agente_asignado_id IS NULL';
+                break;
+            case 'sin_instalacion':
+                $where[] = 'es.es_cierre = 0 AND t.instalacion_id IS NULL';
                 break;
             case 'discrepancias':
                 $where[] = 'es.es_cierre = 0 AND t.discrepancia_ubicacion = 1';
@@ -83,6 +96,10 @@ final class TiController extends Controller
             $where[] = 't.prioridad = ?';
             $params[] = $f['prioridad'];
         }
+        if ($f['inst'] > 0) {
+            $where[] = 't.instalacion_id = ?';
+            $params[] = $f['inst'];
+        }
         if ($f['q'] !== '') {
             $where[] = '(t.folio LIKE ? OR t.titulo LIKE ? OR s.nombre LIKE ? OR s.ficha = ? OR e.serie LIKE ? OR t.hostname_reportado LIKE ?)';
             $like = '%' . addcslashes($f['q'], '%_\\') . '%';
@@ -94,7 +111,8 @@ final class TiController extends Controller
                  JOIN usuarios s ON s.id = t.usuario_solicitante_id
                  JOIN departamentos d ON d.id = t.departamento_id
                  LEFT JOIN usuarios a ON a.id = t.agente_asignado_id
-                 LEFT JOIN equipos e ON e.id = t.equipo_id';
+                 LEFT JOIN equipos e ON e.id = t.equipo_id
+                 LEFT JOIN instalaciones inst ON inst.id = t.instalacion_id';
 
         $count = $pdo->prepare("SELECT COUNT(*) {$from} WHERE {$whereSql}");
         $count->execute($params);
@@ -106,7 +124,8 @@ final class TiController extends Controller
                     t.discrepancia_ubicacion, t.componente_afectado, t.agente_asignado_id,
                     es.nombre AS estado_nombre, es.color_hex AS estado_color, es.es_cierre,
                     s.nombre AS solicitante_nombre, s.ficha AS solicitante_ficha,
-                    d.nombre AS departamento_nombre, a.nombre AS agente_nombre, e.serie
+                    d.nombre AS departamento_nombre, a.nombre AS agente_nombre, e.serie,
+                    inst.nombre AS instalacion_nombre
              {$from}
              WHERE {$whereSql}
              ORDER BY es.es_cierre ASC,
@@ -122,10 +141,19 @@ final class TiController extends Controller
                 SUM(es.es_cierre = 0 AND t.agente_asignado_id IS NULL) AS sin_asignar,
                 SUM(es.es_cierre = 0 AND t.agente_asignado_id = ?) AS mios,
                 SUM(es.es_cierre = 0 AND t.discrepancia_ubicacion = 1) AS discrepancias,
-                SUM(es.es_cierre = 0 AND t.prioridad IN ('alta', 'critica')) AS urgentes
-               FROM tickets t JOIN estados es ON es.id = t.estado_id"
+                SUM(es.es_cierre = 0 AND t.prioridad IN ('alta', 'critica')) AS urgentes,
+                SUM(es.es_cierre = 0 AND t.instalacion_id IS NULL) AS sin_instalacion
+               FROM tickets t JOIN estados es ON es.id = t.estado_id
+              WHERE {$scopeSql}"
         );
-        $resumen->execute([$me]);
+        $resumen->execute([$me, ...$scopeParams]);
+
+        $instalaciones = [];
+        if ($misInstalaciones !== []) {
+            $st = $pdo->prepare('SELECT id, nombre FROM instalaciones WHERE id IN (' . implode(',', array_fill(0, count($misInstalaciones), '?')) . ') ORDER BY nombre');
+            $st->execute($misInstalaciones);
+            $instalaciones = $st->fetchAll();
+        }
 
         $this->view('ti/bandeja', [
             'title'    => 'Bandeja de TI',
@@ -134,6 +162,7 @@ final class TiController extends Controller
             'resumen'  => array_map('intval', $resumen->fetch() ?: []),
             'estados'  => Catalog::estados(),
             'departamentos' => Catalog::departamentos(),
+            'instalaciones' => $instalaciones,
             'page'     => $page,
             'pages'    => $pages,
             'total'    => $total,
@@ -146,7 +175,7 @@ final class TiController extends Controller
         $this->verifyCsrf();
         $service = new TicketService(Database::getInstance());
         $ticket = $service->find($id);
-        if ($ticket === null) {
+        if (!TicketController::acceso(Auth::user(), $ticket)[1]) {
             throw new HttpException(404, 'El ticket solicitado no existe.');
         }
 
@@ -181,7 +210,7 @@ final class TiController extends Controller
         $this->verifyCsrf();
         $service = new TicketService(Database::getInstance());
         $ticket = $service->find($id);
-        if ($ticket === null) {
+        if (!TicketController::acceso(Auth::user(), $ticket)[1]) {
             throw new HttpException(404, 'El ticket solicitado no existe.');
         }
 

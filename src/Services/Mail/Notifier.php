@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Mail;
 
 use App\Config\Database;
+use App\Services\Alcance;
 use App\Services\TicketService;
 use Throwable;
 
@@ -52,7 +53,7 @@ final class Notifier
         if ((int) $t['discrepancia_ubicacion'] === 1) {
             $detalle['Atención'] = 'La ubicación física reportada no coincide con la del GECA.';
         }
-        foreach (self::equipoTi() as $email) {
+        foreach (self::avisoTicketNuevo($t['instalacion_id'] !== null ? (int) $t['instalacion_id'] : null) as $email) {
             if (strcasecmp($email, (string) $t['solicitante_email']) === 0) {
                 continue;
             }
@@ -82,7 +83,9 @@ final class Notifier
 
         if ($autorId === (int) $t['usuario_solicitante_id']) {
             // El usuario respondió: avisar al agente asignado o al equipo TI.
-            $destinos = $t['agente_email'] !== null ? [(string) $t['agente_email']] : self::equipoTi();
+            $destinos = $t['agente_email'] !== null
+                ? [(string) $t['agente_email']]
+                : self::responsables($t['instalacion_id'] !== null ? (int) $t['instalacion_id'] : null);
             foreach ($destinos as $email) {
                 self::queue(
                     $email,
@@ -296,21 +299,75 @@ final class Notifier
         return $datos;
     }
 
-    /** @return list<string> */
-    private static function equipoTi(): array
+    /**
+     * Ticket nuevo (spec 7.7): supervisores vigentes de la instalación +
+     * mesa de ayuda institucional (Remedy) + lista fija notify_new_tickets_to.
+     * Sin instalación (catálogo aún vacío): todo el personal de TI.
+     *
+     * @return list<string>
+     */
+    private static function avisoTicketNuevo(?int $instalacionId): array
     {
-        $fijos = array_values(array_filter(
-            array_map(static fn (mixed $e): string => Mailer::cleanAddress((string) $e), (array) config('mail.notify_new_tickets_to', [])),
-            static fn (string $e): bool => $e !== ''
-        ));
-        if ($fijos !== []) {
-            return $fijos;
+        $destinos = self::responsables($instalacionId);
+        $destinos[] = Mailer::cleanAddress((string) config('mail.mesa_institucional', ''));
+        foreach ((array) config('mail.notify_new_tickets_to', []) as $e) {
+            $destinos[] = Mailer::cleanAddress((string) $e);
+        }
+        return self::unicos($destinos);
+    }
+
+    /**
+     * Responsables de una instalación: sus supervisores vigentes. Sin
+     * instalación, todo el personal de TI activo.
+     *
+     * @return list<string>
+     */
+    private static function responsables(?int $instalacionId): array
+    {
+        if ($instalacionId !== null) {
+            $emails = array_map(
+                static fn (array $s): string => (string) $s['email'],
+                (new Alcance(Database::getInstance()))->supervisoresDe($instalacionId)
+            );
+            return self::unicos($emails);
         }
         $rows = Database::getInstance()->query(
             "SELECT email FROM usuarios
               WHERE rol IN ('agente_ti', 'supervisor', 'admin_ti') AND registrado = 1 AND activo = 1 AND email IS NOT NULL"
         )->fetchAll(\PDO::FETCH_COLUMN);
-        return array_values(array_map('strval', $rows));
+        return self::unicos(array_map('strval', $rows));
+    }
+
+    /**
+     * @param list<string> $emails
+     * @return list<string>
+     */
+    private static function unicos(array $emails): array
+    {
+        $out = [];
+        foreach ($emails as $e) {
+            $e = Mailer::cleanAddress($e);
+            if ($e !== '') {
+                $out[strtolower($e)] = $e;
+            }
+        }
+        return array_values($out);
+    }
+
+    /**
+     * Mensajes encolados aún no enviados (se envían al terminar la petición).
+     *
+     * @return list<array{to: string, subject: string}>
+     */
+    public static function cola(): array
+    {
+        return array_map(static fn (array $m): array => ['to' => $m['to'], 'subject' => $m['subject']], self::$queue);
+    }
+
+    /** Descarta la cola sin enviar (uso en pruebas y tras un rollback). */
+    public static function reiniciarCola(): void
+    {
+        self::$queue = [];
     }
 
     private static function ticketUrl(int $id): string

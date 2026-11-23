@@ -100,9 +100,10 @@
     var ticketForm = document.getElementById('ticketForm');
     if (ticketForm) {
         var equipo = document.getElementById('equipo_id');
-        var ubicacion = document.getElementById('ubicacion_reportada_id');
+        var picker = ticketForm.querySelector('.ubicacion-picker');
         var hostname = document.getElementById('hostname_reportado');
         var aviso = document.getElementById('discrepanciaAviso');
+        var gecaInfo = document.getElementById('gecaInfo');
         var monitorInfo = document.getElementById('monitorInfo');
         var equipoOnly = ticketForm.querySelectorAll('.equipo-only');
 
@@ -110,9 +111,14 @@
 
         var refreshDiscrepancia = function () {
             var opt = selected();
-            var geca = opt ? opt.getAttribute('data-geca') : '';
-            var show = equipo.value !== '0' && geca && ubicacion.value && ubicacion.value !== geca;
-            aviso.classList.toggle('d-none', !show);
+            var gecaInst = opt ? opt.getAttribute('data-geca-inst') : '';
+            var actual = picker && picker.ubicacionPicker ? picker.ubicacionPicker.instalacion() : '';
+            var show = equipo.value !== '0' && gecaInst && actual && actual !== gecaInst;
+            if (aviso) { aviso.classList.toggle('d-none', !show); }
+            if (gecaInfo) {
+                var geca = opt && equipo.value !== '0' ? opt.getAttribute('data-geca') : '';
+                gecaInfo.textContent = geca ? 'En el resguardo GECA figura en: ' + geca : '';
+            }
         };
 
         var refreshEquipo = function (moveUbicacion) {
@@ -124,32 +130,36 @@
             var m2 = opt ? opt.getAttribute('data-m2') : '';
             var r1 = document.getElementById('comp_monitor_1');
             var r2 = document.getElementById('comp_monitor_2');
-            r1.disabled = !m1; r2.disabled = !m2;
-            document.querySelector('label[for="comp_monitor_1"]').classList.toggle('d-none', !m1);
-            document.querySelector('label[for="comp_monitor_2"]').classList.toggle('d-none', !m2);
-            if ((r1.checked && !m1) || (r2.checked && !m2)) {
-                document.getElementById('comp_equipo').checked = true;
+            if (r1 && r2) {
+                r1.disabled = !m1; r2.disabled = !m2;
+                document.querySelector('label[for="comp_monitor_1"]').classList.toggle('d-none', !m1);
+                document.querySelector('label[for="comp_monitor_2"]').classList.toggle('d-none', !m2);
+                if ((r1.checked && !m1) || (r2.checked && !m2)) {
+                    document.getElementById('comp_equipo').checked = true;
+                }
+                if (!hasEquipo) {
+                    document.getElementById('comp_general').checked = true;
+                }
             }
-            if (!hasEquipo) {
-                document.getElementById('comp_general').checked = true;
+            if (monitorInfo) {
+                monitorInfo.textContent = hasEquipo && (m1 || m2)
+                    ? 'Monitores casados: ' + [m1 && ('1: ' + m1), m2 && ('2: ' + m2)].filter(Boolean).join(' · ')
+                    : (hasEquipo ? 'Este equipo no tiene monitores registrados en el GECA.' : '');
             }
-            monitorInfo.textContent = hasEquipo && (m1 || m2)
-                ? 'Monitores casados: ' + [m1 && ('1: ' + m1), m2 && ('2: ' + m2)].filter(Boolean).join(' · ')
-                : (hasEquipo ? 'Este equipo no tiene monitores registrados en el GECA.' : '');
-
             if (hostname) {
                 hostname.placeholder = hasEquipo && opt ? 'PMxxx' + opt.getAttribute('data-serie') : 'PMxxx + serie';
             }
-            if (moveUbicacion && hasEquipo && opt && opt.getAttribute('data-ubicacion')) {
-                ubicacion.value = opt.getAttribute('data-ubicacion');
-                var sel = ubicacion.selectedOptions[0];
-                if (sel) { sel.hidden = false; sel.scrollIntoView({ block: 'nearest' }); }
+            if (moveUbicacion && hasEquipo && opt && opt.getAttribute('data-ub') && picker && picker.ubicacionPicker) {
+                picker.ubicacionPicker.set(opt.getAttribute('data-ub'), opt.getAttribute('data-niv'), opt.getAttribute('data-ala'));
             }
             refreshDiscrepancia();
         };
 
-        equipo.addEventListener('change', function () { refreshEquipo(true); });
-        ubicacion.addEventListener('change', refreshDiscrepancia);
+        if (equipo) {
+            equipo.addEventListener('change', function () { refreshEquipo(true); });
+            if (picker) { picker.addEventListener('ubicacion:change', refreshDiscrepancia); }
+            refreshEquipo(false);
+        }
         if (hostname) {
             hostname.addEventListener('input', function () {
                 var pos = hostname.selectionStart;
@@ -157,8 +167,6 @@
                 hostname.setSelectionRange(pos, pos);
             });
         }
-        refreshEquipo(false);
-        if (ubicacion.selectedOptions[0]) { ubicacion.selectedOptions[0].scrollIntoView({ block: 'nearest' }); }
     }
 
     // ------------------------------------------------------------------

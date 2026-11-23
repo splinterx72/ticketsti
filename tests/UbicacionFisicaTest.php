@@ -6,28 +6,6 @@ use App\Core\ValidationException;
 use App\Services\AsignacionService;
 use App\Services\UbicacionFisicaService;
 
-function nivel_id(string $nombre): int
-{
-    return (int) scalar('SELECT id FROM niveles WHERE nombre = ?', [$nombre]);
-}
-
-/** Crea los dos ejemplos reales del usuario. @return array{km: int, laguna: int, holkanaab: int, carga: int} */
-function ejemplos_usuario(): array
-{
-    $svc = new UbicacionFisicaService(test_pdo());
-    $km = $svc->guardarInstalacion(null, 'Zona Industrial Km 4.5');
-    $laguna = $svc->guardarInstalacion(null, 'Zona Industrial Laguna Azul');
-    $holkanaab = $svc->guardarUbicacion($km, null, [
-        'nombre' => 'Edificio Holkanaab', 'tipo_id' => (string) scalar("SELECT id FROM ubicacion_tipos WHERE nombre = 'Edificio'"),
-        'indicaciones' => '', 'niveles' => [nivel_id('PB'), nivel_id('1'), nivel_id('2')], 'alas' => ['norte', 'sur'],
-    ]);
-    $carga = $svc->guardarUbicacion($laguna, null, [
-        'nombre' => 'Area de Carga', 'tipo_id' => '', 'niveles' => [], 'alas' => [],
-        'indicaciones' => 'Es necesario contar con botas de trabajo y todo el equipo de seguridad',
-    ]);
-    return ['km' => $km, 'laguna' => $laguna, 'holkanaab' => $holkanaab, 'carga' => $carga];
-}
-
 function test_ejemplos_del_usuario(): void
 {
     $e = ejemplos_usuario();

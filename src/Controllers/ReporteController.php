@@ -6,6 +6,8 @@ namespace App\Controllers;
 
 use App\Core\Roles;
 use App\Config\Database;
+use App\Core\Auth;
+use App\Services\Alcance;
 use App\Services\Catalog;
 use App\Services\GarantiaService;
 use DateTimeImmutable;
@@ -24,18 +26,19 @@ final class ReporteController extends Controller
         [$desde, $hasta] = $this->rango();
         $pdo = Database::getInstance();
         $p = [$desde . ' 00:00:00', $hasta . ' 23:59:59'];
+        [$sc, $instalaciones, $instSel] = $this->alcance();
 
         $kpi = $pdo->prepare(
-            'SELECT
-                (SELECT COUNT(*) FROM tickets WHERE creado_en BETWEEN ? AND ?) AS creados,
-                (SELECT COUNT(*) FROM tickets WHERE cerrado_en BETWEEN ? AND ?) AS cerrados,
-                (SELECT AVG(TIMESTAMPDIFF(MINUTE, creado_en, cerrado_en)) FROM tickets WHERE cerrado_en BETWEEN ? AND ?) AS min_resolucion,
-                (SELECT COUNT(*) FROM tickets WHERE creado_en BETWEEN ? AND ? AND discrepancia_ubicacion = 1) AS discrepancias'
+            "SELECT
+                (SELECT COUNT(*) FROM tickets t WHERE t.creado_en BETWEEN ? AND ?{$sc}) AS creados,
+                (SELECT COUNT(*) FROM tickets t WHERE t.cerrado_en BETWEEN ? AND ?{$sc}) AS cerrados,
+                (SELECT AVG(TIMESTAMPDIFF(MINUTE, t.creado_en, t.cerrado_en)) FROM tickets t WHERE t.cerrado_en BETWEEN ? AND ?{$sc}) AS min_resolucion,
+                (SELECT COUNT(*) FROM tickets t WHERE t.creado_en BETWEEN ? AND ? AND t.discrepancia_ubicacion = 1{$sc}) AS discrepancias"
         );
         $kpi->execute([...$p, ...$p, ...$p, ...$p]);
         $kpis = $kpi->fetch() ?: [];
         $abiertos = (int) $pdo->query(
-            'SELECT COUNT(*) FROM tickets t JOIN estados es ON es.id = t.estado_id WHERE es.es_cierre = 0'
+            "SELECT COUNT(*) FROM tickets t JOIN estados es ON es.id = t.estado_id WHERE es.es_cierre = 0{$sc}"
         )->fetchColumn();
 
         $grupo = function (string $sql) use ($pdo, $p): array {
@@ -46,58 +49,74 @@ final class ReporteController extends Controller
 
         $porTipo = array_map(
             static fn (array $r): array => ['etiqueta' => tipo_label((string) $r['clave']), 'total' => (int) $r['total']],
-            $grupo('SELECT tipo_ticket AS clave, COUNT(*) AS total FROM tickets WHERE creado_en BETWEEN ? AND ? GROUP BY tipo_ticket ORDER BY total DESC')
+            $grupo("SELECT t.tipo_ticket AS clave, COUNT(*) AS total FROM tickets t WHERE t.creado_en BETWEEN ? AND ?{$sc} GROUP BY t.tipo_ticket ORDER BY total DESC")
         );
         $porDepto = $grupo(
-            'SELECT d.nombre AS etiqueta, COUNT(*) AS total
+            "SELECT d.nombre AS etiqueta, COUNT(*) AS total
                FROM tickets t JOIN departamentos d ON d.id = t.departamento_id
-              WHERE t.creado_en BETWEEN ? AND ? GROUP BY d.id, d.nombre ORDER BY total DESC'
+              WHERE t.creado_en BETWEEN ? AND ?{$sc} GROUP BY d.id, d.nombre ORDER BY total DESC"
+        );
+        $porInstalacion = $grupo(
+            "SELECT COALESCE(i.nombre, 'Sin instalación') AS etiqueta, COUNT(*) AS total
+               FROM tickets t LEFT JOIN instalaciones i ON i.id = t.instalacion_id
+              WHERE t.creado_en BETWEEN ? AND ?{$sc} GROUP BY i.id, i.nombre ORDER BY total DESC"
         );
         $porComponente = array_map(
             static fn (array $r): array => ['etiqueta' => componente_label((string) $r['clave']), 'total' => (int) $r['total']],
-            $grupo('SELECT componente_afectado AS clave, COUNT(*) AS total FROM tickets WHERE creado_en BETWEEN ? AND ? GROUP BY componente_afectado ORDER BY total DESC')
+            $grupo("SELECT t.componente_afectado AS clave, COUNT(*) AS total FROM tickets t WHERE t.creado_en BETWEEN ? AND ?{$sc} GROUP BY t.componente_afectado ORDER BY total DESC")
         );
         $porPrioridad = array_map(
             static fn (array $r): array => ['etiqueta' => Catalog::PRIORIDADES[$r['clave']] ?? (string) $r['clave'], 'total' => (int) $r['total']],
-            $grupo("SELECT prioridad AS clave, COUNT(*) AS total FROM tickets WHERE creado_en BETWEEN ? AND ?
-                     GROUP BY prioridad ORDER BY FIELD(prioridad, 'critica', 'alta', 'media', 'baja')")
+            $grupo("SELECT t.prioridad AS clave, COUNT(*) AS total FROM tickets t WHERE t.creado_en BETWEEN ? AND ?{$sc}
+                     GROUP BY t.prioridad ORDER BY FIELD(t.prioridad, 'critica', 'alta', 'media', 'baja')")
         );
 
         $estadoActual = $pdo->query(
-            'SELECT es.nombre AS etiqueta, es.color_hex, COUNT(t.id) AS total
-               FROM estados es LEFT JOIN tickets t ON t.estado_id = es.id
+            "SELECT es.nombre AS etiqueta, es.color_hex, COUNT(t.id) AS total
+               FROM estados es LEFT JOIN tickets t ON t.estado_id = es.id{$sc}
               WHERE es.es_cierre = 0
-              GROUP BY es.id, es.nombre, es.color_hex ORDER BY es.id'
+              GROUP BY es.id, es.nombre, es.color_hex ORDER BY es.id"
         )->fetchAll();
 
+        // Tablero de agentes: el admin ve a todo TI; el supervisor, a sus agentes y a sí mismo.
+        $user = Auth::user();
+        $agenteFiltro = '';
+        if (!(new Alcance($pdo))->veTodo($user)) {
+            $ids = array_column((new Alcance($pdo))->agentesDe((int) $user['id']), 'id');
+            $ids[] = (int) $user['id'];
+            $agenteFiltro = ' AND u.id IN (' . implode(',', array_map('intval', $ids)) . ')';
+        }
         $agentes = $pdo->prepare(
             "SELECT u.id, u.nombre,
                     (SELECT COUNT(*) FROM tickets t JOIN estados es ON es.id = t.estado_id
-                      WHERE t.agente_asignado_id = u.id AND es.es_cierre = 0) AS abiertos,
-                    (SELECT COUNT(*) FROM tickets t WHERE t.agente_asignado_id = u.id AND t.cerrado_en BETWEEN ? AND ?) AS cerrados,
+                      WHERE t.agente_asignado_id = u.id AND es.es_cierre = 0{$sc}) AS abiertos,
+                    (SELECT COUNT(*) FROM tickets t WHERE t.agente_asignado_id = u.id AND t.cerrado_en BETWEEN ? AND ?{$sc}) AS cerrados,
                     (SELECT AVG(TIMESTAMPDIFF(MINUTE, t.creado_en, t.cerrado_en)) FROM tickets t
-                      WHERE t.agente_asignado_id = u.id AND t.cerrado_en BETWEEN ? AND ?) AS min_resolucion,
-                    (SELECT COUNT(*) FROM comentarios c WHERE c.usuario_id = u.id AND c.creado_en BETWEEN ? AND ?
-                        AND c.mensaje NOT LIKE '[Sistema]%') AS respuestas
+                      WHERE t.agente_asignado_id = u.id AND t.cerrado_en BETWEEN ? AND ?{$sc}) AS min_resolucion,
+                    (SELECT COUNT(*) FROM comentarios c JOIN tickets t ON t.id = c.ticket_id
+                      WHERE c.usuario_id = u.id AND c.creado_en BETWEEN ? AND ?
+                        AND c.mensaje NOT LIKE '[Sistema]%'{$sc}) AS respuestas
                FROM usuarios u
-              WHERE u.rol IN ('agente_ti', 'supervisor', 'admin_ti') AND u.registrado = 1 AND u.activo = 1
+              WHERE u.rol IN ('agente_ti', 'supervisor', 'admin_ti') AND u.registrado = 1 AND u.activo = 1{$agenteFiltro}
               ORDER BY cerrados DESC, abiertos DESC, u.nombre"
         );
         $agentes->execute([...$p, ...$p, ...$p]);
 
         $topEquipos = $grupo(
-            'SELECT e.id, e.serie, e.marca, e.modelo, COUNT(*) AS total
+            "SELECT e.id, e.serie, e.marca, e.modelo, COUNT(*) AS total
                FROM tickets t JOIN equipos e ON e.id = t.equipo_id
-              WHERE t.creado_en BETWEEN ? AND ? AND t.tipo_ticket <> \'actualizacion_ubicacion\'
+              WHERE t.creado_en BETWEEN ? AND ? AND t.tipo_ticket <> 'actualizacion_ubicacion'{$sc}
               GROUP BY e.id, e.serie, e.marca, e.modelo
               HAVING total > 1
-              ORDER BY total DESC LIMIT 10'
+              ORDER BY total DESC LIMIT 10"
         );
 
         $this->view('reportes/index', [
             'title'    => 'Reportes',
             'desde'    => $desde,
             'hasta'    => $hasta,
+            'instalaciones' => $instalaciones,
+            'instSel'  => $instSel,
             'kpis'     => [
                 'creados'        => (int) ($kpis['creados'] ?? 0),
                 'cerrados'       => (int) ($kpis['cerrados'] ?? 0),
@@ -107,6 +126,7 @@ final class ReporteController extends Controller
             ],
             'porTipo'       => $porTipo,
             'porDepto'      => array_map(static fn (array $r): array => ['etiqueta' => (string) $r['etiqueta'], 'total' => (int) $r['total']], $porDepto),
+            'porInstalacion' => array_map(static fn (array $r): array => ['etiqueta' => (string) $r['etiqueta'], 'total' => (int) $r['total']], $porInstalacion),
             'porComponente' => $porComponente,
             'porPrioridad'  => $porPrioridad,
             'estadoActual'  => $estadoActual,
@@ -114,6 +134,38 @@ final class ReporteController extends Controller
             'topEquipos'    => $topEquipos,
             'garantias'     => (new GarantiaService($pdo))->resumen(),
         ]);
+    }
+
+    /**
+     * Filtro de instalación para las consultas de reportes (spec 7.3): el
+     * admin ve todo; los demás, sus instalaciones vigentes. Los ids son
+     * enteros obtenidos de la BD, por eso van en línea con intval().
+     *
+     * @return array{0: string, 1: list<array{id: int, nombre: string}>, 2: int}
+     */
+    private function alcance(): array
+    {
+        $pdo = Database::getInstance();
+        $user = Auth::user();
+        $alcance = new Alcance($pdo);
+        $ids = $alcance->instalacionesDe((int) $user['id']);
+        $veTodo = $alcance->veTodo($user);
+
+        $instalaciones = [];
+        if ($ids !== []) {
+            $instalaciones = $pdo->query(
+                'SELECT id, nombre FROM instalaciones WHERE id IN (' . implode(',', array_map('intval', $ids)) . ') ORDER BY nombre'
+            )->fetchAll();
+        }
+        $sel = (int) ($_GET['inst'] ?? 0);
+        if ($sel > 0 && in_array($sel, $ids, true)) {
+            return [" AND t.instalacion_id = {$sel}", $instalaciones, $sel];
+        }
+        if ($veTodo) {
+            return ['', $instalaciones, 0];
+        }
+        $lista = $ids === [] ? '0' : implode(',', array_map('intval', $ids));
+        return [" AND t.instalacion_id IN ({$lista})", $instalaciones, 0];
     }
 
     /** Descarga CSV (compatible con Excel) de los tickets creados en el periodo. */
@@ -134,7 +186,7 @@ final class ReporteController extends Controller
                JOIN usuarios s ON s.id = t.usuario_solicitante_id
                LEFT JOIN usuarios a ON a.id = t.agente_asignado_id
                LEFT JOIN equipos e ON e.id = t.equipo_id
-              WHERE t.creado_en BETWEEN ? AND ?
+              WHERE t.creado_en BETWEEN ? AND ?' . $this->alcance()[0] . '
               ORDER BY t.id'
         );
         $stmt->execute([$desde . ' 00:00:00', $hasta . ' 23:59:59']);

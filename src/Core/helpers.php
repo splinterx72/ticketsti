@@ -186,3 +186,11 @@ if (!function_exists('garantia_badge')) {
         return '<span class="badge ' . $class . '"><i class="bi ' . $icon . ' me-1"></i>' . e($label) . '</span>';
     }
 }
+
+if (!function_exists('partial')) {
+    /** Renderiza src/Views/partials/{nombre}.php sin layout. @param array<string, mixed> $data */
+    function partial(string $nombre, array $data = []): string
+    {
+        return \App\Core\View::render('partials/' . $nombre, $data, null);
+    }
+}

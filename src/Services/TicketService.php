@@ -41,6 +41,7 @@ final class TicketService
     {
         $stmt = $this->pdo->prepare(
             'SELECT e.id, e.serie, e.marca, e.modelo, e.perfil, e.es_principal, e.vigente_en_geca,
+                    e.real_ubicacion_fisica_id, e.real_nivel_id, e.real_ala,
                     e.serie_monitor1, e.marca_monitor1, e.modelo_monitor1,
                     e.serie_monitor2, e.marca_monitor2, e.modelo_monitor2,
                     e.ubicacion_geca_id, e.ubicacion_real_id,
@@ -57,9 +58,13 @@ final class TicketService
         $stmt->execute([$usuarioId]);
 
         $rows = [];
+        $fisicas = new UbicacionFisicaService($this->pdo);
         foreach ($stmt->fetchAll() as $r) {
             $r['ubicacion_geca'] = $r['ubicacion_geca_id'] !== null ? Catalog::etiquetaUbicacion(self::prefixed($r, 'g_')) : null;
             $r['ubicacion_real'] = $r['ubicacion_real_id'] !== null ? Catalog::etiquetaUbicacion(self::prefixed($r, 'r_')) : null;
+            $r['ubicacion_fisica'] = $r['real_ubicacion_fisica_id'] !== null
+                ? $fisicas->etiqueta((int) $r['real_ubicacion_fisica_id'], $r['real_nivel_id'] !== null ? (int) $r['real_nivel_id'] : null, $r['real_ala'])
+                : null;
             $rows[] = $r;
         }
         return $rows;
@@ -80,8 +85,11 @@ final class TicketService
                     ur.eps AS r_eps, ur.subdireccion AS r_subdireccion, ur.gerencia AS r_gerencia,
                     ur.zona AS r_zona, ur.sector AS r_sector, ur.inmueble AS r_inmueble,
                     ug.eps AS g_eps, ug.subdireccion AS g_subdireccion, ug.gerencia AS g_gerencia,
-                    ug.zona AS g_zona, ug.sector AS g_sector, ug.inmueble AS g_inmueble
+                    ug.zona AS g_zona, ug.sector AS g_sector, ug.inmueble AS g_inmueble,
+                    inst.nombre AS instalacion_nombre, ubf.indicaciones
                FROM tickets t
+               LEFT JOIN instalaciones inst ON inst.id = t.instalacion_id
+               LEFT JOIN ubicaciones_fisicas ubf ON ubf.id = t.reportada_ubicacion_fisica_id
                JOIN usuarios s       ON s.id = t.usuario_solicitante_id
                LEFT JOIN usuarios a  ON a.id = t.agente_asignado_id
                JOIN departamentos d  ON d.id = t.departamento_id
@@ -98,6 +106,14 @@ final class TicketService
         }
         $t['ubicacion_reportada'] = $t['ubicacion_reportada_id'] !== null ? Catalog::etiquetaUbicacion(self::prefixed($t, 'r_')) : null;
         $t['ubicacion_geca'] = $t['ubicacion_geca_id'] !== null ? Catalog::etiquetaUbicacion(self::prefixed($t, 'g_')) : null;
+        $t['ubicacion_fisica'] = $t['reportada_ubicacion_fisica_id'] !== null
+            ? (new UbicacionFisicaService($this->pdo))->etiqueta(
+                (int) $t['reportada_ubicacion_fisica_id'],
+                $t['reportada_nivel_id'] !== null ? (int) $t['reportada_nivel_id'] : null,
+                $t['reportada_ala']
+            )
+            : null;
+        $t['indicaciones'] = $t['indicaciones'] !== null && trim((string) $t['indicaciones']) !== '' ? (string) $t['indicaciones'] : null;
         return $t;
     }
 
@@ -185,22 +201,27 @@ final class TicketService
             $errors[] = 'El hostname debe iniciar con "PM" + 3 caracteres y la serie (ej. PMPPP' . ($equipo['serie'] ?? '5CG1234XYZ') . '), máximo 30 caracteres.';
         }
 
-        // Ubicación física reportada.
-        $ubicacionId = (int) ($in['ubicacion_reportada_id'] ?? 0);
-        if ($ubicacionId > 0 && !Catalog::ubicacionExiste($ubicacionId)) {
-            $errors[] = 'La ubicación seleccionada no existe.';
-        }
-        if ($equipo !== null && $ubicacionId <= 0) {
-            $errors[] = 'Confirma en qué ubicación se encuentra físicamente el equipo.';
+        // Ubicación física reportada (spec 7.1 / 8.1): obligatoria cuando ya
+        // existe catálogo; mientras esté vacío, el ticket entra sin instalación.
+        $fisica = null;
+        $ubicaciones = new UbicacionFisicaService($this->pdo);
+        $capturada = (int) ($in['reportada_ubicacion_fisica_id'] ?? 0) > 0;
+        if ($capturada || $ubicaciones->hayCatalogo()) {
+            try {
+                $fisica = $ubicaciones->validar($in, 'reportada');
+            } catch (ValidationException $e) {
+                $errors = array_merge($errors, $e->errors());
+            }
         }
 
         if ($errors !== []) {
             throw new ValidationException($errors);
         }
 
-        $ubicacionId = $ubicacionId > 0 ? $ubicacionId : null;
-        $gecaId = $equipo !== null && $equipo['ubicacion_geca_id'] !== null ? (int) $equipo['ubicacion_geca_id'] : null;
-        $discrepancia = $equipo !== null && $ubicacionId !== null && $gecaId !== null && $ubicacionId !== $gecaId;
+        // Regla D por instalación: inmueble GECA del equipo → instalación física.
+        $instalacionGeca = $equipo !== null ? $ubicaciones->instalacionDeInmuebleGeca($equipo['g_inmueble'] ?? null) : null;
+        $discrepancia = $equipo !== null && $fisica !== null && $instalacionGeca !== null
+            && $instalacionGeca !== $fisica['instalacion_id'];
 
         $this->pdo->beginTransaction();
         try {
@@ -215,20 +236,18 @@ final class TicketService
                 'equipo_id'              => $equipo !== null ? (int) $equipo['id'] : null,
                 'componente_afectado'    => $componente,
                 'hostname_reportado'     => $hostname !== '' ? $hostname : null,
-                'ubicacion_reportada_id' => $ubicacionId,
                 'discrepancia_ubicacion' => $discrepancia ? 1 : 0,
-            ]);
+            ] + self::camposFisicos($fisica));
             $folio = self::folio($id);
 
             $vinculado = null;
-            if ($equipo !== null && $ubicacionId !== null) {
-                // La ubicación real del equipo siempre refleja lo último que reportó el usuario.
-                if ((int) ($equipo['ubicacion_real_id'] ?? 0) !== $ubicacionId) {
-                    $upd = $this->pdo->prepare('UPDATE equipos SET ubicacion_real_id = ? WHERE id = ?');
-                    $upd->execute([$ubicacionId, (int) $equipo['id']]);
-                }
+            if ($equipo !== null && $fisica !== null) {
+                // La ubicación física real del equipo siempre refleja el último reporte.
+                $this->pdo->prepare(
+                    'UPDATE equipos SET real_ubicacion_fisica_id = ?, real_nivel_id = ?, real_ala = ? WHERE id = ?'
+                )->execute([$fisica['ubicacion_fisica_id'], $fisica['nivel_id'], $fisica['ala'], (int) $equipo['id']]);
                 if ($discrepancia) {
-                    $vinculado = $this->registrarDiscrepancia($equipo, $userId, $folio, $ubicacionId);
+                    $vinculado = $this->registrarDiscrepancia($equipo, $userId, $folio, $fisica);
                 }
             }
 
@@ -248,10 +267,12 @@ final class TicketService
      * una nota al que ya esté abierto para ese equipo (evita duplicados).
      *
      * @param array<string, mixed> $equipo
+     * @param array{instalacion_id: int, ubicacion_fisica_id: int, nivel_id: int, ala: string, referencia: ?string} $fisica
      */
-    private function registrarDiscrepancia(array $equipo, int $userId, string $folioOrigen, int $ubicacionId): string
+    private function registrarDiscrepancia(array $equipo, int $userId, string $folioOrigen, array $fisica): string
     {
-        $etiquetaReal = $this->etiquetaUbicacionPorId($ubicacionId);
+        $etiquetaReal = (new UbicacionFisicaService($this->pdo))
+            ->etiqueta($fisica['ubicacion_fisica_id'], $fisica['nivel_id'], $fisica['ala']);
         $etiquetaGeca = (string) ($equipo['ubicacion_geca'] ?? 'sin ubicación en GECA');
         $cierre = Catalog::estadosCierreIds();
 
@@ -292,9 +313,8 @@ final class TicketService
             'equipo_id'              => (int) $equipo['id'],
             'componente_afectado'    => 'equipo',
             'hostname_reportado'     => null,
-            'ubicacion_reportada_id' => $ubicacionId,
             'discrepancia_ubicacion' => 1,
-        ]);
+        ] + self::camposFisicos($fisica));
         return self::folio($id);
     }
 
@@ -305,19 +325,36 @@ final class TicketService
         $stmt = $this->pdo->prepare(
             'INSERT INTO tickets (folio, tipo_ticket, titulo, descripcion, prioridad, usuario_solicitante_id,
                                   departamento_id, estado_id, equipo_id, componente_afectado, hostname_reportado,
-                                  ubicacion_reportada_id, discrepancia_ubicacion)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                                  discrepancia_ubicacion, instalacion_id, reportada_ubicacion_fisica_id,
+                                  reportada_nivel_id, reportada_ala, referencia)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             'TMP-' . bin2hex(random_bytes(8)),
             $d['tipo_ticket'], $d['titulo'], $d['descripcion'], $d['prioridad'], $d['usuario_solicitante_id'],
             $d['departamento_id'], $d['estado_id'], $d['equipo_id'], $d['componente_afectado'], $d['hostname_reportado'],
-            $d['ubicacion_reportada_id'], $d['discrepancia_ubicacion'],
+            $d['discrepancia_ubicacion'], $d['instalacion_id'], $d['reportada_ubicacion_fisica_id'],
+            $d['reportada_nivel_id'], $d['reportada_ala'], $d['referencia'],
         ]);
         $id = (int) $this->pdo->lastInsertId();
         $upd = $this->pdo->prepare('UPDATE tickets SET folio = ? WHERE id = ?');
         $upd->execute([self::folio($id), $id]);
         return $id;
+    }
+
+    /**
+     * @param array{instalacion_id: int, ubicacion_fisica_id: int, nivel_id: int, ala: string, referencia: ?string}|null $fisica
+     * @return array<string, mixed>
+     */
+    private static function camposFisicos(?array $fisica): array
+    {
+        return [
+            'instalacion_id'                => $fisica['instalacion_id'] ?? null,
+            'reportada_ubicacion_fisica_id' => $fisica['ubicacion_fisica_id'] ?? null,
+            'reportada_nivel_id'            => $fisica['nivel_id'] ?? null,
+            'reportada_ala'                 => $fisica['ala'] ?? null,
+            'referencia'                    => $fisica['referencia'] ?? null,
+        ];
     }
 
     public static function folio(int $id): string
@@ -470,14 +507,6 @@ final class TicketService
             'INSERT INTO comentarios (ticket_id, usuario_id, mensaje, es_nota_interna) VALUES (?, ?, ?, ?)'
         );
         $stmt->execute([$ticketId, $userId, $mensaje, $interna ? 1 : 0]);
-    }
-
-    private function etiquetaUbicacionPorId(int $id): string
-    {
-        $stmt = $this->pdo->prepare('SELECT eps, subdireccion, gerencia, zona, sector, inmueble FROM ubicaciones WHERE id = ?');
-        $stmt->execute([$id]);
-        $u = $stmt->fetch();
-        return $u ? Catalog::etiquetaUbicacion($u) : "Ubicación #{$id}";
     }
 
     /**

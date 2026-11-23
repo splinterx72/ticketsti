@@ -685,6 +685,7 @@ return [
         'driver'     => '{$mailDriver}',
         'from_email' => {$x($fromEmail)},
         'from_name'  => {$x($site['name'])},
+        'mesa_institucional' => 'mesadeayuda@pemex.com',
         'notify_new_tickets_to' => [],
         'smtp' => [
             'host'       => {$x('mail.' . $domain)},

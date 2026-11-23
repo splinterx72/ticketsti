@@ -1,8 +1,10 @@
 <?php
 /**
  * @var list<array<string, mixed>> $equipos
- * @var list<array{id: int, etiqueta: string}> $ubicaciones
- * @var int|null $ubicacionHabitual
+ * @var list<array<string, mixed>> $catalogo
+ * @var bool $hayCatalogo
+ * @var array<string, mixed> $habitual   ubicación habitual física del usuario
+ * @var array<int, ?int> $instalacionGeca  equipo_id => instalación equivalente de su inmueble GECA
  * @var array<string, string> $tipos
  * @var array<string, string> $prioridades
  * @var array<string, string> $old
@@ -11,15 +13,18 @@ $hasOld = $old !== [];
 // Regla 3.C: se preselecciona el equipo principal (el primero, ordenado por es_principal DESC).
 $equipoSel = $hasOld ? (int) ($old['equipo_id'] ?? 0) : (int) ($equipos[0]['id'] ?? 0);
 $componenteSel = $old['componente_afectado'] ?? ($equipoSel > 0 ? 'equipo' : 'general');
-$ubicacionSel = (int) ($old['ubicacion_reportada_id'] ?? 0);
-if (!$hasOld) {
+// Ubicación física sugerida: la capturada, la real del equipo elegido o la habitual del usuario.
+if ($hasOld) {
+    $selFisica = [
+        'instalacion_id' => $old['reportada_instalacion_id'] ?? 0, 'ubicacion_fisica_id' => $old['reportada_ubicacion_fisica_id'] ?? 0,
+        'nivel_id' => $old['reportada_nivel_id'] ?? 0, 'ala' => $old['reportada_ala'] ?? '', 'referencia' => $old['reportada_referencia'] ?? '',
+    ];
+} else {
+    $selFisica = $habitual;
     foreach ($equipos as $eq) {
-        if ((int) $eq['id'] === $equipoSel) {
-            $ubicacionSel = (int) ($eq['ubicacion_real_id'] ?? $eq['ubicacion_geca_id'] ?? 0);
+        if ((int) $eq['id'] === $equipoSel && $eq['real_ubicacion_fisica_id'] !== null) {
+            $selFisica = ['ubicacion_fisica_id' => $eq['real_ubicacion_fisica_id'], 'nivel_id' => $eq['real_nivel_id'], 'ala' => $eq['real_ala'], 'referencia' => ''];
         }
-    }
-    if ($ubicacionSel === 0) {
-        $ubicacionSel = (int) $ubicacionHabitual;
     }
 }
 ?>
@@ -78,8 +83,11 @@ if (!$hasOld) {
                                     data-serie="<?= e($eq['serie']) ?>"
                                     data-m1="<?= e($eq['serie_monitor1'] ?? '') ?>"
                                     data-m2="<?= e($eq['serie_monitor2'] ?? '') ?>"
-                                    data-ubicacion="<?= e($eq['ubicacion_real_id'] ?? $eq['ubicacion_geca_id'] ?? '') ?>"
-                                    data-geca="<?= e($eq['ubicacion_geca_id'] ?? '') ?>"
+                                    data-ub="<?= e($eq['real_ubicacion_fisica_id'] ?? '') ?>"
+                                    data-niv="<?= e($eq['real_nivel_id'] ?? '') ?>"
+                                    data-ala="<?= e($eq['real_ala'] ?? '') ?>"
+                                    data-geca-inst="<?= e($instalacionGeca[(int) $eq['id']] ?? '') ?>"
+                                    data-geca="<?= e($eq['ubicacion_geca'] ?? '') ?>"
                                     <?= (int) $eq['id'] === $equipoSel ? 'selected' : '' ?>>
                                 <?= e($eq['serie']) ?> — <?= e(trim(($eq['marca'] ?? '') . ' ' . ($eq['modelo'] ?? ''))) ?>
                                 <?= (int) $eq['es_principal'] === 1 ? '★ Principal' : '' ?>
@@ -118,15 +126,13 @@ if (!$hasOld) {
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white fw-semibold">3. ¿Dónde está físicamente?</div>
                 <div class="card-body">
-                    <input type="search" class="form-control form-control-sm mb-1" placeholder="Buscar inmueble o gerencia…"
-                           data-filter-select="#ubicacion_reportada_id" aria-label="Buscar ubicación">
-                    <select class="form-select" id="ubicacion_reportada_id" name="ubicacion_reportada_id" size="6">
-                        <?php foreach ($ubicaciones as $u): ?>
-                            <option value="<?= e($u['id']) ?>" <?= $u['id'] === $ubicacionSel ? 'selected' : '' ?>><?= e($u['etiqueta']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <?= partial('ubicacion_picker', [
+                        'catalogo' => $catalogo, 'prefijo' => 'reportada', 'sel' => $selFisica, 'requerido' => $hayCatalogo,
+                        'refPlaceholder' => 'Ej. junto a la sala de juntas 2',
+                    ]) ?>
+                    <div class="small text-body-secondary mt-2 equipo-only" id="gecaInfo"></div>
                     <div class="alert alert-warning small mt-2 mb-0 d-none" id="discrepanciaAviso">
-                        <i class="bi bi-geo-alt me-1"></i>Esta ubicación es distinta a la del resguardo GECA. Al enviar, se actualizará la
+                        <i class="bi bi-geo-alt me-1"></i>Esta instalación es distinta a la del resguardo GECA. Al enviar, se actualizará la
                         ubicación real del equipo y TI dará seguimiento al cambio de resguardo.
                     </div>
                 </div>

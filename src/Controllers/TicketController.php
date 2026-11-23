@@ -10,10 +10,12 @@ use App\Core\Auth;
 use App\Core\HttpException;
 use App\Core\Session;
 use App\Core\ValidationException;
+use App\Services\Alcance;
 use App\Services\Catalog;
 use App\Services\GarantiaService;
 use App\Services\Mail\Notifier;
 use App\Services\TicketService;
+use App\Services\UbicacionFisicaService;
 
 /**
  * Portal del trabajador: mis tickets, nuevo ticket, detalle y comentarios.
@@ -25,7 +27,8 @@ final class TicketController extends Controller
 
     private const FORM_FIELDS = [
         'tipo_ticket', 'prioridad', 'titulo', 'descripcion', 'equipo_id',
-        'componente_afectado', 'hostname_reportado', 'ubicacion_reportada_id',
+        'componente_afectado', 'hostname_reportado',
+        'reportada_instalacion_id', 'reportada_ubicacion_fisica_id', 'reportada_nivel_id', 'reportada_ala', 'reportada_referencia',
     ];
 
     public function index(): void
@@ -82,14 +85,27 @@ final class TicketController extends Controller
         $service = new TicketService(Database::getInstance());
         $equipos = $service->equiposDeUsuario((int) $user['id']);
 
-        $habitual = Database::getInstance()->prepare('SELECT ubicacion_habitual_id FROM usuarios WHERE id = ?');
-        $habitual->execute([(int) $user['id']]);
+        $pdo = Database::getInstance();
+        $fisicas = new UbicacionFisicaService($pdo);
+        $stmt = $pdo->prepare(
+            'SELECT habitual_ubicacion_fisica_id AS ubicacion_fisica_id, habitual_nivel_id AS nivel_id, habitual_ala AS ala
+               FROM usuarios WHERE id = ?'
+        );
+        $stmt->execute([(int) $user['id']]);
+        $habitual = ($stmt->fetch() ?: []) + ['referencia' => ''];
+
+        $instalacionGeca = [];
+        foreach ($equipos as $eq) {
+            $instalacionGeca[(int) $eq['id']] = $fisicas->instalacionDeInmuebleGeca($eq['g_inmueble'] ?? null);
+        }
 
         $this->view('tickets/create', [
             'title'       => 'Nuevo ticket',
             'equipos'     => $equipos,
-            'ubicaciones' => Catalog::ubicaciones(),
-            'ubicacionHabitual' => ($h = $habitual->fetchColumn()) !== false && $h !== null ? (int) $h : null,
+            'catalogo'    => $fisicas->catalogo(),
+            'hayCatalogo' => $fisicas->hayCatalogo(),
+            'habitual'    => $habitual,
+            'instalacionGeca' => $instalacionGeca,
             'tipos'       => array_intersect_key(Catalog::TIPOS, array_flip(Catalog::TIPOS_USUARIO)),
             'prioridades' => Auth::hasRole(Roles::TI)
                 ? Catalog::PRIORIDADES
@@ -130,12 +146,12 @@ final class TicketController extends Controller
     {
         $this->requireLogin();
         $user = Auth::user();
-        $esTi = Auth::hasRole(Roles::TI);
         $service = new TicketService(Database::getInstance());
 
         $ticket = $service->find($id);
+        [$puedeVer, $esTi] = self::acceso($user, $ticket);
         // 404 (no 403) para no revelar que el folio existe.
-        if ($ticket === null || (!$esTi && (int) $ticket['usuario_solicitante_id'] !== (int) $user['id'])) {
+        if (!$puedeVer) {
             throw new HttpException(404, 'El ticket solicitado no existe.');
         }
 
@@ -158,11 +174,11 @@ final class TicketController extends Controller
         $this->requireLogin();
         $this->verifyCsrf();
         $user = Auth::user();
-        $esTi = Auth::hasRole(Roles::TI);
         $service = new TicketService(Database::getInstance());
 
         $ticket = $service->find($id);
-        if ($ticket === null || (!$esTi && (int) $ticket['usuario_solicitante_id'] !== (int) $user['id'])) {
+        [$puedeVer, $esTi] = self::acceso($user, $ticket);
+        if (!$puedeVer) {
             throw new HttpException(404, 'El ticket solicitado no existe.');
         }
 
@@ -179,6 +195,26 @@ final class TicketController extends Controller
             $this->rememberInput(['mensaje']);
         }
         redirect('/tickets/' . $id . '#comentarios');
+    }
+
+    /**
+     * [puede verlo, lo gestiona como TI]. El personal de TI solo gestiona
+     * tickets de su alcance (instalación, asignados o sin instalación); fuera
+     * de él, si es el solicitante, lo ve como cualquier trabajador.
+     *
+     * @param array<string, mixed>      $user
+     * @param array<string, mixed>|null $ticket
+     * @return array{0: bool, 1: bool}
+     */
+    public static function acceso(array $user, ?array $ticket): array
+    {
+        if ($ticket === null) {
+            return [false, false];
+        }
+        $alcance = new Alcance(Database::getInstance());
+        $comoTi = Roles::esTi($user['rol'] ?? null)
+            && $alcance->puedeVerTicket($user, ['usuario_solicitante_id' => 0] + $ticket);
+        return [$comoTi || $alcance->puedeVerTicket($user, $ticket), $comoTi];
     }
 
     /** @return array{0: int, 1: int, 2: int} página, total de páginas, offset */

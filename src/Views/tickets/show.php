@@ -42,6 +42,12 @@ $monitor = match ($t['componente_afectado']) {
                     <span title="<?= e(fecha_mx($t['creado_en'])) ?>">(<?= e(fecha_mx($t['creado_en'])) ?>)</span>
                 </div>
                 <div class="ticket-description"><?= texto_multilinea($t['descripcion']) ?></div>
+                <?php if ($t['indicaciones'] !== null): ?>
+                    <div class="alert alert-warning small mt-3 mb-0 d-flex gap-2" role="note">
+                        <i class="bi bi-cone-striped flex-shrink-0"></i>
+                        <div><strong>Indicaciones del lugar:</strong> <?= texto_multilinea($t['indicaciones']) ?></div>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -177,8 +183,10 @@ $monitor = match ($t['componente_afectado']) {
                 <?php if ($t['hostname_reportado'] !== null): ?>
                     <dt>Hostname</dt><dd class="font-monospace"><?= e($t['hostname_reportado']) ?></dd>
                 <?php endif; ?>
-                <?php if ($t['ubicacion_reportada'] !== null): ?>
-                    <dt>Ubicación física reportada</dt><dd><?= e($t['ubicacion_reportada']) ?></dd>
+                <dt>Ubicación física</dt>
+                <dd><?= e($t['ubicacion_fisica'] ?? ($t['ubicacion_reportada'] !== null ? $t['ubicacion_reportada'] . ' (GECA)' : 'Sin ubicación')) ?></dd>
+                <?php if ($t['referencia'] !== null): ?>
+                    <dt>Referencia</dt><dd><?= e($t['referencia']) ?></dd>
                 <?php endif; ?>
                 <?php if ($t['serie'] !== null): ?>
                     <dt>Ubicación en GECA</dt><dd><?= e($t['ubicacion_geca'] ?? 'Sin ubicación en GECA') ?></dd>

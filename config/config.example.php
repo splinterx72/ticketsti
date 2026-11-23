@@ -67,8 +67,10 @@ return [
         'driver'     => 'off',
         'from_email' => 'no-responder@tudominio.com',
         'from_name'  => 'Mesa de Ayuda TI',
-        // Correos que reciben el aviso de cada ticket nuevo (ej. buzón del área).
-        // Vacío = se avisa a todos los agentes TI activos.
+        // Mesa de ayuda institucional: recibe cada ticket nuevo (para Remedy).
+        'mesa_institucional' => 'mesadeayuda@pemex.com',
+        // Correos adicionales que reciben cada ticket nuevo. Además se avisa
+        // siempre a los supervisores de la instalación del ticket.
         'notify_new_tickets_to' => [],
         // Solo para driver 'smtp'. En cPanel: Email Accounts > Connect Devices.
         'smtp' => [

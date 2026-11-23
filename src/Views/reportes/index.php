@@ -5,6 +5,9 @@
  * @var array<string, mixed> $kpis
  * @var list<array{etiqueta: string, total: int}> $porTipo
  * @var list<array{etiqueta: string, total: int}> $porDepto
+ * @var list<array{etiqueta: string, total: int}> $porInstalacion
+ * @var list<array<string, mixed>> $instalaciones
+ * @var int $instSel
  * @var list<array{etiqueta: string, total: int}> $porComponente
  * @var list<array{etiqueta: string, total: int}> $porPrioridad
  * @var list<array<string, mixed>> $estadoActual
@@ -58,7 +61,7 @@ $rangos = [
 ?>
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <h1 class="h4 mb-0"><i class="bi bi-bar-chart me-1"></i>Reportes</h1>
-    <a href="<?= e(url('/ti/reportes/exportar') . '?desde=' . $desde . '&hasta=' . $hasta) ?>" class="btn btn-outline-primary">
+    <a href="<?= e(url('/ti/reportes/exportar') . '?desde=' . $desde . '&hasta=' . $hasta . ($instSel > 0 ? '&inst=' . $instSel : '')) ?>" class="btn btn-outline-primary">
         <i class="bi bi-filetype-csv me-1"></i>Exportar tickets (CSV)
     </a>
 </div>
@@ -73,6 +76,17 @@ $rangos = [
             <label for="hasta" class="form-label small mb-1">Hasta</label>
             <input type="date" class="form-control form-control-sm" id="hasta" name="hasta" value="<?= e($hasta) ?>" max="<?= e(date('Y-m-d')) ?>">
         </div>
+        <?php if (count($instalaciones) > 1): ?>
+            <div>
+                <label for="inst" class="form-label small mb-1">Instalación</label>
+                <select class="form-select form-select-sm" id="inst" name="inst">
+                    <option value="0">Todas<?= ($authUser['rol'] ?? '') === 'admin_ti' ? '' : ' las mías' ?></option>
+                    <?php foreach ($instalaciones as $i): ?>
+                        <option value="<?= e($i['id']) ?>" <?= (int) $i['id'] === $instSel ? 'selected' : '' ?>><?= e($i['nombre']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        <?php endif; ?>
         <button type="submit" class="btn btn-sm btn-primary">Aplicar</button>
         <div class="btn-group btn-group-sm ms-md-auto flex-wrap" role="group" aria-label="Periodos rápidos">
             <?php foreach ($rangos as $label => [$d, $h]): ?>
@@ -106,6 +120,7 @@ $rangos = [
 
 <div class="row g-4 mb-4">
     <div class="col-md-6 col-xl-3"><?= $barras('Por tipo', $porTipo) ?></div>
+    <div class="col-md-6 col-xl-3"><?= $barras('Por instalación', $porInstalacion) ?></div>
     <div class="col-md-6 col-xl-3"><?= $barras('Por departamento', $porDepto) ?></div>
     <div class="col-md-6 col-xl-3"><?= $barras('Por componente', $porComponente) ?></div>
     <div class="col-md-6 col-xl-3"><?= $barras('Por prioridad', $porPrioridad) ?></div>
