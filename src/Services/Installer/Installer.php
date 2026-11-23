@@ -30,6 +30,11 @@ final class Installer
     public const TABLES = [
         'ubicaciones', 'cargas_geca', 'usuarios', 'equipos', 'garantias',
         'departamentos', 'estados', 'tickets', 'comentarios',
+        // Fase 5
+        'instalaciones', 'ubicacion_tipos', 'niveles', 'ubicaciones_fisicas', 'ubicacion_fisica_niveles',
+        'ubicacion_fisica_alas', 'geca_inmueble_instalacion', 'supervisor_instalaciones', 'agente_instalaciones',
+        'avisos', 'aviso_instalaciones', 'tareas', 'tarea_asignaciones', 'tarea_archivos',
+        'recordatorios_enviados', 'sistema_estado', 'verificaciones_email',
     ];
 
     public const TIMEZONES = [
@@ -476,7 +481,8 @@ final class Installer
         if ($report['mode'] === 'partial') {
             throw new InstallerException(
                 'La base tiene solo algunas tablas del sistema (' . implode(', ', $report['existing']) . '). '
-                . 'Por seguridad el instalador no borra nada: elimínalas desde phpMyAdmin o usa una base vacía.'
+                . 'Si es una instalación anterior, aplica primero en phpMyAdmin los scripts de database/migraciones/. '
+                . 'Por seguridad el instalador no borra nada.'
             );
         }
         if ($report['mode'] === 'fresh') {
