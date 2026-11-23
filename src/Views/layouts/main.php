@@ -63,6 +63,7 @@ $rolLabel = \App\Core\Roles::LABELS;
                             ['/geca', 'bi-cloud-arrow-up', 'Carga GECA'],
                         ];
                         if ($rol === 'admin_ti') {
+                            $gestion[] = ['/ti/instalaciones', 'bi-buildings', 'Instalaciones'];
                             $gestion[] = ['/ti/usuarios', 'bi-people', 'Usuarios'];
                         }
                         $gestionActiva = false;
@@ -77,6 +78,23 @@ $rolLabel = \App\Core\Roles::LABELS;
                             <ul class="dropdown-menu">
                                 <?php foreach ($gestion as [$path, $icon, $label]): ?>
                                     <li><a class="dropdown-item<?= str_starts_with($current, $path) ? ' active' : '' ?>" href="<?= e(url($path)) ?>"><i class="bi <?= e($icon) ?> me-2"></i><?= e($label) ?></a></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </li>
+                    <?php endif; ?>
+                    <?php if (in_array($rol, \App\Core\Roles::SUPERVISION, true)): ?>
+                        <?php $supervision = [
+                            ['/supervisor', 'bi-speedometer', 'Panel'],
+                            ['/supervisor/ubicaciones', 'bi-geo-alt', 'Ubicaciones'],
+                            ['/supervisor/agentes', 'bi-people', 'Agentes'],
+                        ]; ?>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle<?= str_starts_with($current, '/supervisor') ? ' active' : '' ?>" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-badge me-1"></i>Supervisión
+                            </a>
+                            <ul class="dropdown-menu">
+                                <?php foreach ($supervision as [$path, $icon, $label]): ?>
+                                    <li><a class="dropdown-item<?= $current === $path ? ' active' : '' ?>" href="<?= e(url($path)) ?>"><i class="bi <?= e($icon) ?> me-2"></i><?= e($label) ?></a></li>
                                 <?php endforeach; ?>
                             </ul>
                         </li>

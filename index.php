@@ -16,9 +16,11 @@ use App\Controllers\EquipoController;
 use App\Controllers\GarantiaController;
 use App\Controllers\GecaController;
 use App\Controllers\InstallController;
+use App\Controllers\InstalacionController;
 use App\Controllers\InstallerController;
 use App\Controllers\InventarioController;
 use App\Controllers\RegistroController;
+use App\Controllers\SupervisorController;
 use App\Controllers\ReporteController;
 use App\Controllers\TicketController;
 use App\Controllers\TiController;
@@ -162,6 +164,27 @@ if (!$installMode) {
     $router->post('/ti/usuarios/correo-prueba', [UsuarioController::class, 'testMail']);
     $router->post('/ti/usuarios/{id}', [UsuarioController::class, 'update']);
     $router->post('/ti/usuarios/{id}/restablecer', [UsuarioController::class, 'resetPassword']);
+
+    // Instalaciones, plantilla y equivalencias GECA (admin_ti).
+    $router->get('/ti/instalaciones', [InstalacionController::class, 'index']);
+    $router->post('/ti/instalaciones', [InstalacionController::class, 'store']);
+    $router->post('/ti/instalaciones/plantilla', [InstalacionController::class, 'plantilla']);
+    $router->post('/ti/instalaciones/geca', [InstalacionController::class, 'geca']);
+    $router->get('/ti/instalaciones/{id}', [InstalacionController::class, 'show']);
+    $router->post('/ti/instalaciones/{id}', [InstalacionController::class, 'update']);
+    $router->post('/ti/instalaciones/{id}/supervisores', [InstalacionController::class, 'addSupervisor']);
+    $router->post('/ti/instalaciones/asignacion/{id}/quitar', [InstalacionController::class, 'removeSupervisor']);
+
+    // Supervisión (supervisor y admin_ti).
+    $router->get('/supervisor', [SupervisorController::class, 'panel']);
+    $router->get('/supervisor/ubicaciones', [SupervisorController::class, 'ubicaciones']);
+    $router->post('/supervisor/ubicaciones', [SupervisorController::class, 'storeUbicacion']);
+    $router->get('/supervisor/ubicaciones/{id}/editar', [SupervisorController::class, 'editUbicacion']);
+    $router->post('/supervisor/ubicaciones/{id}', [SupervisorController::class, 'updateUbicacion']);
+    $router->get('/supervisor/agentes', [SupervisorController::class, 'agentes']);
+    $router->post('/supervisor/agentes', [SupervisorController::class, 'storeAgente']);
+    $router->post('/supervisor/prestamos', [SupervisorController::class, 'storePrestamo']);
+    $router->post('/supervisor/asignacion/{id}/quitar', [SupervisorController::class, 'removeAsignacion']);
 
     $router->get('/geca', [GecaController::class, 'index']);
     $router->post('/geca/cargar', [GecaController::class, 'upload']);

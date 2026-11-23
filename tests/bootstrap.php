@@ -152,3 +152,5 @@ function scalar(string $sql, array $params = []): mixed
     $stmt->execute($params);
     return $stmt->fetchColumn();
 }
+
+require __DIR__ . '/fixtures.php';
