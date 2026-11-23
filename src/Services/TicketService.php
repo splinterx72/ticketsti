@@ -65,6 +65,9 @@ final class TicketService
             $r['ubicacion_fisica'] = $r['real_ubicacion_fisica_id'] !== null
                 ? $fisicas->etiqueta((int) $r['real_ubicacion_fisica_id'], $r['real_nivel_id'] !== null ? (int) $r['real_nivel_id'] : null, $r['real_ala'])
                 : null;
+            $instReal = $r['real_ubicacion_fisica_id'] !== null ? $fisicas->instalacionDeUbicacion((int) $r['real_ubicacion_fisica_id']) : null;
+            $instGeca = $fisicas->instalacionDeInmuebleGeca($r['g_inmueble'] ?? null);
+            $r['discrepancia'] = $instReal !== null && $instGeca !== null && $instReal !== $instGeca;
             $rows[] = $r;
         }
         return $rows;

@@ -3,6 +3,7 @@
  * @var bool $esTi
  * @var list<array<string, mixed>> $misTickets
  * @var int $misAbiertos
+ * @var array<string, int> $misStats
  * @var list<array<string, mixed>> $misEquipos
  * @var array<string, mixed> $stats
  * @var array<string, int> $ticketStats
@@ -26,6 +27,24 @@ $n = static fn (array $src, string $k): string => number_format((int) ($src[$k] 
 </div>
 
 <?= partial('avisos', ['avisos' => $avisos]) ?>
+
+<div class="row g-3 mb-4">
+    <?php foreach ([
+        ['abiertos', 'Mis tickets abiertos', 'bi-ticket-detailed', 'primary', '/tickets?estado=abiertos'],
+        ['en_espera', 'Esperan mi respuesta', 'bi-chat-dots', 'warning', '/tickets?estado=abiertos'],
+        ['resueltos_30', 'Resueltos (30 días)', 'bi-check2-circle', 'success', '/tickets?estado=cerrados'],
+    ] as [$key, $label, $icon, $color, $link]): ?>
+        <div class="col-4">
+            <a href="<?= e(url($link)) ?>" class="card h-100 border-0 shadow-sm stat-card text-decoration-none text-body">
+                <div class="card-body">
+                    <i class="bi <?= e($icon) ?> text-<?= e($color) ?> fs-4"></i>
+                    <div class="fs-3 fw-semibold mt-1 stat-value"><?= e($misStats[$key] ?? 0) ?></div>
+                    <div class="small text-body-secondary"><?= e($label) ?></div>
+                </div>
+            </a>
+        </div>
+    <?php endforeach; ?>
+</div>
 
 <?php if ($esTi): ?>
     <div class="row g-3 mb-4">
@@ -106,8 +125,8 @@ $n = static fn (array $src, string $k): string => number_format((int) ($src[$k] 
                                     <?php if ($monitores !== []): ?>
                                         <div class="small text-body-secondary"><i class="bi bi-display me-1"></i><?= e(implode(', ', $monitores)) ?></div>
                                     <?php endif; ?>
-                                    <div class="small text-body-secondary"><i class="bi bi-geo-alt me-1"></i><?= e($eq['ubicacion_real'] ?? $eq['ubicacion_geca'] ?? 'Sin ubicación') ?></div>
-                                    <?php if ($eq['ubicacion_real_id'] !== null && $eq['ubicacion_geca_id'] !== null && (int) $eq['ubicacion_real_id'] !== (int) $eq['ubicacion_geca_id']): ?>
+                                    <div class="small text-body-secondary"><i class="bi bi-geo-alt me-1"></i><?= e($eq['ubicacion_fisica'] ?? ($eq['ubicacion_geca'] !== null ? $eq['ubicacion_geca'] . ' (GECA)' : 'Sin ubicación')) ?></div>
+                                    <?php if ($eq['discrepancia']): ?>
                                         <div class="small text-warning-emphasis"><i class="bi bi-exclamation-triangle me-1"></i>En GECA figura en: <?= e($eq['ubicacion_geca']) ?></div>
                                     <?php endif; ?>
                                 </div>
@@ -115,7 +134,7 @@ $n = static fn (array $src, string $k): string => number_format((int) ($src[$k] 
                                     <form method="post" action="<?= e(url('/equipos/' . (int) $eq['id'] . '/principal')) ?>" class="m-0 flex-shrink-0">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="btn btn-sm btn-outline-secondary" title="Marcar como equipo principal">
-                                            <i class="bi bi-star"></i><span class="d-none d-sm-inline ms-1">Principal</span>
+                                            <i class="bi bi-star"></i><span class="d-none d-sm-inline ms-1">Hacer principal</span>
                                         </button>
                                     </form>
                                 <?php endif; ?>

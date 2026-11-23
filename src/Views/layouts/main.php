@@ -26,9 +26,13 @@ $rolLabel = \App\Core\Roles::LABELS;
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
           integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@500;700&family=Roboto:wght@400;500;700&display=swap">
     <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset('css/theme.css')) ?>">
 </head>
-<body class="bg-body-tertiary d-flex flex-column min-vh-100">
+<body class="d-flex flex-column min-vh-100">
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
     <div class="container">
@@ -127,6 +131,21 @@ $rolLabel = \App\Core\Roles::LABELS;
         <?php endif; ?>
     </div>
 </nav>
+
+<?php if ($authUser !== null): $ubicacionTxt = ubicacion_usuario($authUser); ?>
+    <div class="user-context">
+        <div class="container py-2 d-flex flex-wrap align-items-center column-gap-3 row-gap-1">
+            <a href="<?= e(url('/cuenta')) ?>" class="d-inline-flex align-items-center gap-1 text-truncate" style="max-width: 100%;" title="Cambiar mi ubicación">
+                <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+                <span class="user-context-text text-truncate"><?= $ubicacionTxt !== null ? e($ubicacionTxt) : '<span class="text-warning-emphasis fw-semibold">Captura tu ubicación</span>' ?></span>
+            </a>
+            <a href="<?= e(url('/cuenta')) ?>" class="d-inline-flex align-items-center gap-1 text-body-secondary ms-sm-auto">
+                <i class="bi bi-telephone" aria-hidden="true"></i>
+                <span class="user-context-text">Ext. <?= e($authUser['telefono_ext'] ?? '—') ?></span>
+            </a>
+        </div>
+    </div>
+<?php endif; ?>
 
 <main class="container py-4 flex-grow-1">
     <?php if ($authUser !== null && \App\Services\AdminLocalService::enAviso($authUser)):

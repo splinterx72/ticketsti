@@ -10,8 +10,10 @@ use App\Core\HttpException;
 use App\Core\Roles;
 use App\Core\Session;
 use App\Core\ValidationException;
+use App\Services\AdminLocalService;
 use App\Services\Alcance;
 use App\Services\AsignacionService;
+use App\Services\TareaService;
 use App\Services\UbicacionFisicaService;
 
 /**
@@ -170,14 +172,61 @@ final class SupervisorController extends Controller
 
     // ------------------------------------------------------------------
 
-    /** @return array<string, mixed> datos del panel (Task 9 los amplía) */
+    /** @return array<string, mixed> datos del panel: semáforo, tareas por revisar y tickets */
     private function panelData(): array
     {
         $pdo = Database::getInstance();
+        $user = Auth::user();
         $mias = $this->misInstalaciones();
+        $alcance = new Alcance($pdo);
+
+        // Semáforo de contraseña de admin local de sus agentes (spec 7.5).
+        $agentes = $alcance->agentesDe((int) $user['id']);
+        $semaforo = [];
+        if ($agentes !== []) {
+            $stmt = $pdo->query(
+                'SELECT id, nombre, ficha, admin_local_cambiado_en FROM usuarios WHERE id IN ('
+                . implode(',', array_map('intval', array_column($agentes, 'id'))) . ') ORDER BY nombre'
+            );
+            $prestados = array_column($agentes, 'prestado', 'id');
+            foreach ($stmt->fetchAll() as $r) {
+                $dias = AdminLocalService::diasRestantes($r['admin_local_cambiado_en']);
+                $semaforo[] = $r + [
+                    'dias' => $dias, 'vence' => AdminLocalService::vence($r['admin_local_cambiado_en']),
+                    'color' => AdminLocalService::semaforo($dias), 'prestado' => (bool) ($prestados[(int) $r['id']] ?? false),
+                ];
+            }
+            usort($semaforo, static fn (array $a, array $b): int => ($a['dias'] ?? -9999) <=> ($b['dias'] ?? -9999));
+        }
+
+        // Tickets abiertos por instalación.
+        $porInstalacion = [];
+        if ($mias !== []) {
+            $ids = implode(',', array_map('intval', array_column($mias, 'id')));
+            $porInstalacion = $pdo->query(
+                "SELECT i.id, i.nombre,
+                        COALESCE(SUM(es.es_cierre = 0), 0) AS abiertos,
+                        COALESCE(SUM(es.es_cierre = 0 AND t.agente_asignado_id IS NULL), 0) AS sin_asignar,
+                        COALESCE(SUM(es.es_cierre = 0 AND t.discrepancia_ubicacion = 1), 0) AS discrepancias
+                   FROM instalaciones i
+                   LEFT JOIN tickets t ON t.instalacion_id = i.id
+                   LEFT JOIN estados es ON es.id = t.estado_id
+                  WHERE i.id IN ({$ids})
+                  GROUP BY i.id, i.nombre ORDER BY i.nombre"
+            )->fetchAll();
+        }
+
+        $tareas = array_values(array_filter(
+            (new TareaService($pdo))->asignadasPor($user),
+            static fn (array $t): bool => (int) $t['aceptadas'] < (int) $t['total']
+        ));
+
         return [
-            'instalaciones' => $mias,
-            'agentes'       => (new Alcance($pdo))->agentesDe((int) Auth::id()),
+            'instalaciones'  => $mias,
+            'agentes'        => $agentes,
+            'semaforo'       => $semaforo,
+            'porInstalacion' => $porInstalacion,
+            'tareas'         => array_slice($tareas, 0, 8),
         ];
     }
 

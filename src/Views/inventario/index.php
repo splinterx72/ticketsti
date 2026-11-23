@@ -51,7 +51,7 @@ $filtros = [
                 </thead>
                 <tbody>
                 <?php foreach ($equipos as $eq):
-                    $discrepancia = $eq['ubicacion_real_id'] !== null && $eq['ubicacion_geca_id'] !== null && (int) $eq['ubicacion_real_id'] !== (int) $eq['ubicacion_geca_id'];
+                    $discrepancia = (int) $eq['discrepancia'] === 1;
                     ?>
                     <tr>
                         <td>

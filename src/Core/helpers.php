@@ -194,3 +194,27 @@ if (!function_exists('partial')) {
         return \App\Core\View::render('partials/' . $nombre, $data, null);
     }
 }
+
+if (!function_exists('ubicacion_usuario')) {
+    /**
+     * Etiqueta de la ubicación física habitual del usuario con sesión
+     * ("Instalación › Ubicación › Nivel X › Ala Y") o null si no la ha capturado.
+     *
+     * @param array<string, mixed> $user
+     */
+    function ubicacion_usuario(array $user): ?string
+    {
+        if (empty($user['habitual_ubicacion_fisica_id'])) {
+            return null;
+        }
+        try {
+            return (new \App\Services\UbicacionFisicaService(\App\Config\Database::getInstance()))->etiqueta(
+                (int) $user['habitual_ubicacion_fisica_id'],
+                $user['habitual_nivel_id'] !== null ? (int) $user['habitual_nivel_id'] : null,
+                $user['habitual_ala'] ?? null
+            ) ?: null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+}

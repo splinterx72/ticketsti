@@ -7,7 +7,7 @@
 use App\Services\GarantiaService;
 
 $eq = $equipo;
-$discrepancia = $eq['ubicacion_real_id'] !== null && $eq['ubicacion_geca_id'] !== null && (int) $eq['ubicacion_real_id'] !== (int) $eq['ubicacion_geca_id'];
+$discrepancia = $eq['discrepancia'];
 $dl = static function (array $pairs): string {
     $out = '';
     foreach ($pairs as $k => $v) {
@@ -44,7 +44,7 @@ $dl = static function (array $pairs): string {
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white fw-semibold"><i class="bi bi-geo-alt me-1"></i>Ubicación</div>
             <dl class="card-body small mb-0 detail-list">
-                <?= $dl(['Según GECA' => $eq['ubicacion_geca'], 'Real (reportada)' => $eq['ubicacion_real']]) ?>
+                <?= $dl(['Según GECA' => $eq['ubicacion_geca'], 'Física (último reporte)' => $eq['ubicacion_real']]) ?>
             </dl>
         </div>
     </div>

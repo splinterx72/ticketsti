@@ -1,0 +1,154 @@
+/* =====================================================================
+   Tema Mesa de Ayuda TI — Roboto / Roboto Condensed, azul petróleo.
+   Contraste verificado (WCAG AA): blanco sobre #0b5d73 = 7.4:1;
+   #0e7f78 sobre blanco = 4.85:1. El acento #14a39a es solo decorativo.
+   ===================================================================== */
+
+:root {
+    --mesa-primary: #0b5d73;
+    --mesa-primary-rgb: 11, 93, 115;
+    --mesa-primary-hover: #094b5d;
+    --mesa-primary-active: #073f4e;
+    --mesa-primary-subtle: #e3f0f3;
+    --mesa-accent: #14a39a;
+    --mesa-accent-text: #0e7f78;
+    --mesa-surface: #f4f7f9;
+    --mesa-border: #e1e8ec;
+    --mesa-radius: .75rem;
+    --mesa-shadow: 0 1px 2px rgba(16, 42, 54, .06), 0 4px 16px rgba(16, 42, 54, .06);
+
+    --bs-primary: var(--mesa-primary);
+    --bs-primary-rgb: var(--mesa-primary-rgb);
+    --bs-primary-bg-subtle: var(--mesa-primary-subtle);
+    --bs-primary-border-subtle: #b7d6de;
+    --bs-primary-text-emphasis: #063744;
+    --bs-link-color: var(--mesa-primary);
+    --bs-link-color-rgb: var(--mesa-primary-rgb);
+    --bs-link-hover-color: var(--mesa-primary-hover);
+    --bs-link-hover-color-rgb: 9, 75, 93;
+    --bs-focus-ring-color: rgba(11, 93, 115, .25);
+    --bs-tertiary-bg: #eef3f6;
+    --bs-border-color: var(--mesa-border);
+    --bs-border-radius: .5rem;
+    --bs-border-radius-lg: var(--mesa-radius);
+    --bs-body-font-family: "Roboto", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+    --mesa-font-condensed: "Roboto Condensed", "Roboto", system-ui, "Segoe UI", Arial, sans-serif;
+}
+
+body { font-family: var(--bs-body-font-family); letter-spacing: .005em; background-color: var(--mesa-surface); }
+
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6,
+.navbar, .navbar-brand, .nav-link, .dropdown-item, th, .badge, .btn,
+.card-header, .form-label, legend, .stat-value, .page-link {
+    font-family: var(--mesa-font-condensed);
+}
+h1, .h1, .h4 { letter-spacing: -.005em; }
+.card-header.fw-semibold, .card-header .fw-semibold { letter-spacing: .01em; }
+
+/* --- Componentes Bootstrap con colores fijos en su CSS compilado --- */
+.btn-primary {
+    --bs-btn-bg: var(--mesa-primary);
+    --bs-btn-border-color: var(--mesa-primary);
+    --bs-btn-hover-bg: var(--mesa-primary-hover);
+    --bs-btn-hover-border-color: var(--mesa-primary-hover);
+    --bs-btn-active-bg: var(--mesa-primary-active);
+    --bs-btn-active-border-color: var(--mesa-primary-active);
+    --bs-btn-disabled-bg: var(--mesa-primary);
+    --bs-btn-disabled-border-color: var(--mesa-primary);
+    --bs-btn-focus-shadow-rgb: var(--mesa-primary-rgb);
+}
+.btn-outline-primary {
+    --bs-btn-color: var(--mesa-primary);
+    --bs-btn-border-color: var(--mesa-primary);
+    --bs-btn-hover-bg: var(--mesa-primary);
+    --bs-btn-hover-border-color: var(--mesa-primary);
+    --bs-btn-active-bg: var(--mesa-primary);
+    --bs-btn-active-border-color: var(--mesa-primary);
+    --bs-btn-disabled-color: var(--mesa-primary);
+    --bs-btn-disabled-border-color: var(--mesa-primary);
+    --bs-btn-focus-shadow-rgb: var(--mesa-primary-rgb);
+}
+.btn { border-radius: .55rem; font-weight: 500; }
+.btn-link { --bs-btn-color: var(--mesa-primary); --bs-btn-hover-color: var(--mesa-primary-hover); }
+
+.nav-pills { --bs-nav-pills-link-active-bg: var(--mesa-primary); --bs-nav-pills-border-radius: 999px; }
+.nav-pills .nav-link { --bs-nav-link-color: var(--mesa-primary); }
+.pagination {
+    --bs-pagination-color: var(--mesa-primary);
+    --bs-pagination-active-bg: var(--mesa-primary);
+    --bs-pagination-active-border-color: var(--mesa-primary);
+    --bs-pagination-focus-box-shadow: 0 0 0 .25rem rgba(11, 93, 115, .25);
+}
+.dropdown-menu {
+    --bs-dropdown-link-active-bg: var(--mesa-primary);
+    --bs-dropdown-border-radius: var(--mesa-radius);
+    --bs-dropdown-box-shadow: var(--mesa-shadow);
+    border-color: var(--mesa-border);
+    box-shadow: var(--mesa-shadow);
+}
+.list-group { --bs-list-group-active-bg: var(--mesa-primary); --bs-list-group-active-border-color: var(--mesa-primary); }
+.progress, .progress-stacked { --bs-progress-bar-bg: var(--mesa-primary); }
+.form-check-input:checked { background-color: var(--mesa-primary); border-color: var(--mesa-primary); }
+.form-control:focus, .form-select:focus, .form-check-input:focus {
+    border-color: #6fa9b8;
+    box-shadow: 0 0 0 .25rem rgba(11, 93, 115, .18);
+}
+.form-control, .form-select { border-radius: .55rem; }
+.text-bg-primary { background-color: var(--mesa-primary) !important; }
+
+/* --- Superficies --- */
+.card { --bs-card-border-radius: var(--mesa-radius); --bs-card-inner-border-radius: calc(var(--mesa-radius) - 1px); }
+.card.shadow-sm, .shadow-sm { box-shadow: var(--mesa-shadow) !important; }
+.card-header { border-bottom-color: var(--mesa-border); }
+.table > :not(caption) > * > * { border-bottom-color: var(--mesa-border); }
+.table-light { --bs-table-bg: #f1f5f7; }
+
+/* --- Navegación --- */
+.navbar.bg-primary {
+    background: linear-gradient(90deg, #08485a 0%, var(--mesa-primary) 60%, #0c6b80 100%) !important;
+    box-shadow: 0 2px 10px rgba(6, 55, 68, .25);
+}
+.navbar .nav-link { font-weight: 500; }
+.navbar .nav-link.active { box-shadow: inset 0 -3px 0 var(--mesa-accent); }
+
+/* Franja de contexto del usuario (instalación, ubicación, extensión) */
+.user-context {
+    background: #ffffff;
+    border-bottom: 1px solid var(--mesa-border);
+    font-size: .85rem;
+}
+.user-context a { color: inherit; text-decoration: none; }
+.user-context a:hover .user-context-text { text-decoration: underline; }
+.user-context .bi-geo-alt-fill { color: var(--mesa-accent); }
+
+/* --- Indicadores --- */
+.stat-card { position: relative; overflow: hidden; }
+.stat-card::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--mesa-primary), var(--mesa-accent));
+    opacity: .75;
+}
+.stat-value { letter-spacing: -.01em; }
+
+/* --- Pantallas sin sesión --- */
+.guest-bg {
+    background:
+        radial-gradient(circle at 12% 8%, rgba(20, 163, 154, .28), transparent 42%),
+        linear-gradient(140deg, #06323e 0%, var(--mesa-primary) 55%, #0e7f78 100%);
+}
+.installer-bg {
+    background:
+        radial-gradient(circle at 15% 10%, rgba(20, 163, 154, .25), transparent 40%),
+        linear-gradient(140deg, #06323e 0%, var(--mesa-primary) 60%, #0e7f78 100%);
+}
+html:has(.installer-bg) { background: #0a4f62; }
+
+/* Reportes: barras con el primario */
+.bar-fill { background: var(--mesa-primary); }
+
+@media (max-width: 575.98px) {
+    .user-context .container { font-size: .8rem; }
+}
