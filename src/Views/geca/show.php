@@ -43,6 +43,8 @@ $cards = [
                 <div class="col-sm-6 col-lg-4"><span class="text-body-secondary">Usuarios nuevos:</span> <?= e(number_format((int) $detalle['usuarios_nuevos'])) ?></div>
                 <div class="col-sm-6 col-lg-4"><span class="text-body-secondary">Usuarios actualizados:</span> <?= e(number_format((int) $detalle['usuarios_actualizados'])) ?></div>
                 <div class="col-sm-6 col-lg-4"><span class="text-body-secondary">Ubicaciones nuevas:</span> <?= e(number_format((int) $detalle['ubicaciones_nuevas'])) ?></div>
+                <div class="col-sm-6 col-lg-4"><span class="text-body-secondary">Monitores casados con su computadora:</span> <?= e(number_format((int) ($detalle['monitores_casados'] ?? 0))) ?></div>
+                <div class="col-sm-6 col-lg-4"><span class="text-body-secondary">Equipos en baja (sin trabajador):</span> <?= e(number_format((int) ($detalle['en_baja'] ?? 0))) ?></div>
                 <div class="col-sm-6 col-lg-4"><span class="text-body-secondary">Filas omitidas:</span> <?= e(number_format((int) $detalle['omitidos'])) ?></div>
                 <div class="col-sm-6 col-lg-4"><span class="text-body-secondary">Tiempo / memoria:</span> <?= e($detalle['segundos']) ?> s · <?= e($detalle['memoria_pico_mb']) ?> MB</div>
             </div>

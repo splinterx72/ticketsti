@@ -40,7 +40,7 @@ final class TicketService
     public function equiposDeUsuario(int $usuarioId): array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT e.id, e.serie, e.marca, e.modelo, e.perfil, e.es_principal, e.vigente_en_geca,
+            'SELECT e.id, e.serie, e.tipo_componente, e.marca, e.modelo, e.perfil, e.es_principal, e.vigente_en_geca,
                     e.real_ubicacion_fisica_id, e.real_nivel_id, e.real_ala,
                     e.serie_monitor1, e.marca_monitor1, e.modelo_monitor1,
                     e.serie_monitor2, e.marca_monitor2, e.modelo_monitor2,
@@ -53,7 +53,9 @@ final class TicketService
                LEFT JOIN ubicaciones ug ON ug.id = e.ubicacion_geca_id
                LEFT JOIN ubicaciones ur ON ur.id = e.ubicacion_real_id
               WHERE e.usuario_id = ?
-              ORDER BY e.es_principal DESC, e.vigente_en_geca DESC, e.serie'
+              ORDER BY e.es_principal DESC, e.vigente_en_geca DESC,
+                       (e.tipo_componente IS NULL OR e.tipo_componente IN (\'' . implode("', '", GecaSyncService::COMPUTADORAS) . '\')) DESC,
+                       e.serie'
         );
         $stmt->execute([$usuarioId]);
 

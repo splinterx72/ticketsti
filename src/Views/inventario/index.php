@@ -57,6 +57,8 @@ $filtros = [
                         <td>
                             <a href="<?= e(url('/ti/equipos/' . (int) $eq['id'])) ?>" class="font-monospace fw-semibold"><?= e($eq['serie']) ?></a>
                             <?php if ((int) $eq['vigente_en_geca'] === 0): ?><span class="badge text-bg-secondary ms-1">No vigente</span><?php endif; ?>
+                            <?php if (($eq['estado_resguardo'] ?? '') === 'BAJA'): ?><span class="badge text-bg-warning ms-1">Resguardo en baja</span><?php endif; ?>
+                            <?php if (!empty($eq['tipo_componente'])): ?><div class="small text-body-secondary"><?= e(tipo_equipo($eq['tipo_componente'])) ?></div><?php endif; ?>
                         </td>
                         <td class="small"><?= e(trim(($eq['marca'] ?? '') . ' ' . ($eq['modelo'] ?? '')) ?: '—') ?>
                             <?php $mon = array_filter([$eq['serie_monitor1'], $eq['serie_monitor2']]); if ($mon !== []): ?>

@@ -26,9 +26,9 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 * **Contraseña de admin local**: semáforo para el supervisor, avisos desde 10 días antes y bloqueo total a 5 días.
 * **Avisos** en el inicio con fechas de publicación, y **tareas** con folio, fecha de entrega y evidencias por agente.
 * **Correo a la mesa institucional** (`mesadeayuda@pemex.com`, configurable) por cada ticket nuevo, para Remedy.
-* **Carga semanal del GECA** (`/geca`): `.xlsx` o `.csv` (coma o punto y coma, UTF-8 o ANSI de Excel), validación de los 30 encabezados, **UPSERT** por `ficha` y `serie` en una sola transacción, historial de cargas, detalle con advertencias y plantilla descargable.
+* **Carga semanal del GECA** (`/geca`): `.xlsx` o `.csv` (coma o punto y coma, UTF-8 o ANSI de Excel), reporte "Equipos entregados con estatus" (una fila por componente, monitores casados con su computadora), **UPSERT** por `ficha` y `serie` en una sola transacción, historial de cargas, detalle con advertencias y plantilla descargable.
 
-Rendimiento medido: 30 000 filas en ~5 s (CSV) / ~8 s (XLSX) usando 4–14 MB de RAM.
+Rendimiento medido con el GECA real: 124 317 filas (21 MB .xlsx) en ~40 s usando ~145 MB de RAM.
 
 ## Requisitos del hosting
 
@@ -114,9 +114,9 @@ Para que los avisos de tickets nuevos lleguen a un buzón del área en lugar de 
 ## Carga semanal del GECA
 
 * Menú **Carga GECA** (roles `agente_ti` y `admin_ti`) > elige el archivo > *Procesar archivo*.
-* Encabezados: los 30 de la plantilla (`/geca/plantilla`); se toleran acentos, mayúsculas y espacios.
+* Archivo: el reporte **"Equipos entregados con estatus"** del GECA tal cual (una fila por componente; columnas en `/geca/plantilla`); se toleran acentos, mayúsculas y espacios en los encabezados.
 * Formatos: `.xlsx` (Excel 2007+) y `.csv`. Los `.xls` antiguos se deben guardar antes como `.xlsx` o CSV.
-* Qué hace: crea el registro en `cargas_geca`, marca todo el inventario como no vigente, y por cada fila inserta/recupera la ubicación, hace UPSERT del usuario (solo `nombre` y `jefe_nombre`) y del equipo. En equipos existentes **no se tocan** `ubicacion_real_id`, `es_principal`, garantías ni tickets. Si algo falla, nada cambia.
+* Qué hace: crea el registro en `cargas_geca`, marca todo el inventario como no vigente, casa cada monitor con la computadora de su folio (o con la única laptop libre de la ficha), y por cada fila inserta/recupera la ubicación, hace UPSERT del usuario (solo nombre y jefe) y del equipo. Replicadores y proyectores son equipos propios; los resguardos en BAJA quedan sin trabajador. En equipos existentes **no se tocan** la ubicación real, el equipo principal, garantías ni tickets. Si algo falla, nada cambia.
 
 ## Desarrollo local
 

@@ -120,7 +120,7 @@ $n = static fn (array $src, string $k): string => number_format((int) ($src[$k] 
                                     <span class="fw-semibold font-monospace"><?= e($eq['serie']) ?></span>
                                     <?php if ((int) $eq['es_principal'] === 1): ?><span class="badge text-bg-primary ms-1"><i class="bi bi-star-fill me-1"></i>Principal</span><?php endif; ?>
                                     <?php if ((int) $eq['vigente_en_geca'] === 0): ?><span class="badge text-bg-secondary ms-1">No vigente</span><?php endif; ?>
-                                    <div class="small"><?= e(trim(($eq['marca'] ?? '') . ' ' . ($eq['modelo'] ?? '')) ?: '—') ?></div>
+                                    <div class="small"><?= !empty($eq['tipo_componente']) ? e(tipo_equipo($eq['tipo_componente'])) . ' · ' : '' ?><?= e(trim(($eq['marca'] ?? '') . ' ' . ($eq['modelo'] ?? '')) ?: '—') ?></div>
                                     <?php $monitores = array_filter([$eq['serie_monitor1'], $eq['serie_monitor2']]); ?>
                                     <?php if ($monitores !== []): ?>
                                         <div class="small text-body-secondary"><i class="bi bi-display me-1"></i><?= e(implode(', ', $monitores)) ?></div>

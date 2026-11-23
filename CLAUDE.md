@@ -81,10 +81,13 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 * **Flujo de importación:**
   1. Se crea un registro de auditoría en `cargas_geca`.
   2. Se actualiza todo el inventario actual a `vigente_en_geca = 0`.
-  3. Por cada fila del archivo GECA (30 columnas):
-     * Se inserta o recupera el ID en `ubicaciones` (`eps`, `subdireccion`, `gerencia`, `zona`, `sector`, `inmueble`).
-     * Si la `ficha` no existe en `usuarios`, se inserta con `registrado = 0`. Si ya existe, se actualizan `nombre` y `jefe_nombre` sin tocar su contraseña, correo ni rol.
-     * Si la `serie` no existe en `equipos`, se inserta con `vigente_en_geca = 1` y `ubicacion_real_id = ubicacion_geca_id`. Si ya existe, se actualizan los campos del GECA, `usuario_id`, `ubicacion_geca_id` y `vigente_en_geca = 1`, **preservando intactos** `ubicacion_real_id`, `es_principal`, `garantias` y `tickets`.
+  3. Antes de tocar la base (pasada 1) se decide el **casado de monitores**: cada MONITOR va como monitor 1/2 de la computadora (CPU, PC, LAPTOP, CHROMEBOOK, MACBOOK) de su mismo `folio`; si su folio no trae computadora, de la **única** computadora libre (folio sin monitores, no en baja) de la misma ficha, con máximo 2. En cualquier otro caso queda como equipo propio. Nunca al azar.
+  4. Por cada fila (una por componente; pasada 2):
+     * Se inserta o recupera el ID en `ubicaciones` (`eps`, `subdireccion`, `gerencia`, `zona`, `sector`, `inmueble`; la colación ignora acentos).
+     * Si el resguardo está en **BAJA**, el equipo se guarda **sin usuario** y la fila no crea ni actualiza usuarios.
+     * Si la `ficha` no existe en `usuarios`, se inserta con `registrado = 0`. Si ya existe, se actualizan `nombre`, `jefe_ficha` y `jefe_nombre` sin tocar su contraseña, correo ni rol.
+     * Los monitores casados no se guardan como equipo (sus datos van en `serie_monitorN` de la computadora). Replicadores, proyectores y monitores sin casar son equipos propios (`tipo_componente`).
+     * Si la `serie` no existe en `equipos`, se inserta con `vigente_en_geca = 1` y `ubicacion_real_id = ubicacion_geca_id`. Si ya existe, se actualizan los campos del GECA (incluido el resguardo anterior `pr_*`), `usuario_id`, `ubicacion_geca_id` y `vigente_en_geca = 1`, **preservando intactos** `ubicacion_real_id`, `real_*`, `es_principal`, `garantias` y `tickets`.
 
 ### B. Registro y Autenticación de Usuarios
 * **Auto-registro por Ficha:** El trabajador ingresa su número de `ficha`. El sistema busca en `usuarios` (`registrado = 0`).
@@ -113,9 +116,12 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 ### E. Gestión de Garantías
 * Módulo vinculado a `equipos` que permite registrar pólizas/contratos indicando si cubren el `equipo`, `monitor_1` o `monitor_2`, con fechas de vigencia, proveedor y estado (`vigente`, `en_reclamacion`, `vencida`).
 
-### F. Formato del archivo GECA (30 encabezados)
+### F. Formato del archivo GECA (reporte "Equipos entregados con estatus", 40 columnas, una fila por componente)
 
-`folio, fecha, estado_resguardo, numero_contrato, nombre, ficha, jefe_nombre, eps, subdireccion, gerencia, zona, sector, inmueble, serie, estado_inventario, marca, modelo, perfil, usuario_fecha_aceptacion, ti_fecha_validacion, fecha_baja, fecha_carga_resguardo, fuera_consola, motivo_baja, serie_monitor1, marca_monitor1, modelo_monitor1, serie_monitor2, marca_monitor2, modelo_monitor2`
+`folio, fecha, numero_orden, dia, mes, año, estado_resguardo, estado_inventario, numero_contrato, nombre, ficha, eps, subdireccion, gerencia, jefe_ficha, jefe_nombre, perfil, tipo_componente, serie, marca, modelo, lote, zona, sector, inmueble, ubicacion_referencia, entidad_federativa, municipio, usuario_fecha_aceptacion, ti_fecha_validacion, tipo_asignacion, motivo_fuera_consola, fecha_baja, pr_folio, pr_fecha, pr_estado_resguardo, pr_nombre, pr_ficha, pr_eps, pr_zona`
+
+* Obligatorias: `GecaSyncService::REQUIRED` (22); las demás se guardan si vienen; `dia`, `mes`, `año` se ignoran. Diseño en `docs/superpowers/specs/2026-11-23-geca-por-componente-design.md`.
+* Archivo real (18/11/2026): 124 317 filas / 21 MB → ~40 s y ~145 MB de memoria (límite del hosting: 256 MB, 300 s).
 
 * Los encabezados se comparan sin acentos, mayúsculas, espacios ni signos (`"Número de Serie"` = `serie`, `"Jefe"` = `jefe_nombre`). Los alias aceptados viven en `GecaSyncService::ALIASES`.
 * Fechas aceptadas: serial de Excel, `dd/mm/aaaa [hh:mm[:ss]] [a. m./p. m.]`, `aaaa-mm-dd [hh:mm[:ss]]`.

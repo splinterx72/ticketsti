@@ -218,3 +218,17 @@ if (!function_exists('ubicacion_usuario')) {
         }
     }
 }
+
+if (!function_exists('tipo_equipo')) {
+    /** Nombre legible del tipo de componente del GECA (CPU, Laptop, Monitor...). */
+    function tipo_equipo(?string $tipo): string
+    {
+        $tipo = mb_strtoupper(trim((string) $tipo));
+        return match ($tipo) {
+            ''          => '',
+            'CPU', 'PC' => $tipo,
+            'MACBOOK'   => 'MacBook',
+            default     => mb_convert_case($tipo, MB_CASE_TITLE),
+        };
+    }
+}

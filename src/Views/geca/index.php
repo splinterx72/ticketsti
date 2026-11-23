@@ -54,15 +54,17 @@ $accept = $xlsxSoportado ? '.xlsx,.csv' : '.csv';
         </div>
 
         <div class="card border-0 shadow-sm mt-4">
-            <div class="card-header bg-white fw-semibold small">Los 30 encabezados esperados</div>
+            <div class="card-header bg-white fw-semibold small">Reporte “Equipos entregados con estatus”</div>
             <div class="card-body small">
+                <p class="mb-2">Sube el reporte tal como lo descarga el GECA (una fila por componente). Columnas <strong>obligatorias</strong> en negritas:</p>
                 <ol class="geca-headers mb-0">
                     <?php foreach ($headers as $h): ?>
-                        <li><code><?= e($h) ?></code></li>
+                        <li><code class="<?= in_array($h, \App\Services\GecaSyncService::REQUIRED, true) ? 'fw-bold' : 'text-body-secondary' ?>"><?= e($h) ?></code></li>
                     <?php endforeach; ?>
                 </ol>
                 <p class="text-body-secondary mt-2 mb-0">
-                    Se aceptan mayúsculas, acentos y espacios (ej. <em>“Número de Serie”</em>, <em>“Jefe”</em>, <em>“Serie Monitor 1”</em>).
+                    Los monitores se asignan a la computadora de su folio (o a la única laptop de la ficha); los resguardos en
+                    <em>BAJA</em> quedan sin trabajador. Se aceptan mayúsculas, acentos y espacios en los encabezados.
                 </p>
             </div>
         </div>

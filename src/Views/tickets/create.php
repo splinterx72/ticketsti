@@ -89,7 +89,7 @@ if ($hasOld) {
                                     data-geca-inst="<?= e($instalacionGeca[(int) $eq['id']] ?? '') ?>"
                                     data-geca="<?= e($eq['ubicacion_geca'] ?? '') ?>"
                                     <?= (int) $eq['id'] === $equipoSel ? 'selected' : '' ?>>
-                                <?= e($eq['serie']) ?> — <?= e(trim(($eq['marca'] ?? '') . ' ' . ($eq['modelo'] ?? ''))) ?>
+                                <?= !empty($eq['tipo_componente']) ? e(tipo_equipo($eq['tipo_componente'])) . ' · ' : '' ?><?= e($eq['serie']) ?> — <?= e(trim(($eq['marca'] ?? '') . ' ' . ($eq['modelo'] ?? ''))) ?>
                                 <?= (int) $eq['es_principal'] === 1 ? '★ Principal' : '' ?>
                                 <?= (int) $eq['vigente_en_geca'] === 0 ? '(no vigente)' : '' ?>
                             </option>

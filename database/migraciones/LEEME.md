@@ -7,6 +7,7 @@ completo.
 | Archivo | Lleva de | A | Qué agrega |
 |---|---|---|---|
 | `2026-11-23_fase5.sql` | Fase 4 | Fase 5 | Rol supervisor, ubicaciones físicas, asignaciones y préstamos, avisos, tareas, verificación de correo y contraseña de admin local |
+| `2026-11-23_geca_componentes.sql` | Fase 5 | GECA por componente | Columnas del reporte "Equipos entregados con estatus": tipo de componente, orden, lote, referencia, entidad, municipio, tipo de asignación, resguardo anterior y ficha del jefe |
 
 ## Cómo aplicar una migración (phpMyAdmin en cPanel)
 
@@ -14,8 +15,8 @@ completo.
 2. phpMyAdmin › selecciona la base › *Importar* › elige el archivo `.sql` › *Continuar*.
 3. Debe terminar con “Importación ejecutada exitosamente”.
 
-Cada migración se ejecuta **una sola vez**. Si la vuelves a importar, se detiene en el
-primer `CREATE TABLE` porque las tablas ya existen; no daña los datos.
+Se aplican **en el orden de la tabla**. Cada migración se ejecuta **una sola vez**. Si la vuelves a importar, se detiene en el
+primer `CREATE TABLE` (o "Duplicate column name") porque ya estaba aplicada; no daña los datos.
 
 Después de la Fase 5, **todas las cuentas existentes deben verificar su correo** en su
 siguiente ingreso. Revisa antes que el envío de correo funcione (Gestión › Usuarios ›

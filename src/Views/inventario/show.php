@@ -35,7 +35,8 @@ $dl = static function (array $pairs): string {
             <div class="card-header bg-white fw-semibold"><i class="bi bi-person me-1"></i>Resguardante</div>
             <dl class="card-body small mb-0 detail-list">
                 <?= $dl([
-                    'Nombre' => $eq['usuario_nombre'], 'Ficha' => $eq['ficha'], 'Jefe' => $eq['jefe_nombre'],
+                    'Nombre' => $eq['usuario_nombre'], 'Ficha' => $eq['ficha'],
+                    'Jefe' => $eq['jefe_nombre'] ? $eq['jefe_nombre'] . ($eq['jefe_ficha'] ? ' (ficha ' . $eq['jefe_ficha'] . ')' : '') : null,
                     'Correo' => $eq['email'], 'Teléfono / ext.' => $eq['telefono_ext'],
                     'Cuenta' => $eq['ficha'] === null ? null : ((int) $eq['registrado'] === 1 ? 'Activada' : 'Sin activar'),
                 ]) ?>
@@ -44,7 +45,12 @@ $dl = static function (array $pairs): string {
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white fw-semibold"><i class="bi bi-geo-alt me-1"></i>Ubicación</div>
             <dl class="card-body small mb-0 detail-list">
-                <?= $dl(['Según GECA' => $eq['ubicacion_geca'], 'Física (último reporte)' => $eq['ubicacion_real']]) ?>
+                <?= $dl([
+                    'Según GECA' => $eq['ubicacion_geca'],
+                    'Referencia GECA' => $eq['ubicacion_referencia'],
+                    'Entidad / municipio' => trim(implode(' / ', array_filter([$eq['entidad_federativa'], $eq['municipio']]))) ?: null,
+                    'Física (último reporte)' => $eq['ubicacion_real'],
+                ]) ?>
             </dl>
         </div>
     </div>
@@ -56,7 +62,9 @@ $dl = static function (array $pairs): string {
                 <div class="row">
                     <dl class="col-sm-6 small mb-0 detail-list">
                         <?= $dl([
+                            'Tipo' => $eq['tipo_componente'] ? tipo_equipo($eq['tipo_componente']) : null,
                             'Marca / modelo' => trim(($eq['marca'] ?? '') . ' ' . ($eq['modelo'] ?? '')), 'Perfil' => $eq['perfil'],
+                            'Tipo de asignación' => $eq['tipo_asignacion'], 'Lote' => $eq['lote'], 'Orden' => $eq['numero_orden'],
                             'Folio de resguardo' => $eq['folio_resguardo'], 'Fecha de resguardo' => $eq['fecha_resguardo'] ? fecha_mx($eq['fecha_resguardo'], false) : null,
                             'Estado del resguardo' => $eq['estado_resguardo'], 'Contrato' => $eq['numero_contrato'],
                         ]) ?>
@@ -71,6 +79,18 @@ $dl = static function (array $pairs): string {
                         ]) ?>
                     </dl>
                 </div>
+                <?php if ($eq['pr_folio'] || $eq['pr_ficha'] || $eq['pr_nombre']): ?>
+                    <hr>
+                    <div class="small fw-semibold mb-1"><i class="bi bi-clock-history me-1"></i>Resguardo anterior</div>
+                    <dl class="small mb-0 detail-list">
+                        <?= $dl([
+                            'Resguardante' => trim(($eq['pr_nombre'] ?? '') . ($eq['pr_ficha'] ? ' (ficha ' . $eq['pr_ficha'] . ')' : '')) ?: null,
+                            'Folio' => $eq['pr_folio'], 'Fecha' => $eq['pr_fecha'] ? fecha_mx($eq['pr_fecha']) : null,
+                            'Estado' => $eq['pr_estado_resguardo'],
+                            'EPS / zona' => trim(implode(' / ', array_filter([$eq['pr_eps'], $eq['pr_zona']]))) ?: null,
+                        ]) ?>
+                    </dl>
+                <?php endif; ?>
                 <?php if ($eq['serie_monitor1'] || $eq['serie_monitor2']): ?>
                     <hr>
                     <div class="row small">

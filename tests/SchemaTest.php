@@ -61,6 +61,16 @@ function test_schema_nuevo_tiene_tablas_fase5(): void
     assert_eq(scalar('SELECT COUNT(*) FROM ubicacion_tipos'), 6, 'tipos de ubicación sembrados');
 }
 
+/** Aplica en orden todas las migraciones de database/migraciones (como en phpMyAdmin). */
+function aplicar_migraciones(PDO $pdo): void
+{
+    $archivos = glob(ROOT_PATH . '/database/migraciones/*.sql') ?: [];
+    sort($archivos);
+    foreach ($archivos as $archivo) {
+        import_sql($pdo, (string) file_get_contents($archivo));
+    }
+}
+
 function test_migracion_iguala_schema(): void
 {
     $nuevo = columnas(test_pdo());
@@ -70,7 +80,7 @@ function test_migracion_iguala_schema(): void
     $old->exec("INSERT INTO usuarios (ficha, nombre, email, password_hash, rol, registrado) VALUES ('12345', 'José Peña', 'jose@pemex.com', 'x', 'agente_ti', 1)");
     $old->exec("INSERT INTO equipos (serie, usuario_id) VALUES ('SER001', 1)");
 
-    import_sql($old, (string) file_get_contents(ROOT_PATH . '/database/migraciones/2026-11-23_fase5.sql'));
+    aplicar_migraciones($old);
 
     $migrado = columnas($old);
     assert_eq(array_diff_key($nuevo, $migrado), [], 'columnas que faltan tras migrar');
@@ -94,7 +104,7 @@ function test_migracion_no_deja_sin_acceso_al_admin_existente(): void
         ('900001', 'Admin', 'admin@pemex.com', 'x', 'admin_ti', 1, 1),
         ('12345', 'José Peña', 'jose@pemex.com', 'x', 'usuario', 1, 1)");
 
-    import_sql($old, (string) file_get_contents(ROOT_PATH . '/database/migraciones/2026-11-23_fase5.sql'));
+    aplicar_migraciones($old);
 
     $v = $old->query("SELECT ficha, email_verificado_en IS NOT NULL FROM usuarios ORDER BY ficha")->fetchAll(PDO::FETCH_KEY_PAIR);
     assert_eq((int) $v['900001'], 1, 'el admin_ti existente queda verificado (si el correo falla no habría quien lo desbloquee)');
