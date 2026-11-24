@@ -24,7 +24,12 @@ final class AuthController extends Controller
         } catch (\Throwable $e) {
             error_log('[Avisos] ' . $e->getMessage());
         }
-        $this->view('auth/login', ['title' => 'Iniciar sesión', 'authUser' => null, 'avisos' => $avisos], 200, 'layouts/guest');
+        $this->view('auth/login', [
+            'title'      => 'Iniciar sesión',
+            'authUser'   => null,
+            'avisos'     => $avisos,
+            'mesaCorreo' => (string) config('mail.mesa_institucional', ''),
+        ], 200, 'layouts/login');
     }
 
     public function login(): void

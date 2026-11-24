@@ -14,7 +14,7 @@ $imp = \App\Services\AvisoService::IMPORTANCIAS;
     <a href="<?= e(url('/supervisor/avisos')) ?>" class="btn btn-link"><i class="bi bi-arrow-left me-1"></i>Avisos</a>
 </div>
 
-<form method="post" action="<?= e(url($id === null ? '/supervisor/avisos' : '/supervisor/avisos/' . $id)) ?>" class="card border-0 shadow-sm mx-auto" style="max-width: 48rem;" novalidate>
+<form method="post" action="<?= e(url($id === null ? '/supervisor/avisos' : '/supervisor/avisos/' . $id)) ?>" class="card border-0 shadow-sm mx-auto" style="max-width: 48rem;" enctype="multipart/form-data" novalidate>
     <div class="card-body p-4">
         <?= csrf_field() ?>
         <div class="mb-3">
@@ -24,6 +24,27 @@ $imp = \App\Services\AvisoService::IMPORTANCIAS;
         <div class="mb-3">
             <label for="mensaje" class="form-label fw-semibold">Mensaje</label>
             <textarea class="form-control" id="mensaje" name="mensaje" rows="5" maxlength="3000" required><?= e($v('mensaje')) ?></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="imagen" class="form-label fw-semibold">Imagen <span class="fw-normal text-body-secondary">(opcional)</span></label>
+            <div class="aviso-imagen-preview mb-2 <?= empty($aviso['imagen']) ? 'is-empty' : '' ?>" id="avisoPreview">
+                <?php if (!empty($aviso['imagen']) && $id !== null): ?>
+                    <img src="<?= e(url('/avisos/' . (int) $id . '/imagen')) ?>" alt="Imagen actual del aviso">
+                <?php endif; ?>
+                <div class="aviso-imagen-vacia"><i class="bi bi-image"></i><span>Marco 16:9 · ideal 1600×900 px</span></div>
+            </div>
+            <input type="file" class="form-control" id="imagen" name="imagen" accept="image/jpeg,image/png,image/webp"
+                   data-preview="#avisoPreview" data-max-bytes="<?= e(\App\Services\ImagenAvisoService::MAX_BYTES) ?>">
+            <div class="form-text">
+                JPG, PNG o WebP de hasta 5 MB, horizontal 16:9 (ideal <strong>1600×900 px</strong>, mínimo 960×540).
+                Si la proporción es otra, se recorta al centro. Con alcance <em>Todos</em> aparece en el carrusel de la pantalla de entrada.
+            </div>
+            <?php if (!empty($aviso['imagen']) && $id !== null): ?>
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="quitar_imagen" name="quitar_imagen" value="1">
+                    <label class="form-check-label" for="quitar_imagen">Quitar la imagen actual</label>
+                </div>
+            <?php endif; ?>
         </div>
         <fieldset class="mb-3">
             <legend class="form-label fw-semibold fs-6">Importancia</legend>

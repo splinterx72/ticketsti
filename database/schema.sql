@@ -306,6 +306,7 @@ CREATE TABLE avisos (
     inicia_en DATETIME NOT NULL,
     termina_en DATETIME NOT NULL,
     alcance ENUM('todos', 'instalaciones') NOT NULL DEFAULT 'todos',
+    imagen VARCHAR(255) NULL,
     autor_id INT UNSIGNED NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_avisos_vigencia (inicia_en, termina_en),

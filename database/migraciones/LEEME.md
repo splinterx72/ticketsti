@@ -8,6 +8,7 @@ completo.
 |---|---|---|---|
 | `2026-11-23_fase5.sql` | Fase 4 | Fase 5 | Rol supervisor, ubicaciones físicas, asignaciones y préstamos, avisos, tareas, verificación de correo y contraseña de admin local |
 | `2026-11-23_geca_componentes.sql` | Fase 5 | GECA por componente | Columnas del reporte "Equipos entregados con estatus": tipo de componente, orden, lote, referencia, entidad, municipio, tipo de asignación, resguardo anterior y ficha del jefe |
+| `2026-11-24_avisos_imagen.sql` | GECA por componente | Noticias con imagen | Imagen opcional en los avisos (carrusel de la pantalla de entrada) |
 
 ## Cómo aplicar una migración (phpMyAdmin en cPanel)
 

@@ -205,4 +205,40 @@
             if (wait) { wait.classList.remove('d-none'); }
         });
     }
+
+    // --- Vista previa de imagen (avisos): input[type=file][data-preview="#marco"] ---
+    document.querySelectorAll('input[type="file"][data-preview]').forEach(function (input) {
+        var marco = document.querySelector(input.getAttribute('data-preview'));
+        if (!marco) { return; }
+        input.addEventListener('change', function () {
+            var file = input.files && input.files[0];
+            var aviso = marco.parentNode.querySelector('.aviso-imagen-aviso');
+            if (aviso) { aviso.remove(); }
+            if (!file) { return; }
+            var max = parseInt(input.getAttribute('data-max-bytes') || '0', 10);
+            var img = marco.querySelector('img') || document.createElement('img');
+            img.alt = 'Vista previa';
+            img.onload = function () {
+                URL.revokeObjectURL(img.src);
+                var msg = '';
+                if (img.naturalWidth < 960 || img.naturalHeight < 540) {
+                    msg = 'La imagen mide ' + img.naturalWidth + '×' + img.naturalHeight + ' px; se necesita al menos 960×540.';
+                } else if (Math.abs(img.naturalWidth / img.naturalHeight - 16 / 9) > 0.08) {
+                    msg = 'No es 16:9: en el carrusel se recortará al centro (así se ve en esta vista previa).';
+                }
+                if (max > 0 && file.size > max) {
+                    msg = 'La imagen pesa más de ' + Math.floor(max / 1048576) + ' MB.';
+                }
+                if (msg) {
+                    var p = document.createElement('div');
+                    p.className = 'aviso-imagen-aviso small text-warning-emphasis mb-2';
+                    p.textContent = msg;
+                    marco.insertAdjacentElement('afterend', p);
+                }
+            };
+            img.src = URL.createObjectURL(file);
+            marco.insertBefore(img, marco.firstChild);
+            marco.classList.remove('is-empty');
+        });
+    });
 })();

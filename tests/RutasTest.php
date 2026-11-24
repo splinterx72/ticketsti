@@ -13,6 +13,7 @@ const RUTAS_SIN_SESION = [
     'RegistroController'  => '*',
     'VerificacionController' => '*',
     'AdminLocalController'   => '*',
+    'AvisoController'        => ['imagen'],   // pública solo para avisos "para todos" vigentes (AvisoService::imagenVisible)
 ];
 
 /** @return list<array{0: string, 1: string, 2: string}> [ruta, controlador, método] */

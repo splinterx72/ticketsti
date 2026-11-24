@@ -76,3 +76,30 @@ select[size] option:checked { background: var(--bs-primary-bg-subtle); font-weig
 .aviso-importante { border-left-color: var(--bs-warning) !important; }
 .aviso-urgente { border-left-color: var(--bs-danger) !important; }
 .aviso-icono { font-size: 1.5rem; line-height: 1; }
+
+/* Imagen de avisos: marco 16:9 de vista previa (formulario) y miniatura (inicio) */
+.aviso-imagen-preview {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    max-width: 32rem;
+    border-radius: .75rem;
+    overflow: hidden;
+    background: repeating-linear-gradient(45deg, #f1f5f7 0 12px, #e8eff2 12px 24px);
+    border: 1px dashed #b7d6de;
+}
+.aviso-imagen-preview img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.aviso-imagen-vacia {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .25rem;
+    color: #5f7a83;
+    font-size: .85rem;
+}
+.aviso-imagen-vacia .bi { font-size: 2rem; }
+.aviso-imagen-preview.is-empty .aviso-imagen-vacia { display: flex; }
+.aviso-miniatura { width: 9rem; aspect-ratio: 16 / 9; object-fit: cover; border-radius: .5rem; flex-shrink: 0; }
+@media (max-width: 575.98px) { .aviso-miniatura { width: 6rem; } }

@@ -14,7 +14,11 @@ if ($avisos === []) {
     <?php foreach ($avisos as $a): [$label, $color, $icon] = $imp[$a['importancia']]; ?>
         <article class="aviso aviso-<?= e($a['importancia']) ?> card border-0 shadow-sm mb-2">
             <div class="card-body py-3 d-flex gap-3">
-                <div class="aviso-icono text-<?= e($color) ?>"><i class="bi <?= e($icon) ?>"></i></div>
+                <?php if (!empty($a['imagen'])): ?>
+                    <img class="aviso-miniatura" src="<?= e(url('/avisos/' . (int) $a['id'] . '/imagen') . '?v=' . substr(md5((string) $a['imagen']), 0, 8)) ?>" alt="" loading="lazy">
+                <?php else: ?>
+                    <div class="aviso-icono text-<?= e($color) ?>"><i class="bi <?= e($icon) ?>"></i></div>
+                <?php endif; ?>
                 <div class="flex-grow-1">
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
                         <span class="badge text-bg-<?= e($color) ?>"><?= e($label) ?></span>

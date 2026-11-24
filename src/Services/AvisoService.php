@@ -21,8 +21,41 @@ final class AvisoService
         'informativo' => ['Informativo', 'info', 'bi-info-circle'],
     ];
 
+    /** Imagen que dejó de usarse en el último guardar() (el controlador borra el archivo). */
+    private ?string $imagenReemplazada = null;
+
     public function __construct(private readonly PDO $pdo)
     {
+    }
+
+    public function ultimaImagenReemplazada(): ?string
+    {
+        return $this->imagenReemplazada;
+    }
+
+    /**
+     * Ruta de la imagen del aviso si este usuario puede verla ahora; null si no.
+     * Sin sesión (pantalla de entrada): solo avisos para "todos" y vigentes.
+     * Con sesión: los avisos vigentes que le tocan, y los que puede editar
+     * (vista previa e historial).
+     *
+     * @param array<string, mixed>|null $user
+     */
+    public function imagenVisible(int $id, ?array $user): ?string
+    {
+        $a = $this->find($id);
+        if ($a === null || ($a['imagen'] ?? null) === null) {
+            return null;
+        }
+        if ($user !== null && $this->puedeEditar($user, $a)) {
+            return (string) $a['imagen'];
+        }
+        foreach ($this->vigentesPara($user) as $v) {
+            if ((int) $v['id'] === $id) {
+                return (string) $a['imagen'];
+            }
+        }
+        return null;
     }
 
     /**
@@ -36,7 +69,7 @@ final class AvisoService
         $ahora ??= date('Y-m-d H:i:s');
         $instalaciones = $user === null ? [] : $this->instalacionesDe($user);
 
-        $sql = "SELECT DISTINCT a.id, a.titulo, a.mensaje, a.importancia, a.inicia_en, a.termina_en, a.alcance,
+        $sql = "SELECT DISTINCT a.id, a.titulo, a.mensaje, a.importancia, a.inicia_en, a.termina_en, a.alcance, a.imagen,
                        u.nombre AS autor
                   FROM avisos a
                   LEFT JOIN usuarios u ON u.id = a.autor_id
@@ -151,7 +184,8 @@ final class AvisoService
     }
 
     /**
-     * @param array<string, mixed> $in titulo, mensaje, importancia, inicia_en, termina_en, alcance, instalaciones[]
+     * @param array<string, mixed> $in titulo, mensaje, importancia, inicia_en, termina_en, alcance, instalaciones[],
+     *                                 imagen (ruta nueva ya guardada, opcional), quitar_imagen
      * @param array<string, mixed> $autor
      */
     public function guardar(?int $id, array $in, array $autor): int
@@ -196,17 +230,23 @@ final class AvisoService
             throw new ValidationException($errors);
         }
 
+        $nueva = isset($in['imagen']) && (string) $in['imagen'] !== '' ? (string) $in['imagen'] : null;
+        $anterior = $id === null ? null : ($this->find($id)['imagen'] ?? null);
+        $quitar = !empty($in['quitar_imagen']);
+        $imagen = $nueva ?? ($quitar ? null : $anterior);
+        $this->imagenReemplazada = $anterior !== null && $anterior !== $imagen ? $anterior : null;
+
         $this->pdo->beginTransaction();
         try {
             if ($id === null) {
                 $this->pdo->prepare(
-                    'INSERT INTO avisos (titulo, mensaje, importancia, inicia_en, termina_en, alcance, autor_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
-                )->execute([$titulo, $mensaje, $importancia, $inicia, $termina, $alcance, (int) $autor['id']]);
+                    'INSERT INTO avisos (titulo, mensaje, importancia, inicia_en, termina_en, alcance, imagen, autor_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                )->execute([$titulo, $mensaje, $importancia, $inicia, $termina, $alcance, $imagen, (int) $autor['id']]);
                 $id = (int) $this->pdo->lastInsertId();
             } else {
                 $this->pdo->prepare(
-                    'UPDATE avisos SET titulo = ?, mensaje = ?, importancia = ?, inicia_en = ?, termina_en = ?, alcance = ? WHERE id = ?'
-                )->execute([$titulo, $mensaje, $importancia, $inicia, $termina, $alcance, $id]);
+                    'UPDATE avisos SET titulo = ?, mensaje = ?, importancia = ?, inicia_en = ?, termina_en = ?, alcance = ?, imagen = ? WHERE id = ?'
+                )->execute([$titulo, $mensaje, $importancia, $inicia, $termina, $alcance, $imagen, $id]);
                 $this->pdo->prepare('DELETE FROM aviso_instalaciones WHERE aviso_id = ?')->execute([$id]);
             }
             if ($alcance === 'instalaciones') {
@@ -218,6 +258,7 @@ final class AvisoService
             $this->pdo->commit();
         } catch (\Throwable $e) {
             $this->pdo->rollBack();
+            $this->imagenReemplazada = null;
             throw $e;
         }
         return $id;

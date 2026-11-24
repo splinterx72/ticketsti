@@ -85,3 +85,13 @@ function ejemplos_usuario(): array
     ]);
     return ['km' => $km, 'laguna' => $laguna, 'holkanaab' => $holkanaab, 'carga' => $carga];
 }
+
+/** @return array<string, string|list<string>> */
+function aviso_form(array $extra = []): array
+{
+    return $extra + [
+        'titulo' => 'Mantenimiento de red', 'mensaje' => 'El sábado no habrá red de 8 a 12.', 'importancia' => 'importante',
+        'inicia_en' => date('Y-m-d\TH:i', strtotime('-1 hour')), 'termina_en' => date('Y-m-d\TH:i', strtotime('+1 day')),
+        'alcance' => 'todos', 'instalaciones' => [],
+    ];
+}

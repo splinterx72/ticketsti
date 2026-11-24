@@ -5,16 +5,6 @@ declare(strict_types=1);
 use App\Core\ValidationException;
 use App\Services\AvisoService;
 
-/** @return array<string, string|list<string>> */
-function aviso_form(array $extra = []): array
-{
-    return $extra + [
-        'titulo' => 'Mantenimiento de red', 'mensaje' => 'El sábado no habrá red de 8 a 12.', 'importancia' => 'importante',
-        'inicia_en' => date('Y-m-d\TH:i', strtotime('-1 hour')), 'termina_en' => date('Y-m-d\TH:i', strtotime('+1 day')),
-        'alcance' => 'todos', 'instalaciones' => [],
-    ];
-}
-
 function titulos(array $avisos): array
 {
     return array_column($avisos, 'titulo');
