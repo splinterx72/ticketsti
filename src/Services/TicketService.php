@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Core\Folio;
 use App\Core\Roles;
 use App\Core\ValidationException;
 use PDO;
@@ -230,7 +231,7 @@ final class TicketService
 
         $this->pdo->beginTransaction();
         try {
-            $id = $this->insertTicket([
+            [$id, $folio] = $this->insertTicket([
                 'tipo_ticket'            => $tipo,
                 'titulo'                 => $titulo,
                 'descripcion'            => $descripcion,
@@ -243,8 +244,6 @@ final class TicketService
                 'hostname_reportado'     => $hostname !== '' ? $hostname : null,
                 'discrepancia_ubicacion' => $discrepancia ? 1 : 0,
             ] + self::camposFisicos($fisica));
-            $folio = self::folio($id);
-
             $vinculado = null;
             if ($equipo !== null && $fisica !== null) {
                 // La ubicación física real del equipo siempre refleja el último reporte.
@@ -303,7 +302,7 @@ final class TicketService
             return (string) $abierto['folio'];
         }
 
-        $id = $this->insertTicket([
+        [, $folio] = $this->insertTicket([
             'tipo_ticket'            => 'actualizacion_ubicacion',
             'titulo'                 => mb_substr("Actualizar resguardo GECA — serie {$equipo['serie']}", 0, 180),
             'descripcion'            => "Generado automáticamente desde el ticket {$folioOrigen}.\n\n"
@@ -320,13 +319,14 @@ final class TicketService
             'hostname_reportado'     => null,
             'discrepancia_ubicacion' => 1,
         ] + self::camposFisicos($fisica));
-        return self::folio($id);
+        return $folio;
     }
 
     /** @param array<string, mixed> $d */
-    private function insertTicket(array $d): int
+    /** @return array{0: int, 1: string} id y folio */
+    private function insertTicket(array $d): array
     {
-        // Folio temporal único; se reemplaza por TK-AAAA-NNNNNN con el id real.
+        // Folio temporal único; se reemplaza por TK-AAAA-NNNNNN aleatorio.
         $stmt = $this->pdo->prepare(
             'INSERT INTO tickets (folio, tipo_ticket, titulo, descripcion, prioridad, usuario_solicitante_id,
                                   departamento_id, estado_id, equipo_id, componente_afectado, hostname_reportado,
@@ -342,9 +342,7 @@ final class TicketService
             $d['reportada_nivel_id'], $d['reportada_ala'], $d['referencia'],
         ]);
         $id = (int) $this->pdo->lastInsertId();
-        $upd = $this->pdo->prepare('UPDATE tickets SET folio = ? WHERE id = ?');
-        $upd->execute([self::folio($id), $id]);
-        return $id;
+        return [$id, Folio::asignar($this->pdo, 'tickets', 'TK', $id)];
     }
 
     /**
@@ -362,10 +360,6 @@ final class TicketService
         ];
     }
 
-    public static function folio(int $id): string
-    {
-        return sprintf('TK-%s-%06d', date('Y'), $id);
-    }
 
     // ==================================================================
     //  Seguimiento

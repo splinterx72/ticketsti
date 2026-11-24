@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Core\Folio;
 use App\Core\Roles;
 use App\Core\ValidationException;
 use DateTimeImmutable;
@@ -13,7 +14,7 @@ use Throwable;
 /**
  * Tareas del supervisor a sus agentes (spec 7.6).
  *
- * Una tarea (folio TA-AAAA-NNNNNN) tiene una asignación por agente, cada una
+ * Una tarea (folio TA-AAAA-NNNNNN, aleatorio) tiene una asignación por agente, cada una
  * con su estado y sus propias evidencias:
  *   asignada → en_proceso → entregada → aceptada | devuelta (→ en_proceso …)
  */
@@ -85,7 +86,7 @@ final class TareaService
                 $evidencias !== [] ? json_encode($evidencias, JSON_UNESCAPED_UNICODE) : null,
             ]);
             $id = (int) $this->pdo->lastInsertId();
-            $this->pdo->prepare('UPDATE tareas SET folio = ? WHERE id = ?')->execute([self::folio($id), $id]);
+            Folio::asignar($this->pdo, 'tareas', 'TA', $id);
 
             $ins = $this->pdo->prepare('INSERT INTO tarea_asignaciones (tarea_id, agente_id) VALUES (?, ?)');
             foreach ($agentes as $a) {
@@ -100,10 +101,6 @@ final class TareaService
         return $id;
     }
 
-    public static function folio(int $id): string
-    {
-        return sprintf('TA-%s-%06d', date('Y'), $id);
-    }
 
     /**
      * @param array<string, mixed> $user

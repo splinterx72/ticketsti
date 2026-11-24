@@ -28,34 +28,6 @@ function archivos(): ArchivoService
     return new ArchivoService(dir_tareas_prueba(), false);
 }
 
-/** Supervisor con dos agentes en su instalación. @return array<string, mixed> */
-function equipo_tareas(): array
-{
-    $inst = instalacion('A');
-    $sup = usuario('SUP', 'supervisor', 'sup@pemex.com');
-    asignar_supervisor($sup['id'], $inst);
-    $a1 = usuario('AG1', 'agente_ti', 'ag1@pemex.com');
-    $a2 = usuario('AG2', 'agente_ti', 'ag2@pemex.com');
-    asignar_agente($a1['id'], $inst);
-    asignar_agente($a2['id'], $inst);
-    foreach ([$sup, $a1, $a2] as $u) {
-        test_pdo()->prepare('UPDATE usuarios SET admin_local_cambiado_en = CURDATE() WHERE id = ?')->execute([$u['id']]);
-    }
-    $refresca = static fn (array $u): array => $u + ['admin_local_cambiado_en' => date('Y-m-d')];
-    return ['sup' => $refresca($sup), 'a1' => $refresca($a1), 'a2' => $refresca($a2), 'inst' => $inst];
-}
-
-/** @return array<string, mixed> */
-function tarea_form(array $agentes, array $extra = []): array
-{
-    return $extra + [
-        'titulo' => 'Inventario de monitores', 'instrucciones' => 'Revisar los monitores del Edificio Holkanaab.',
-        'prioridad' => 'alta', 'entrega_en' => date('Y-m-d\TH:i', strtotime('+3 days')),
-        'agentes' => array_map(static fn (array $a): string => (string) $a['id'], $agentes),
-        'evidencias' => [['tipo' => 'foto', 'descripcion' => 'Foto de la etiqueta de cada monitor']],
-    ];
-}
-
 function asignacion_de(int $tareaId, array $agente): int
 {
     return (int) scalar('SELECT id FROM tarea_asignaciones WHERE tarea_id = ? AND agente_id = ?', [$tareaId, $agente['id']]);
