@@ -71,7 +71,7 @@ final class UsuarioController extends Controller
                     u.email_verificado_en, (u.password_hash IS NOT NULL) AS tiene_password,
                     (SELECT COUNT(*) FROM equipos e WHERE e.usuario_id = u.id AND e.vigente_en_geca = 1) AS equipos
                FROM usuarios u WHERE {$whereSql}
-              ORDER BY FIELD(u.rol, 'admin_ti', 'supervisor', 'agente_ti', 'usuario'), u.nombre
+              ORDER BY FIELD(u.rol, 'admin_ti', 'coordinador', 'supervisor', 'agente_ti', 'usuario'), u.nombre
               LIMIT " . self::PER_PAGE . " OFFSET {$offset}"
         );
         $stmt->execute($params);

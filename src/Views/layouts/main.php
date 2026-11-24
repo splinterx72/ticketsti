@@ -70,6 +70,7 @@ $rolLabel = \App\Core\Roles::LABELS;
                             ['/geca', 'bi-cloud-arrow-up', 'Carga GECA'],
                         ];
                         if ($rol === 'admin_ti') {
+                            $gestion[] = ['/ti/zonas', 'bi-map', 'Zonas'];
                             $gestion[] = ['/ti/instalaciones', 'bi-buildings', 'Instalaciones'];
                             $gestion[] = ['/ti/usuarios', 'bi-people', 'Usuarios'];
                         }
@@ -95,7 +96,10 @@ $rolLabel = \App\Core\Roles::LABELS;
                             ['/supervisor/ubicaciones', 'bi-geo-alt', 'Ubicaciones'],
                             ['/supervisor/agentes', 'bi-people', 'Agentes'],
                             ['/supervisor/avisos', 'bi-megaphone', 'Avisos'],
-                        ]; ?>
+                        ];
+                        if ($rol === 'coordinador') {
+                            array_splice($supervision, 1, 0, [['/supervisor/supervisores', 'bi-diagram-3', 'Supervisores de mi zona']]);
+                        } ?>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle<?= str_starts_with($current, '/supervisor') ? ' active' : '' ?>" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-person-badge me-1"></i>Supervisión

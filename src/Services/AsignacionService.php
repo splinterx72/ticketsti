@@ -24,13 +24,11 @@ final class AsignacionService
         $this->alcance = new Alcance($pdo);
     }
 
-    /** @param array<string, mixed> $actor */
+    /** El Admin TI asigna supervisores en cualquier instalación; el coordinador, en las de sus zonas. @param array<string, mixed> $actor */
     public function asignarSupervisor(array $actor, int $supervisorId, int $instalacionId, string $tipo, ?string $desde, ?string $hasta): int
     {
-        if (($actor['rol'] ?? '') !== 'admin_ti') {
-            throw new ValidationException(['Solo el Admin TI asigna supervisores a las instalaciones.']);
-        }
-        $this->exigirUsuario($supervisorId, ['supervisor', 'admin_ti'], 'El usuario debe tener rol Supervisor.');
+        $this->exigirCoordina($actor, $instalacionId);
+        $this->exigirUsuario($supervisorId, ['supervisor', 'coordinador', 'admin_ti'], 'El usuario debe tener rol Supervisor.');
         $this->exigirInstalacion($instalacionId);
         if (!in_array($tipo, ['titular', 'suplencia'], true)) {
             throw new ValidationException(['Tipo de asignación inválido.']);
@@ -40,6 +38,28 @@ final class AsignacionService
         $this->pdo->prepare(
             'INSERT INTO supervisor_instalaciones (supervisor_id, instalacion_id, tipo, desde, hasta, creado_por) VALUES (?, ?, ?, ?, ?, ?)'
         )->execute([$supervisorId, $instalacionId, $tipo, $desde, $hasta, (int) $actor['id']]);
+        return (int) $this->pdo->lastInsertId();
+    }
+
+    /** Solo el Admin TI asigna coordinadores a zonas. @param array<string, mixed> $actor */
+    public function asignarCoordinador(array $actor, int $coordinadorId, int $zonaId, string $tipo, ?string $desde, ?string $hasta): int
+    {
+        if (($actor['rol'] ?? '') !== 'admin_ti') {
+            throw new ValidationException(['Solo el Admin TI asigna coordinadores a las zonas.']);
+        }
+        $this->exigirUsuario($coordinadorId, ['coordinador', 'admin_ti'], 'El usuario debe tener rol Coordinador.');
+        $z = $this->pdo->prepare('SELECT 1 FROM zonas WHERE id = ?');
+        $z->execute([$zonaId]);
+        if (!$z->fetchColumn()) {
+            throw new ValidationException(['La zona no existe.']);
+        }
+        if (!in_array($tipo, ['titular', 'suplencia'], true)) {
+            throw new ValidationException(['Tipo de asignación inválido.']);
+        }
+        [$desde, $hasta] = $this->fechas($desde, $hasta, $tipo === 'suplencia');
+        $this->pdo->prepare(
+            'INSERT INTO coordinador_zonas (coordinador_id, zona_id, tipo, desde, hasta, creado_por) VALUES (?, ?, ?, ?, ?, ?)'
+        )->execute([$coordinadorId, $zonaId, $tipo, $desde, $hasta, (int) $actor['id']]);
         return (int) $this->pdo->lastInsertId();
     }
 
@@ -93,7 +113,7 @@ final class AsignacionService
      */
     public function quitar(array $actor, string $tabla, int $id): void
     {
-        if (!in_array($tabla, ['supervisor_instalaciones', 'agente_instalaciones'], true)) {
+        if (!in_array($tabla, ['supervisor_instalaciones', 'agente_instalaciones', 'coordinador_zonas'], true)) {
             throw new ValidationException(['Asignación inválida.']);
         }
         $stmt = $this->pdo->prepare("SELECT * FROM {$tabla} WHERE id = ?");
@@ -102,8 +122,11 @@ final class AsignacionService
         if (!$row) {
             throw new ValidationException(['La asignación no existe.']);
         }
-        if ($tabla === 'supervisor_instalaciones' && ($actor['rol'] ?? '') !== 'admin_ti') {
-            throw new ValidationException(['Solo el Admin TI modifica supervisores.']);
+        if ($tabla === 'coordinador_zonas' && ($actor['rol'] ?? '') !== 'admin_ti') {
+            throw new ValidationException(['Solo el Admin TI modifica coordinadores.']);
+        }
+        if ($tabla === 'supervisor_instalaciones') {
+            $this->exigirCoordina($actor, (int) $row['instalacion_id']);
         }
         if ($tabla === 'agente_instalaciones') {
             $suyas = $this->alcance->instalacionesSupervisadas((int) $actor['id']);
@@ -217,5 +240,20 @@ final class AsignacionService
             throw new ValidationException(['La fecha "hasta" no puede ser anterior a "desde".']);
         }
         return [$d, $h];
+    }
+
+    /** Admin TI: cualquier instalación; coordinador: solo las de sus zonas vigentes. @param array<string, mixed> $actor */
+    private function exigirCoordina(array $actor, int $instalacionId): void
+    {
+        $rol = $actor['rol'] ?? '';
+        if ($rol === 'admin_ti') {
+            return;
+        }
+        if ($rol !== 'coordinador') {
+            throw new ValidationException(['Solo el Admin TI o el coordinador de la zona asignan supervisores.']);
+        }
+        if (!in_array($instalacionId, (new ZonaService($this->pdo))->instalacionesDeCoordinador((int) $actor['id']), true)) {
+            throw new ValidationException(['Esa instalación no pertenece a tu zona.']);
+        }
     }
 }

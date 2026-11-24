@@ -63,7 +63,7 @@ final class InstalacionController extends Controller
         $asig = new AsignacionService($pdo);
 
         $candidatos = $pdo->query(
-            "SELECT id, nombre, ficha FROM usuarios WHERE rol IN ('supervisor', 'admin_ti') AND activo = 1 AND registrado = 1 ORDER BY nombre"
+            "SELECT id, nombre, ficha FROM usuarios WHERE rol IN ('supervisor', 'coordinador', 'admin_ti') AND activo = 1 AND registrado = 1 ORDER BY nombre"
         )->fetchAll();
 
         $this->view('instalaciones/show', [

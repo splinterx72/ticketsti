@@ -36,7 +36,7 @@ function schema_fase4(): string
 
 function test_schema_nuevo_tiene_tablas_fase5(): void
 {
-    assert_eq(count(Installer::TABLES), 26, 'Installer::TABLES tiene 26 tablas');
+    assert_eq(count(Installer::TABLES), 28, 'Installer::TABLES tiene 28 tablas');
     foreach (FASE5_TABLAS as $t) {
         assert_true(in_array($t, Installer::TABLES, true), "Installer::TABLES incluye {$t}");
     }

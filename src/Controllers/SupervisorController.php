@@ -127,7 +127,7 @@ final class SupervisorController extends Controller
 
         $candidatos = $pdo->query(
             "SELECT id, nombre, ficha, rol FROM usuarios
-              WHERE rol IN ('agente_ti', 'supervisor', 'admin_ti') AND activo = 1 AND registrado = 1 ORDER BY nombre"
+              WHERE rol IN (" . Roles::sqlIn(Roles::TI) . ") AND activo = 1 AND registrado = 1 ORDER BY nombre"
         )->fetchAll();
 
         $this->view('supervisor/agentes', [
@@ -175,6 +175,51 @@ final class SupervisorController extends Controller
             $this->flashErrors($e);
         }
         redirect('/supervisor/agentes');
+    }
+
+    /** Coordinador: supervisores de las instalaciones de su zona. */
+    public function supervisores(): void
+    {
+        $this->requireRole(Roles::COORDINACION);
+        $pdo = Database::getInstance();
+        $mias = $this->misInstalaciones();
+        $this->view('supervisor/supervisores', [
+            'title'         => 'Supervisores de mi zona',
+            'instalaciones' => $mias,
+            'asignaciones'  => (new AsignacionService($pdo))->vigentes('supervisor_instalaciones', array_column($mias, 'id')),
+            'candidatos'    => $pdo->query(
+                "SELECT id, nombre, ficha FROM usuarios WHERE rol IN ('supervisor', 'coordinador') AND activo = 1 AND registrado = 1 ORDER BY nombre"
+            )->fetchAll(),
+        ]);
+    }
+
+    public function storeSupervisor(): void
+    {
+        $this->requireRole(Roles::COORDINACION);
+        $this->verifyCsrf();
+        try {
+            (new AsignacionService(Database::getInstance()))->asignarSupervisor(
+                Auth::user(), (int) $this->input('supervisor_id'), (int) $this->input('instalacion_id'),
+                $this->input('tipo'), $this->input('desde') ?: null, $this->input('hasta') ?: null
+            );
+            Session::flash('success', 'Supervisor asignado.');
+        } catch (ValidationException $e) {
+            $this->flashErrors($e);
+        }
+        redirect('/supervisor/supervisores');
+    }
+
+    public function removeSupervisor(int $id): void
+    {
+        $this->requireRole(Roles::COORDINACION);
+        $this->verifyCsrf();
+        try {
+            (new AsignacionService(Database::getInstance()))->quitar(Auth::user(), 'supervisor_instalaciones', $id);
+            Session::flash('success', 'Asignación terminada.');
+        } catch (ValidationException $e) {
+            $this->flashErrors($e);
+        }
+        redirect('/supervisor/supervisores');
     }
 
     public function removeAsignacion(int $id): void

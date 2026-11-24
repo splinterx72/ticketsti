@@ -12,6 +12,8 @@ use PDO;
  *
  * La responsabilidad es por instalación (spec 7.3):
  *  - admin_ti: todas.
+ *  - coordinador: las instalaciones de sus zonas vigentes, más las que tenga
+ *    como supervisor o agente.
  *  - supervisor: sus instalaciones vigentes (titular o suplencia) más las que
  *    tenga como agente.
  *  - agente_ti: sus asignaciones vigentes (base y préstamo).
@@ -46,17 +48,20 @@ final class Alcance
             $ids = $this->pdo->query('SELECT id FROM instalaciones WHERE activo = 1 ORDER BY id')->fetchAll(PDO::FETCH_COLUMN);
         } else {
             $sql = 'SELECT x.instalacion_id FROM agente_instalaciones x WHERE x.agente_id = :u AND ' . self::VIGENTE;
-            if ($rol === 'supervisor') {
+            if ($rol === 'supervisor' || $rol === 'coordinador') {
                 $sql .= ' UNION SELECT s.instalacion_id FROM supervisor_instalaciones s WHERE s.supervisor_id = :u2'
                     . ' AND (s.desde IS NULL OR s.desde <= :f3) AND (s.hasta IS NULL OR s.hasta >= :f4)';
             }
             $stmt = $this->pdo->prepare($sql);
             $params = ['u' => $usuarioId, 'f' => $fecha, 'f2' => $fecha];
-            if ($rol === 'supervisor') {
+            if ($rol === 'supervisor' || $rol === 'coordinador') {
                 $params += ['u2' => $usuarioId, 'f3' => $fecha, 'f4' => $fecha];
             }
             $stmt->execute($params);
             $ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            if ($rol === 'coordinador') {
+                $ids = array_merge($ids, (new ZonaService($this->pdo))->instalacionesDeCoordinador($usuarioId, $fecha));
+            }
         }
 
         $ids = array_values(array_unique(array_map('intval', $ids)));
@@ -107,15 +112,28 @@ final class Alcance
             return [];
         }
         $in = implode(',', array_fill(0, count($instalaciones), '?'));
+        // El coordinador también ve a los supervisores de sus instalaciones.
+        $supervisores = '';
+        $params = [...$instalaciones, $supervisorId, $fecha, $fecha];
+        $stmt = $this->pdo->prepare('SELECT rol FROM usuarios WHERE id = ?');
+        $stmt->execute([$supervisorId]);
+        if ($stmt->fetchColumn() === 'coordinador') {
+            $supervisores = " UNION ALL SELECT x.supervisor_id, 0 FROM supervisor_instalaciones x
+                               WHERE x.instalacion_id IN ({$in}) AND x.supervisor_id <> ?
+                                 AND (x.desde IS NULL OR x.desde <= ?) AND (x.hasta IS NULL OR x.hasta >= ?)";
+            $params = array_merge($params, $instalaciones, [$supervisorId, $fecha, $fecha]);
+        }
         $stmt = $this->pdo->prepare(
-            "SELECT u.id, u.nombre, u.email, MIN(x.tipo = 'prestamo') AS solo_prestamo
-               FROM agente_instalaciones x JOIN usuarios u ON u.id = x.agente_id
-              WHERE x.instalacion_id IN ({$in}) AND u.activo = 1 AND u.id <> ?
-                AND (x.desde IS NULL OR x.desde <= ?) AND (x.hasta IS NULL OR x.hasta >= ?)
+            "SELECT u.id, u.nombre, u.email, MIN(a.prestamo) AS solo_prestamo
+               FROM (SELECT x.agente_id AS uid, (x.tipo = 'prestamo') AS prestamo FROM agente_instalaciones x
+                      WHERE x.instalacion_id IN ({$in}) AND x.agente_id <> ?
+                        AND (x.desde IS NULL OR x.desde <= ?) AND (x.hasta IS NULL OR x.hasta >= ?){$supervisores}) a
+               JOIN usuarios u ON u.id = a.uid
+              WHERE u.activo = 1
               GROUP BY u.id, u.nombre, u.email
               ORDER BY u.nombre"
         );
-        $stmt->execute([...$instalaciones, $supervisorId, $fecha, $fecha]);
+        $stmt->execute($params);
         return array_map(
             static fn (array $r): array => [
                 'id' => (int) $r['id'], 'nombre' => (string) $r['nombre'], 'email' => $r['email'],
@@ -131,7 +149,8 @@ final class Alcance
         $fecha ??= date('Y-m-d');
         $stmt = $this->pdo->prepare('SELECT rol FROM usuarios WHERE id = ?');
         $stmt->execute([$supervisorId]);
-        if ($stmt->fetchColumn() === 'admin_ti') {
+        $rol = $stmt->fetchColumn();
+        if ($rol === 'admin_ti') {
             return array_map('intval', $this->pdo->query('SELECT id FROM instalaciones WHERE activo = 1 ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
         }
         $stmt = $this->pdo->prepare(
@@ -139,7 +158,12 @@ final class Alcance
               WHERE x.supervisor_id = :u AND ' . self::VIGENTE . ' ORDER BY x.instalacion_id'
         );
         $stmt->execute(['u' => $supervisorId, 'f' => $fecha, 'f2' => $fecha]);
-        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        if ($rol === 'coordinador') {
+            $ids = array_values(array_unique(array_merge($ids, (new ZonaService($this->pdo))->instalacionesDeCoordinador($supervisorId, $fecha))));
+            sort($ids);
+        }
+        return $ids;
     }
 
     /** @param array<string, mixed> $user */

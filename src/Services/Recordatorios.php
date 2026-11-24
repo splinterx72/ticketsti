@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Core\Roles;
 use App\Services\Mail\Notifier;
 use PDO;
 use Throwable;
@@ -61,13 +62,15 @@ final class Recordatorios
     /**
      * A 10 días o menos de vencer (y mientras siga vencida): un aviso diario
      * al usuario y a sus responsables. Responsables de un agente: los
-     * supervisores de sus instalaciones BASE; de un supervisor: el Admin TI.
+     * supervisores de sus instalaciones BASE; de un supervisor: los
+     * coordinadores de su zona (si no hay, el Admin TI); de un coordinador o
+     * admin: el Admin TI.
      */
     private function adminLocal(string $hoy): int
     {
         $rows = $this->pdo->query(
             "SELECT id, nombre, email, rol, admin_local_cambiado_en FROM usuarios
-              WHERE rol IN ('agente_ti', 'supervisor', 'admin_ti') AND tipo_cuenta <> 'administracion' AND activo = 1 AND registrado = 1"
+              WHERE rol IN (" . Roles::sqlIn(Roles::TI) . ") AND tipo_cuenta <> 'administracion' AND activo = 1 AND registrado = 1"
         )->fetchAll();
 
         $alcance = new Alcance($this->pdo);
@@ -91,7 +94,19 @@ final class Recordatorios
                         $responsables[] = (string) $s['email'];
                     }
                 }
-            } else {
+            } elseif ($u['rol'] === 'supervisor') {
+                // Supervisor: los coordinadores de la zona de sus instalaciones.
+                $zonas = new ZonaService($this->pdo);
+                foreach ($alcance->instalacionesSupervisadas((int) $u['id'], $hoy) as $inst) {
+                    foreach ($zonas->coordinadoresDe($inst, $hoy) as $c) {
+                        if ((int) $c['id'] !== (int) $u['id']) {
+                            $responsables[] = (string) $c['email'];
+                        }
+                    }
+                }
+            }
+            if ($u['rol'] !== 'agente_ti' && $responsables === []) {
+                // Coordinador, admin o supervisor sin coordinador: el Admin TI.
                 $admins = $this->pdo->prepare(
                     "SELECT email FROM usuarios WHERE rol = 'admin_ti' AND activo = 1 AND registrado = 1 AND id <> ?"
                 );

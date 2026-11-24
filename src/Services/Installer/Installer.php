@@ -35,6 +35,8 @@ final class Installer
         'ubicacion_fisica_alas', 'geca_inmueble_instalacion', 'supervisor_instalaciones', 'agente_instalaciones',
         'avisos', 'aviso_instalaciones', 'tareas', 'tarea_asignaciones', 'tarea_archivos',
         'recordatorios_enviados', 'sistema_estado', 'verificaciones_email',
+        // Coordinadores por zona
+        'zonas', 'coordinador_zonas',
     ];
 
     public const TIMEZONES = [

@@ -12,6 +12,7 @@ use App\Config\Database;
 use App\Controllers\AdminLocalController;
 use App\Controllers\AuthController;
 use App\Controllers\AvisoController;
+use App\Controllers\ZonaController;
 use App\Controllers\CuentaController;
 use App\Controllers\DashboardController;
 use App\Controllers\EquipoController;
@@ -204,6 +205,12 @@ if (!$installMode) {
     $router->post('/ti/instalaciones/{id}', [InstalacionController::class, 'update']);
     $router->post('/ti/instalaciones/{id}/supervisores', [InstalacionController::class, 'addSupervisor']);
     $router->post('/ti/instalaciones/asignacion/{id}/quitar', [InstalacionController::class, 'removeSupervisor']);
+    $router->get('/ti/zonas', [ZonaController::class, 'index']);
+    $router->post('/ti/zonas', [ZonaController::class, 'store']);
+    $router->post('/ti/zonas/instalaciones', [ZonaController::class, 'instalaciones']);
+    $router->post('/ti/zonas/{id}', [ZonaController::class, 'update']);
+    $router->post('/ti/zonas/{id}/coordinadores', [ZonaController::class, 'addCoordinador']);
+    $router->post('/ti/zonas/coordinador/{id}/quitar', [ZonaController::class, 'removeCoordinador']);
 
     // Supervisión (supervisor y admin_ti).
     $router->get('/supervisor', [SupervisorController::class, 'panel']);
@@ -223,6 +230,9 @@ if (!$installMode) {
     $router->post('/supervisor/agentes', [SupervisorController::class, 'storeAgente']);
     $router->post('/supervisor/prestamos', [SupervisorController::class, 'storePrestamo']);
     $router->post('/supervisor/asignacion/{id}/quitar', [SupervisorController::class, 'removeAsignacion']);
+    $router->get('/supervisor/supervisores', [SupervisorController::class, 'supervisores']);
+    $router->post('/supervisor/supervisores', [SupervisorController::class, 'storeSupervisor']);
+    $router->post('/supervisor/supervisores/{id}/quitar', [SupervisorController::class, 'removeSupervisor']);
 
     $router->get('/geca', [GecaController::class, 'index']);
     $router->post('/geca/cargar', [GecaController::class, 'upload']);

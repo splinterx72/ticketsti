@@ -31,11 +31,21 @@ CREATE TABLE ubicaciones (
 -- ---------------------------------------------------------------------
 --  Ubicaciones físicas (las de la app; independientes del GECA)
 -- ---------------------------------------------------------------------
+-- Zonas (Norte, Sur, Marina...): agrupan instalaciones bajo un coordinador.
+CREATE TABLE zonas (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE instalaciones (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(150) NOT NULL UNIQUE,
+    zona_id INT UNSIGNED NULL,
     activo TINYINT(1) NOT NULL DEFAULT 1,
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_instalacion_zona FOREIGN KEY (zona_id) REFERENCES zonas(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE ubicacion_tipos (
@@ -106,7 +116,7 @@ CREATE TABLE usuarios (
     password_hash VARCHAR(255) NULL,
     telefono_ext VARCHAR(30) NULL,
     ubicacion_habitual_id INT UNSIGNED NULL,
-    rol ENUM('usuario', 'agente_ti', 'supervisor', 'admin_ti') NOT NULL DEFAULT 'usuario',
+    rol ENUM('usuario', 'agente_ti', 'supervisor', 'coordinador', 'admin_ti') NOT NULL DEFAULT 'usuario',
     tipo_cuenta ENUM('geca', 'administracion', 'prueba') NOT NULL DEFAULT 'geca',
     registrado TINYINT(1) NOT NULL DEFAULT 0,
     activo TINYINT(1) NOT NULL DEFAULT 1,
@@ -264,6 +274,23 @@ CREATE TABLE comentarios (
 -- ---------------------------------------------------------------------
 --  Responsabilidad por instalación (supervisores y agentes)
 -- ---------------------------------------------------------------------
+-- Coordinadores por zona (titular o suplencia con fechas), igual que los supervisores.
+CREATE TABLE coordinador_zonas (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    coordinador_id INT UNSIGNED NOT NULL,
+    zona_id INT UNSIGNED NOT NULL,
+    tipo ENUM('titular', 'suplencia') NOT NULL DEFAULT 'titular',
+    desde DATE NULL,
+    hasta DATE NULL,
+    creado_por INT UNSIGNED NULL,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_cz_zona (zona_id),
+    INDEX idx_cz_coordinador (coordinador_id),
+    CONSTRAINT fk_cz_coordinador FOREIGN KEY (coordinador_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cz_zona FOREIGN KEY (zona_id) REFERENCES zonas(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cz_creado_por FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE supervisor_instalaciones (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     supervisor_id INT UNSIGNED NOT NULL,
