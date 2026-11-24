@@ -97,7 +97,7 @@ final class ReporteController extends Controller
                       WHERE c.usuario_id = u.id AND c.creado_en BETWEEN ? AND ?
                         AND c.mensaje NOT LIKE '[Sistema]%'{$sc}) AS respuestas
                FROM usuarios u
-              WHERE u.rol IN ('agente_ti', 'supervisor', 'admin_ti') AND u.registrado = 1 AND u.activo = 1{$agenteFiltro}
+              WHERE u.rol IN ('agente_ti', 'supervisor', 'admin_ti') AND u.tipo_cuenta = 'geca' AND u.registrado = 1 AND u.activo = 1{$agenteFiltro}
               ORDER BY cerrados DESC, abiertos DESC, u.nombre"
         );
         $agentes->execute([...$p, ...$p, ...$p]);

@@ -67,7 +67,7 @@ final class Recordatorios
     {
         $rows = $this->pdo->query(
             "SELECT id, nombre, email, rol, admin_local_cambiado_en FROM usuarios
-              WHERE rol IN ('agente_ti', 'supervisor', 'admin_ti') AND activo = 1 AND registrado = 1"
+              WHERE rol IN ('agente_ti', 'supervisor', 'admin_ti') AND tipo_cuenta <> 'administracion' AND activo = 1 AND registrado = 1"
         )->fetchAll();
 
         $alcance = new Alcance($this->pdo);

@@ -16,7 +16,10 @@ $volver = http_build_query(array_filter(['q' => $q, 'rol' => $rol, 'estado' => $
 $driverLabel = ['off' => 'Desactivado', 'mail' => 'mail() del hosting', 'smtp' => 'SMTP'][$mailDriver] ?? $mailDriver;
 ?>
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <h1 class="h4 mb-0"><i class="bi bi-people me-1"></i>Usuarios</h1>
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 mb-0"><i class="bi bi-people me-1"></i>Usuarios</h1>
+        <a href="<?= e(url('/ti/usuarios/nueva')) ?>" class="btn btn-sm btn-primary"><i class="bi bi-person-plus me-1"></i>Crear cuenta</a>
+    </div>
     <form method="post" action="<?= e(url('/ti/usuarios/correo-prueba')) ?>" class="d-flex align-items-center gap-2 m-0">
         <?= csrf_field() ?>
         <span class="small text-body-secondary">Correo: <strong><?= e($driverLabel) ?></strong></span>
@@ -69,7 +72,10 @@ $driverLabel = ['off' => 'Desactivado', 'mail' => 'mail() del hosting', 'smtp' =
                 <?php foreach ($usuarios as $u): $self = (int) $u['id'] === (int) $authUser['id']; ?>
                     <tr class="<?= (int) $u['activo'] === 0 ? 'opacity-50' : '' ?>">
                         <td>
-                            <div class="fw-semibold"><?= e($u['nombre']) ?> <?= $self ? '<span class="badge text-bg-light border">Tú</span>' : '' ?></div>
+                            <div class="fw-semibold"><?= e($u['nombre']) ?> <?= $self ? '<span class="badge text-bg-light border">Tú</span>' : '' ?>
+                                <?php if (($u['tipo_cuenta'] ?? 'geca') === 'administracion'): ?><span class="badge text-bg-dark">Administración</span><?php endif; ?>
+                                <?php if (($u['tipo_cuenta'] ?? 'geca') === 'prueba'): ?><span class="badge text-bg-warning">Prueba</span><?php endif; ?>
+                            </div>
                             <div class="small text-body-secondary font-monospace"><?= e($u['ficha']) ?></div>
                         </td>
                         <td class="small">

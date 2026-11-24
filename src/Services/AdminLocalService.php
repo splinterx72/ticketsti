@@ -48,10 +48,21 @@ final class AdminLocalService
         return (int) $h->diff(new DateTimeImmutable($vence))->format('%r%a');
     }
 
-    /** @param array<string, mixed> $user requiere rol y admin_local_cambiado_en */
+    /**
+     * La contraseña de admin local aplica a todo el personal de TI, salvo a las
+     * cuentas de administración (no administran computadoras).
+     *
+     * @param array<string, mixed> $user
+     */
+    public static function aplica(array $user): bool
+    {
+        return Roles::esTi($user['rol'] ?? null) && ($user['tipo_cuenta'] ?? 'geca') !== 'administracion';
+    }
+
+    /** @param array<string, mixed> $user requiere rol, tipo_cuenta y admin_local_cambiado_en */
     public static function bloqueado(array $user, ?string $hoy = null): bool
     {
-        if (!Roles::esTi($user['rol'] ?? null)) {
+        if (!self::aplica($user)) {
             return false;
         }
         $dias = self::diasRestantes($user['admin_local_cambiado_en'] ?? null, $hoy);
@@ -61,7 +72,7 @@ final class AdminLocalService
     /** @param array<string, mixed> $user */
     public static function enAviso(array $user, ?string $hoy = null): bool
     {
-        if (!Roles::esTi($user['rol'] ?? null)) {
+        if (!self::aplica($user)) {
             return false;
         }
         $dias = self::diasRestantes($user['admin_local_cambiado_en'] ?? null, $hoy);

@@ -9,14 +9,16 @@ use App\Config\Database;
 use App\Core\Auth;
 use App\Core\HttpException;
 use App\Core\Session;
+use App\Core\ValidationException;
+use App\Services\CuentaService;
 use App\Services\Mail\Mailer;
 use App\Services\VerificacionEmailService;
 use App\Services\Mail\Notifier;
 
 /**
  * Administración de usuarios (solo admin_ti): roles, activación y
- * restablecimiento de contraseña. Los usuarios nacen del GECA, por eso aquí
- * no se crean ni se borran (regla 3.A).
+ * restablecimiento de contraseña. Los trabajadores nacen del GECA; aquí solo
+ * se crean cuentas de administración y de prueba (CuentaService). Nada se borra.
  */
 final class UsuarioController extends Controller
 {
@@ -64,7 +66,7 @@ final class UsuarioController extends Controller
         $stmt = $pdo->prepare(
             "SELECT u.id, u.ficha, u.nombre,
                     COALESCE(u.email, (SELECT v.email FROM verificaciones_email v WHERE v.usuario_id = u.id ORDER BY v.id DESC LIMIT 1)) AS email,
-                    u.telefono_ext, u.rol, u.registrado, u.activo, u.actualizado_en,
+                    u.telefono_ext, u.rol, u.tipo_cuenta, u.registrado, u.activo, u.actualizado_en,
                     u.email_verificado_en, (u.password_hash IS NOT NULL) AS tiene_password,
                     (SELECT COUNT(*) FROM equipos e WHERE e.usuario_id = u.id AND e.vigente_en_geca = 1) AS equipos
                FROM usuarios u WHERE {$whereSql}
@@ -172,6 +174,38 @@ final class UsuarioController extends Controller
         Database::getInstance()->prepare('UPDATE usuarios SET email = ?, email_verificado_en = NOW(), registrado = 1 WHERE id = ?')->execute([$u['email'], $id]);
         Session::flash('success', "Correo {$u['email']} marcado como verificado para {$u['nombre']}.");
         redirect($this->back());
+    }
+
+    private const CAMPOS_CUENTA = ['ficha', 'nombre', 'email', 'rol', 'tipo_cuenta'];
+
+    /** Formulario: crear cuenta de administración o de prueba. */
+    public function create(): void
+    {
+        $this->requireRole(['admin_ti']);
+        $this->view('usuarios/crear', ['title' => 'Crear cuenta', 'roles' => self::ROLES, 'tipos' => CuentaService::TIPOS]);
+    }
+
+    public function store(): void
+    {
+        $this->requireRole(['admin_ti']);
+        $this->verifyCsrf();
+        $in = [];
+        foreach (self::CAMPOS_CUENTA as $c) {
+            $in[$c] = $this->input($c);
+        }
+        $in['password'] = (string) ($_POST['password'] ?? '');
+        $in['password_confirm'] = (string) ($_POST['password_confirm'] ?? '');
+        try {
+            (new CuentaService(Database::getInstance()))->crear($in, Auth::user());
+        } catch (ValidationException $e) {
+            foreach ($e->errors() as $error) {
+                Session::flash('danger', $error);
+            }
+            $this->rememberInput(self::CAMPOS_CUENTA);
+            redirect('/ti/usuarios/nueva');
+        }
+        Session::flash('success', 'Cuenta ' . strtoupper($in['ficha']) . ' creada. Ya puede entrar con su ficha o su correo.');
+        redirect('/ti/usuarios?estado=todos&q=' . rawurlencode(strtoupper($in['ficha'])));
     }
 
     public function testMail(): void

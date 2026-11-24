@@ -30,7 +30,7 @@ final class Auth
         }
 
         $stmt = Database::getInstance()->prepare(
-            'SELECT id, ficha, nombre, email, rol, registrado, activo, telefono_ext, email_verificado_en,
+            'SELECT id, ficha, nombre, email, rol, tipo_cuenta, registrado, activo, telefono_ext, email_verificado_en,
                     admin_local_cambiado_en, habitual_ubicacion_fisica_id, habitual_nivel_id, habitual_ala
                FROM usuarios WHERE id = ? LIMIT 1'
         );
