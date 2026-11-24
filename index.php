@@ -188,6 +188,8 @@ if (!$installMode) {
     $router->get('/ti/usuarios', [UsuarioController::class, 'index']);
     $router->get('/ti/usuarios/nueva', [UsuarioController::class, 'create']);
     $router->post('/ti/usuarios/nueva', [UsuarioController::class, 'store']);
+    $router->get('/ti/usuarios/{id}', [UsuarioController::class, 'show']);
+    $router->post('/ti/usuarios/{id}/tipo', [UsuarioController::class, 'changeType']);
     $router->post('/ti/usuarios/correo-prueba', [UsuarioController::class, 'testMail']);
     $router->post('/ti/usuarios/{id}', [UsuarioController::class, 'update']);
     $router->post('/ti/usuarios/{id}/restablecer', [UsuarioController::class, 'resetPassword']);

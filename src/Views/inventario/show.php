@@ -41,6 +41,9 @@ $dl = static function (array $pairs): string {
                     'Cuenta' => $eq['ficha'] === null ? null : ((int) $eq['registrado'] === 1 ? 'Activada' : 'Sin activar'),
                 ]) ?>
             </dl>
+            <?php if (!empty($eq['usuario_id'])): ?>
+                <div class="card-footer bg-white small"><a href="<?= e(url('/ti/usuarios/' . (int) $eq['usuario_id'])) ?>"><i class="bi bi-person-vcard me-1"></i>Ver ficha y todos sus equipos</a></div>
+            <?php endif; ?>
         </div>
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white fw-semibold"><i class="bi bi-geo-alt me-1"></i>Ubicación</div>

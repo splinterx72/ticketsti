@@ -233,7 +233,7 @@ $monitor = match ($t['componente_afectado']) {
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white fw-semibold"><i class="bi bi-person me-1"></i>Solicitante</div>
                 <dl class="card-body small mb-0 detail-list">
-                    <dt>Nombre</dt><dd><?= e($t['solicitante_nombre']) ?></dd>
+                    <dt>Nombre</dt><dd><a href="<?= e(url('/ti/usuarios/' . (int) $t['usuario_solicitante_id'])) ?>"><?= e($t['solicitante_nombre']) ?></a></dd>
                     <dt>Ficha</dt><dd class="font-monospace"><?= e($t['solicitante_ficha']) ?></dd>
                     <dt>Correo</dt><dd class="text-break"><?= e($t['solicitante_email'] ?? '—') ?></dd>
                     <dt>Teléfono / ext.</dt><dd><?= e($t['solicitante_ext'] ?? '—') ?></dd>

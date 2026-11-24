@@ -11,6 +11,7 @@ use App\Core\HttpException;
 use App\Core\Session;
 use App\Core\ValidationException;
 use App\Services\CuentaService;
+use App\Services\TrabajadorService;
 use App\Services\Mail\Mailer;
 use App\Services\VerificacionEmailService;
 use App\Services\Mail\Notifier;
@@ -178,6 +179,40 @@ final class UsuarioController extends Controller
 
     private const CAMPOS_CUENTA = ['ficha', 'nombre', 'email', 'rol', 'tipo_cuenta'];
 
+    /** Ficha del trabajador: la ve todo TI; las acciones de cuenta, solo el Admin TI. */
+    public function show(int $id): void
+    {
+        $this->requireRole(Roles::TI);
+        $ficha = (new TrabajadorService(Database::getInstance()))->ficha($id, Auth::user());
+        if ($ficha === null) {
+            throw new HttpException(404, 'El trabajador no existe.');
+        }
+        $this->view('usuarios/show', [
+            'title'    => $ficha['usuario']['nombre'],
+            'f'        => $ficha,
+            'roles'    => self::ROLES,
+            'tipos'    => ['geca' => 'GECA (trabajador)'] + CuentaService::TIPOS,
+            'esAdmin'  => (Auth::user()['rol'] ?? '') === 'admin_ti',
+        ]);
+    }
+
+    public function changeType(int $id): void
+    {
+        $this->requireRole(['admin_ti']);
+        $this->verifyCsrf();
+        if ($id === (int) Auth::id()) {
+            Session::flash('danger', 'No puedes cambiar el tipo de tu propia cuenta.');
+            redirect('/ti/usuarios/' . $id);
+        }
+        try {
+            (new CuentaService(Database::getInstance()))->cambiarTipo($id, $this->input('tipo_cuenta'), Auth::user());
+            Session::flash('success', 'Tipo de cuenta actualizado.');
+        } catch (ValidationException $e) {
+            Session::flash('danger', implode(' ', $e->errors()));
+        }
+        redirect('/ti/usuarios/' . $id);
+    }
+
     /** Formulario: crear cuenta de administración o de prueba. */
     public function create(): void
     {
@@ -238,6 +273,10 @@ final class UsuarioController extends Controller
 
     private function back(): string
     {
+        $ficha = (string) ($_POST['volver_ficha'] ?? '');
+        if (preg_match('/^[1-9][0-9]{0,9}$/', $ficha) === 1) {
+            return '/ti/usuarios/' . $ficha;
+        }
         $qs = (string) ($_POST['volver'] ?? '');
         return '/ti/usuarios' . (preg_match('/^[A-Za-z0-9_=&%+.-]*$/', $qs) === 1 && $qs !== '' ? '?' . $qs : '');
     }

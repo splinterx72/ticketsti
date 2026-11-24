@@ -58,7 +58,7 @@ final class InventarioController extends Controller
         [$page, $pages, $offset] = TicketController::paginate($total, self::PER_PAGE);
 
         $stmt = $pdo->prepare(
-            "SELECT e.id, e.serie, e.tipo_componente, e.estado_resguardo, e.marca, e.modelo, e.vigente_en_geca, e.es_principal,
+            "SELECT e.id, e.usuario_id, e.serie, e.tipo_componente, e.estado_resguardo, e.marca, e.modelo, e.vigente_en_geca, e.es_principal,
                     e.serie_monitor1, e.serie_monitor2, e.ubicacion_geca_id, e.ubicacion_real_id,
                     EXISTS (SELECT 1 FROM ubicaciones_fisicas uf JOIN geca_inmueble_instalacion gi ON gi.inmueble = ug.inmueble
                              WHERE uf.id = e.real_ubicacion_fisica_id AND uf.instalacion_id <> gi.instalacion_id) AS discrepancia,

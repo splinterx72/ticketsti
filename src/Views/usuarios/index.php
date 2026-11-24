@@ -72,7 +72,7 @@ $driverLabel = ['off' => 'Desactivado', 'mail' => 'mail() del hosting', 'smtp' =
                 <?php foreach ($usuarios as $u): $self = (int) $u['id'] === (int) $authUser['id']; ?>
                     <tr class="<?= (int) $u['activo'] === 0 ? 'opacity-50' : '' ?>">
                         <td>
-                            <div class="fw-semibold"><?= e($u['nombre']) ?> <?= $self ? '<span class="badge text-bg-light border">Tú</span>' : '' ?>
+                            <div class="fw-semibold"><a href="<?= e(url('/ti/usuarios/' . (int) $u['id'])) ?>" class="text-body"><?= e($u['nombre']) ?></a> <?= $self ? '<span class="badge text-bg-light border">Tú</span>' : '' ?>
                                 <?php if (($u['tipo_cuenta'] ?? 'geca') === 'administracion'): ?><span class="badge text-bg-dark">Administración</span><?php endif; ?>
                                 <?php if (($u['tipo_cuenta'] ?? 'geca') === 'prueba'): ?><span class="badge text-bg-warning">Prueba</span><?php endif; ?>
                             </div>
@@ -91,7 +91,7 @@ $driverLabel = ['off' => 'Desactivado', 'mail' => 'mail() del hosting', 'smtp' =
                                 <span class="text-body-secondary">Cuenta sin activar</span>
                             <?php endif; ?>
                         </td>
-                        <td class="text-end"><?= e($u['equipos']) ?></td>
+                        <td class="text-end"><a href="<?= e(url('/ti/usuarios/' . (int) $u['id'])) ?>" title="Ver equipos"><?= e($u['equipos']) ?></a></td>
                         <td>
                             <form method="post" action="<?= e(url('/ti/usuarios/' . (int) $u['id'])) ?>" class="d-flex flex-wrap gap-2 align-items-center m-0">
                                 <?= csrf_field() ?>
@@ -104,6 +104,7 @@ $driverLabel = ['off' => 'Desactivado', 'mail' => 'mail() del hosting', 'smtp' =
                                     <option value="0" <?= (int) $u['activo'] === 0 ? 'selected' : '' ?>>Desactivado</option>
                                 </select>
                                 <?php if (!$self): ?><button type="submit" class="btn btn-sm btn-outline-primary">Guardar</button><?php endif; ?>
+                                <a href="<?= e(url('/ti/usuarios/' . (int) $u['id'])) ?>" class="btn btn-sm btn-outline-secondary" title="Ver ficha, ubicación y equipos"><i class="bi bi-eye"></i><span class="ms-1 d-none d-xl-inline">Ver</span></a>
                             </form>
                         </td>
                         <td class="text-end">

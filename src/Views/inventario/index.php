@@ -65,7 +65,7 @@ $filtros = [
                                 <div class="text-body-secondary"><i class="bi bi-display me-1"></i><?= e(implode(', ', $mon)) ?></div>
                             <?php endif; ?>
                         </td>
-                        <td class="small"><?= e($eq['usuario_nombre'] ?? '—') ?><div class="text-body-secondary font-monospace"><?= e($eq['ficha'] ?? '') ?></div></td>
+                        <td class="small"><?php if (!empty($eq['usuario_id'])): ?><a href="<?= e(url('/ti/usuarios/' . (int) $eq['usuario_id'])) ?>"><?= e($eq['usuario_nombre']) ?></a><?php else: ?>—<?php endif; ?><div class="text-body-secondary font-monospace"><?= e($eq['ficha'] ?? '') ?></div></td>
                         <td class="small"><?= e($eq['inmueble_geca'] ?? '—') ?>
                             <?php if ($discrepancia): ?><div class="text-warning-emphasis"><i class="bi bi-geo-alt me-1"></i>Ubicación real distinta</div><?php endif; ?>
                         </td>
