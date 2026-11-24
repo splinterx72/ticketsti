@@ -38,7 +38,7 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 * Toda salida en vistas pasa por `e()` (`htmlspecialchars` con `ENT_QUOTES | ENT_SUBSTITUTE`).
 * Contraseñas solo con `password_hash()` / `password_verify()`.
 * Nada de SQL concatenado con datos del usuario; siempre `prepare()` + `execute()`.
-* Acceso por rol con `$this->requireRole([...])`; roles en `Core/Roles`: `usuario`, `agente_ti`, `supervisor`, `admin_ti` (`Roles::TI`, `Roles::SUPERVISION`).
+* Acceso por rol con `$this->requireRole([...])`; roles en `Core/Roles`: `usuario`, `agente_ti`, `supervisor`, `coordinador`, `admin_ti` (`Roles::TI`, `Roles::SUPERVISION`, `Roles::COORDINACION`). En SQL usa `Roles::sqlIn(Roles::TI)`, nunca listas de roles escritas a mano.
 * Alcance por instalación con `Services/Alcance` (`instalacionesDe`, `puedeVerTicket`, `filtroTicketsSql`): nadie ve tickets ni tareas fuera de sus instalaciones vigentes (salvo `admin_ti`).
 * `requireLogin()` además bloquea: correo sin verificar → `/verificar-correo`; contraseña de admin local a ≤ 5 días → `/admin-local`.
 * Archivos de tareas: `Services/ArchivoService` (lista blanca de extensiones + MIME real, 10 MB, sin código PHP, nombre aleatorio, descarga solo con permiso).
@@ -56,12 +56,20 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
   * Auto-registro por ficha (`RegistroController`, `/registro`).
   * Portal del trabajador: `/tickets`, `/tickets/nuevo`, `/tickets/{id}` y comentarios; equipo principal en el inicio.
   * Bandeja TI: `/ti/tickets` con filtros, "Tomar", gestión de estado, prioridad, departamento y agente, y notas internas.
-  * Las reglas C y D viven en `Services/TicketService`. Folio `TK-AAAA-NNNNNN`.
+  * Las reglas C y D viven en `Services/TicketService`. Folio `TK-AAAA-NNNNNN` (aleatorio desde la Fase 6).
   * El ticket `actualizacion_ubicacion` se genera una sola vez por equipo mientras siga abierto; los siguientes reportes se agregan como nota interna.
   * Enrutamiento automático por tipo: incidencia y solicitud → Soporte Técnico en Sitio; garantía → Garantías y Proveedores; actualización de ubicación → Control de Resguardos GECA.
   * Los cambios hechos por TI quedan en la bitácora del ticket y el solicitante los ve. Las notas internas solo las ve TI.
   * Política de contraseñas: `Core/PasswordPolicy` (10 caracteres para trabajadores, 12 para el admin del instalador).
 * **Fase 5 (hecha):** supervisores por instalación (titular/suplencia con fechas), agentes asignados y préstamos temporales; ubicaciones físicas Instalación → Ubicación → Nivel → Ala con indicaciones del lugar y referencia; regla D por instalación (equivalencias inmueble GECA → instalación); registro con correo de empresa verificado (enlace 24 h) y aviso al supervisor; contraseña de admin local (avisos desde 10 días, bloqueo total a ≤ 5); avisos con vigencia; tareas con folio `TA-AAAA-NNNNNN`, entregas y evidencias por agente; encabezado con ubicación y extensión; tema Roboto. Diseño en `docs/superpowers/specs/2026-11-23-supervisores-ubicaciones-tareas-design.md`; migración en `database/migraciones/2026-11-23_fase5.sql`.
+* **Fase 6 (hecha):**
+  * GECA por componente (reporte "Equipos entregados con estatus"); noticias con imagen en la pantalla de entrada (2/3 carrusel 16:9, 1/3 acceso).
+  * Folios aleatorios `TK/TA-AAAA-NNNNNN` (6 dígitos, `Core/Folio`, se re-sortea si se repite; los antiguos no cambian).
+  * Cuentas que crea el Admin TI (`CuentaService`, *Usuarios › Crear cuenta*): `tipo_cuenta` `administracion` (p. ej. `ADMIN-TI`, sin contraseña de admin local) y `prueba` (fuera de reportes y tablero). Nacen activas y verificadas; cualquier dominio de correo.
+  * Ficha del trabajador `/ti/usuarios/{id}` (todo TI; acciones de cuenta solo Admin TI): datos GECA aunque no haya activado, dónde está, equipos con instalación, equipos que tuvo antes y tickets en alcance.
+  * Inventario por instalación (`InventarioService`): instalación del equipo = la de su ubicación física real; si no tiene, la equivalencia del inmueble GECA. Filtro "Mis instalaciones" por omisión; tarjetas de equipos y técnicos en el panel. El supervisor relaciona inmuebles GECA libres con sus instalaciones.
+  * Rol **Coordinador** por zonas (`zonas`, `instalaciones.zona_id`, `coordinador_zonas` titular/suplencia): ve y supervisa las instalaciones de sus zonas, asigna supervisores en ellas, recibe los avisos de admin local de esos supervisores y los tickets/registros de instalaciones sin supervisor. Lo asigna el Admin TI en *Gestión › Zonas*.
+  * Migraciones `2026-11-23_geca_componentes.sql`, `2026-11-24_avisos_imagen.sql`, `2026-11-24_coordinadores_cuentas.sql`.
 * **Fase 4 (hecha):**
   * Garantías (`GarantiaService`, `/ti/garantias`): alta por serie de CPU o de monitor y validación del monitor casado. Las vigentes con fecha pasada se marcan como vencidas al consultarlas (sin cron). "Por vencer" = 60 días.
   * Inventario TI (`/ti/equipos`, `/ti/equipos/{id}`): ficha GECA, ubicaciones, garantías e historial de tickets. El detalle del ticket muestra la garantía que cubre el componente reportado.
@@ -93,8 +101,9 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 * **Auto-registro por Ficha:** El trabajador ingresa su número de `ficha`. El sistema busca en `usuarios` (`registrado = 0`).
 * Si existe, muestra su nombre y jefe para confirmación; el usuario captura **obligatoriamente** su correo **de la empresa** (dominios en `registro.dominios_permitidos`), `telefono_ext`, contraseña y su **ubicación física actual** (`habitual_*`).
 * La cuenta queda en `registrado = 0` hasta abrir el enlace enviado a su correo (24 h, un solo uso, se guarda solo el hash). Al verificar: `registrado = 1`, `email_verificado_en` y aviso a los supervisores de su instalación. Las cuentas sin `email_verificado_en` deben verificar al entrar; el admin puede marcarlo a mano.
-* **Roles:** `usuario` (solicitante), `agente_ti` (técnico que atiende y sube GECA), `supervisor` (agente con funciones de supervisión de sus instalaciones), `admin_ti` (gestión total).
-* **Contraseña de admin local (TI):** vence 3 meses calendario después de `admin_local_cambiado_en`; correo y aviso diario desde 10 días antes (agente + supervisores de su instalación base; supervisor/admin → admin TI); **bloqueo total** a 5 días o menos, vencida o sin fecha, hasta registrar el cambio en `/admin-local`.
+* **Roles:** `usuario` (solicitante), `agente_ti` (técnico que atiende y sube GECA), `supervisor` (agente con funciones de supervisión de sus instalaciones), `coordinador` (encargado de una o varias zonas), `admin_ti` (gestión total).
+* **Tipo de cuenta:** `geca` (llega con la carga y la activa el trabajador), `administracion` y `prueba` (las crea el Admin TI).
+* **Contraseña de admin local (TI):** vence 3 meses calendario después de `admin_local_cambiado_en`; correo y aviso diario desde 10 días antes (agente → supervisores de su instalación base; supervisor → coordinadores de su zona o, si no hay, admin TI; coordinador/admin → admin TI); **bloqueo total** a 5 días o menos, vencida o sin fecha, hasta registrar el cambio en `/admin-local`. No aplica a cuentas `administracion`.
 
 ### C. Creación de Tickets y Hostname
 * Al abrir el formulario de nuevo ticket, el sistema carga los equipos asignados al usuario ordenados por `es_principal DESC` (preseleccionando su equipo principal, permitiendo cambiar a otro equipo, a un monitor casado o a **"Sin equipo / Incidencia general"**).
@@ -109,7 +118,8 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 
 ### D2. Supervisión por instalación
 * `supervisor_instalaciones` (titular o suplencia con fechas) y `agente_instalaciones` (base o préstamo con fecha fin obligatoria). Vigente = `(desde IS NULL OR desde <= hoy) AND (hasta IS NULL OR hasta >= hoy)`. El admin asigna supervisores; el supervisor asigna agentes a sus instalaciones y presta a los suyos.
-* Ticket nuevo → correo a los supervisores vigentes de su instalación + `mail.mesa_institucional` (Remedy) + `notify_new_tickets_to`.
+* Ticket nuevo → correo a los supervisores vigentes de su instalación (si no hay: coordinadores de su zona; si tampoco: admin TI) + `mail.mesa_institucional` (Remedy) + `notify_new_tickets_to`.
+* Coordinadores: `coordinador_zonas` con la misma regla de vigencia; el coordinador cuenta como supervisor de todas las instalaciones de sus zonas (`Alcance::instalacionesSupervisadas`).
 * **Avisos** (`avisos`): solo supervisores/admin; vigencia inicio–fin; alcance "todos" (también en el login) o instalaciones propias.
 * **Tareas** (`tareas`, `tarea_asignaciones`, `tarea_archivos`): una tarea, una entrega por agente con sus evidencias; estados asignada → en_proceso → entregada → aceptada | devuelta.
 
@@ -132,4 +142,4 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 
 ## 4. Esquema de base de datos
 
-La fuente de verdad es **`database/schema.sql`** (26 tablas; lista completa en `Installer::TABLES`) con semillas de `estados`, `departamentos`, `niveles` y `ubicacion_tipos`. Cualquier cambio de esquema se hace ahí **y** como script incremental en `database/migraciones/` importable desde phpMyAdmin (ver `database/migraciones/LEEME.md`); `tests/SchemaTest.php` verifica que ambos coincidan.
+La fuente de verdad es **`database/schema.sql`** (28 tablas; lista completa en `Installer::TABLES`) con semillas de `estados`, `departamentos`, `niveles` y `ubicacion_tipos`. Cualquier cambio de esquema se hace ahí **y** como script incremental en `database/migraciones/` importable desde phpMyAdmin (ver `database/migraciones/LEEME.md`); `tests/SchemaTest.php` verifica que ambos coincidan.

@@ -26,6 +26,9 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 * **Contraseña de admin local**: semáforo para el supervisor, avisos desde 10 días antes y bloqueo total a 5 días.
 * **Avisos** en el inicio con fechas de publicación, y **tareas** con folio, fecha de entrega y evidencias por agente.
 * **Correo a la mesa institucional** (`mesadeayuda@pemex.com`, configurable) por cada ticket nuevo, para Remedy.
+* **Coordinadores por zona** (Zona Norte, Sur, Marina…): ven y supervisan las instalaciones de su zona y asignan sus supervisores.
+* **Ficha del trabajador** para todo TI: dónde está, equipos a su cargo con su instalación, equipos que tuvo antes y sus tickets, aunque no haya activado su cuenta.
+* **Inventario por instalación** y **cuentas de administración y de prueba** creadas por el Admin TI; folios de ticket y tarea no consecutivos (`TK-2026-483920`).
 * **Carga semanal del GECA** (`/geca`): `.xlsx` o `.csv` (coma o punto y coma, UTF-8 o ANSI de Excel), reporte "Equipos entregados con estatus" (una fila por componente, monitores casados con su computadora), **UPSERT** por `ficha` y `serie` en una sola transacción, historial de cargas, detalle con advertencias y plantilla descargable.
 
 Rendimiento medido con el GECA real: 124 317 filas (21 MB .xlsx) en ~40 s usando ~145 MB de RAM.
@@ -83,6 +86,16 @@ Importa `database/schema.sql` en phpMyAdmin, copia `config/config.example.php` c
 4. En `config/config.php` agrega dentro de `'mail' => [...]` la línea `'mesa_institucional' => 'mesadeayuda@pemex.com',` y, al final del arreglo, la sección `'registro' => ['dominios_permitidos' => ['pemex.com']],` (si faltan, el sistema usa esos mismos valores por defecto).
 5. Crea la **Tarea Cron** (abajo) y prueba el correo antes de avisar a los usuarios: todas las cuentas deberán **verificar su correo** y el personal de TI **registrar la fecha de su contraseña de admin local** en su siguiente ingreso.
 6. Como Admin TI: *Gestión › Instalaciones* (crear instalaciones, asignar supervisores y llenar las equivalencias GECA). Cada supervisor: *Supervisión › Ubicaciones* y *Agentes*.
+
+### Actualizaciones posteriores a la Fase 5
+
+Importa en phpMyAdmin, **en este orden y una sola vez cada uno**, los que aún no hayas aplicado (ver `database/migraciones/LEEME.md`):
+
+1. `2026-11-23_geca_componentes.sql` — GECA por componente.
+2. `2026-11-24_avisos_imagen.sql` — noticias con imagen en la entrada.
+3. `2026-11-24_coordinadores_cuentas.sql` — coordinadores por zona y cuentas de administración/prueba.
+
+Después, como Admin TI: *Usuarios › Crear cuenta* (por ejemplo `ADMIN-TI` de tipo *Administración*) y *Gestión › Zonas*.
 
 ### Tarea Cron diaria (recordatorios)
 
