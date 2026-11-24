@@ -76,7 +76,7 @@ final class GecaSyncService
         'jefe_ficha'               => ['jefeficha', 'fichajefe', 'fichadeljefe'],
         'jefe_nombre'              => ['jefenombre', 'jefe', 'nombrejefe', 'nombredeljefe', 'jefeinmediato'],
         'perfil'                   => ['perfil', 'perfilequipo'],
-        'tipo_componente'          => ['tipocomponente', 'tipodecomponente', 'componente'],
+        'tipo_componente'          => ['tipocomponente', 'tipodecomponente', 'componente', 'tipoequipo', 'tipodeequipo', 'tipobien', 'tipodebien', 'tipoactivo'],
         'serie'                    => ['serie', 'numserie', 'noserie', 'numeroserie', 'numerodeserie'],
         'marca'                    => ['marca'],
         'modelo'                   => ['modelo'],
@@ -345,9 +345,13 @@ final class GecaSyncService
 
         $map = [];
         $duplicated = [];
+        $desconocidos = [];
         foreach ($headerRow as $index => $raw) {
             $key = self::compact((string) $raw);
             if ($key === '' || !isset($lookup[$key])) {
+                if ($key !== '' && !in_array($key, ['dia', 'mes', 'ano'], true)) {
+                    $desconocidos[] = '"' . mb_substr(trim((string) $raw), 0, 60) . '"';
+                }
                 continue;
             }
             $canonical = $lookup[$key];
@@ -364,6 +368,9 @@ final class GecaSyncService
                 'Faltan ' . count($missing) . ' encabezado(s) obligatorio(s) del GECA: '
                 . implode(', ', $missing)
                 . '. Sube el reporte "Equipos entregados con estatus" del GECA (descarga la plantilla para ver las columnas).'
+                . ($desconocidos === [] ? ' El archivo no trae columnas adicionales.'
+                    : ' Columnas del archivo que no se reconocieron: ' . implode(', ', array_slice($desconocidos, 0, 15))
+                      . (count($desconocidos) > 15 ? ' y ' . (count($desconocidos) - 15) . ' más' : '') . '.')
             );
         }
         if ($duplicated !== []) {

@@ -196,3 +196,20 @@ function test_sin_equipo_principal_la_computadora_va_primero(): void
     $lista = (new \App\Services\TicketService(test_pdo()))->equiposDeUsuario($uid);
     assert_eq(array_column($lista, 'serie'), ['ZZZ-LAPTOP', 'AAA-REPLICADOR', 'BBB-PROYECTOR'], 'la computadora se preselecciona antes que accesorios');
 }
+
+function test_error_de_encabezados_dice_que_columnas_no_reconoce(): void
+{
+    $cols = array_map(static fn (string $c): string => $c === 'tipo_componente' ? 'Clase de bien' : $c, GECA_COLUMNAS);
+    $fila = geca_fila('900', '1', 'CPU', 'CPU-Q');
+    $fila['Clase de bien'] = 'CPU';
+    assert_throws(GecaSyncException::class, fn () => cargar_geca([$fila], $cols), 'el error nombra la columna que no reconoce', 'Clase de bien');
+}
+
+function test_acepta_tipo_de_equipo_como_tipo_componente(): void
+{
+    $cols = array_map(static fn (string $c): string => $c === 'tipo_componente' ? 'Tipo de Equipo' : $c, GECA_COLUMNAS);
+    $fila = geca_fila('901', '1', 'CPU', 'CPU-T');
+    $fila['Tipo de Equipo'] = 'CPU';
+    cargar_geca([$fila], $cols);
+    assert_eq(equipo_por_serie('CPU-T')['tipo_componente'] ?? null, 'CPU', '"Tipo de Equipo" se reconoce');
+}
