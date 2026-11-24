@@ -12,6 +12,7 @@ use App\Core\Session;
 use App\Core\ValidationException;
 use App\Services\AdminLocalService;
 use App\Services\Alcance;
+use App\Services\InventarioService;
 use App\Services\AsignacionService;
 use App\Services\TareaService;
 use App\Services\UbicacionFisicaService;
@@ -41,16 +42,35 @@ final class SupervisorController extends Controller
             throw new HttpException(403, 'Esa instalación no está a tu cargo.');
         }
 
+        $inmuebles = $seleccion > 0 ? $svc->inmueblesGeca() : [];
         $this->view('supervisor/ubicaciones', [
             'title'         => 'Ubicaciones',
             'instalaciones' => $mias,
             'seleccion'     => $seleccion,
+            'inmueblesMios' => array_values(array_filter($inmuebles, static fn (array $i): bool => $i['instalacion_id'] === $seleccion)),
+            'inmueblesLibres' => array_values(array_filter($inmuebles, static fn (array $i): bool => $i['instalacion_id'] === null)),
             'ubicaciones'   => $seleccion > 0 ? $svc->ubicacionesDe($seleccion) : [],
             'tipos'         => $svc->tipos(),
             'niveles'       => $svc->niveles(),
             'alas'          => array_diff_key(UbicacionFisicaService::ALAS, ['na' => true]),
             'edicion'       => null,
         ]);
+    }
+
+    /** Relaciona (o quita) un inmueble del GECA con una de sus instalaciones. */
+    public function storeInmueble(): void
+    {
+        $this->requireRole(Roles::SUPERVISION);
+        $this->verifyCsrf();
+        $inst = (int) $this->input('instalacion');
+        $quitar = $this->input('quitar') === '1';
+        try {
+            (new UbicacionFisicaService(Database::getInstance()))->mapearInmueblePor(Auth::user(), $this->input('inmueble'), $quitar ? null : $inst);
+            Session::flash('success', $quitar ? 'Inmueble quitado de la instalación.' : 'Inmueble relacionado: sus equipos ya cuentan en esta instalación.');
+        } catch (ValidationException $e) {
+            $this->flashErrors($e);
+        }
+        redirect('/supervisor/ubicaciones?instalacion=' . $inst . '#inmuebles');
     }
 
     public function editUbicacion(int $id): void
@@ -216,6 +236,27 @@ final class SupervisorController extends Controller
             )->fetchAll();
         }
 
+        // Equipos y técnicos por instalación.
+        $ids = array_map('intval', array_column($mias, 'id'));
+        $equipos = (new InventarioService($pdo))->resumenPorInstalacion($ids);
+        $tecnicos = [];
+        if ($ids !== []) {
+            $hoy = date('Y-m-d');
+            $stmt = $pdo->prepare(
+                "SELECT x.instalacion_id, u.id, u.nombre, x.tipo, x.hasta,
+                        (SELECT COUNT(*) FROM tickets t JOIN estados es ON es.id = t.estado_id
+                          WHERE t.agente_asignado_id = u.id AND es.es_cierre = 0) AS abiertos
+                   FROM agente_instalaciones x JOIN usuarios u ON u.id = x.agente_id
+                  WHERE x.instalacion_id IN (" . implode(',', $ids) . ") AND u.activo = 1
+                    AND (x.desde IS NULL OR x.desde <= ?) AND (x.hasta IS NULL OR x.hasta >= ?)
+                  ORDER BY u.nombre"
+            );
+            $stmt->execute([$hoy, $hoy]);
+            foreach ($stmt->fetchAll() as $r) {
+                $tecnicos[(int) $r['instalacion_id']][] = $r;
+            }
+        }
+
         $tareas = array_values(array_filter(
             (new TareaService($pdo))->asignadasPor($user),
             static fn (array $t): bool => (int) $t['aceptadas'] < (int) $t['total']
@@ -226,6 +267,8 @@ final class SupervisorController extends Controller
             'agentes'        => $agentes,
             'semaforo'       => $semaforo,
             'porInstalacion' => $porInstalacion,
+            'equipos'        => $equipos,
+            'tecnicos'       => $tecnicos,
             'tareas'         => array_slice($tareas, 0, 8),
         ];
     }

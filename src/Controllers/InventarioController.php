@@ -9,7 +9,9 @@ use App\Config\Database;
 use App\Core\Auth;
 use App\Core\HttpException;
 use App\Services\Catalog;
+use App\Services\Alcance;
 use App\Services\GarantiaService;
+use App\Services\InventarioService;
 use App\Services\TicketService;
 use App\Services\UbicacionFisicaService;
 
@@ -42,6 +44,31 @@ final class InventarioController extends Controller
             default        => ['1 = 1'],
         };
         $params = [];
+
+        // Instalación: por omisión, las del usuario (admin o sin instalaciones: todas).
+        $alcance = new Alcance($pdo);
+        $user = Auth::user();
+        $mias = $alcance->veTodo($user) ? [] : $alcance->instalacionesDe((int) $user['id']);
+        $inst = (string) ($_GET['inst'] ?? '');
+        if ($inst === '') {
+            $inst = $mias !== [] ? 'mias' : 'todas';
+        }
+        $inventario = new InventarioService($pdo);
+        if ($inst === 'mias' && $mias !== []) {
+            [$c, $p] = $inventario->condicionInstalaciones($mias);
+            $where[] = $c;
+            $params = array_merge($params, $p);
+        } elseif ($inst === 'sin') {
+            $where[] = $inventario->condicionSinInstalacion();
+        } elseif (ctype_digit($inst) && (int) $inst > 0) {
+            [$c, $p] = $inventario->condicionInstalaciones([(int) $inst]);
+            $where[] = $c;
+            $params = array_merge($params, $p);
+        } else {
+            $inst = 'todas';
+        }
+        $instalaciones = $pdo->query('SELECT id, nombre FROM instalaciones WHERE activo = 1 ORDER BY nombre')->fetchAll();
+
         if ($q !== '') {
             $like = '%' . addcslashes($q, '%_\\') . '%';
             $where[] = '(e.serie LIKE ? OR e.serie_monitor1 LIKE ? OR e.serie_monitor2 LIKE ? OR u.ficha = ? OR u.nombre LIKE ? OR e.folio_resguardo LIKE ? OR ug.inmueble LIKE ?)';
@@ -76,6 +103,9 @@ final class InventarioController extends Controller
             'equipos' => $stmt->fetchAll(),
             'q'       => $q,
             'filtro'  => $filtro,
+            'inst'    => $inst,
+            'mias'    => $mias,
+            'instalaciones' => $instalaciones,
             'page'    => $page,
             'pages'   => $pages,
             'total'   => $total,

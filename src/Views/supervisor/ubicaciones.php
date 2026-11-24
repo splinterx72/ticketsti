@@ -115,3 +115,46 @@ $todasAlas = \App\Services\UbicacionFisicaService::ALAS;
     </div>
 </div>
 <?php endif; ?>
+
+<?php if ($seleccion > 0): ?>
+<div class="card border-0 shadow-sm mt-4" id="inmuebles">
+    <div class="card-header bg-white fw-semibold"><i class="bi bi-link-45deg me-1"></i>Inmuebles del GECA de esta instalación</div>
+    <div class="card-body">
+        <p class="small text-body-secondary">
+            Los equipos cuyo inmueble GECA esté aquí cuentan en esta instalación mientras no tengan una ubicación física reportada,
+            y un ticket desde otra instalación marca discrepancia. Solo puedes tomar inmuebles libres; para mover uno de otra
+            instalación, pídelo al Admin TI.
+        </p>
+        <form method="post" action="<?= e(url('/supervisor/inmuebles')) ?>" class="row g-2 align-items-end mb-3">
+            <?= csrf_field() ?>
+            <input type="hidden" name="instalacion" value="<?= e($seleccion) ?>">
+            <div class="col-md-9">
+                <label class="form-label small mb-1" for="inmueble">Inmueble (tal como viene en el GECA)</label>
+                <input class="form-control" list="inmueblesLibres" id="inmueble" name="inmueble" maxlength="150" required autocomplete="off" placeholder="Escribe para buscar…">
+                <datalist id="inmueblesLibres">
+                    <?php foreach ($inmueblesLibres as $i): ?><option value="<?= e($i['inmueble']) ?>"><?= e(number_format($i['equipos'])) ?> equipos</option><?php endforeach; ?>
+                </datalist>
+            </div>
+            <div class="col-md-3 d-grid"><button class="btn btn-primary" type="submit"><i class="bi bi-plus-lg me-1"></i>Relacionar</button></div>
+        </form>
+        <?php if ($inmueblesMios === []): ?>
+            <div class="small text-body-secondary">Aún no hay inmuebles relacionados con esta instalación.</div>
+        <?php else: ?>
+            <ul class="list-group">
+                <?php foreach ($inmueblesMios as $i): ?>
+                    <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                        <span><?= e($i['inmueble']) ?> <span class="small text-body-secondary">· <?= e(number_format($i['equipos'])) ?> equipos vigentes</span></span>
+                        <form method="post" action="<?= e(url('/supervisor/inmuebles')) ?>" class="m-0" data-confirm="¿Quitar <?= e($i['inmueble']) ?> de esta instalación?">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="instalacion" value="<?= e($seleccion) ?>">
+                            <input type="hidden" name="inmueble" value="<?= e($i['inmueble']) ?>">
+                            <input type="hidden" name="quitar" value="1">
+                            <button class="btn btn-sm btn-link text-danger" type="submit"><i class="bi bi-x-lg"></i> Quitar</button>
+                        </form>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>

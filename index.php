@@ -211,6 +211,7 @@ if (!$installMode) {
     $router->post('/supervisor/ubicaciones', [SupervisorController::class, 'storeUbicacion']);
     $router->get('/supervisor/ubicaciones/{id}/editar', [SupervisorController::class, 'editUbicacion']);
     $router->post('/supervisor/ubicaciones/{id}', [SupervisorController::class, 'updateUbicacion']);
+    $router->post('/supervisor/inmuebles', [SupervisorController::class, 'storeInmueble']);
     $router->get('/supervisor/avisos', [AvisoController::class, 'index']);
     $router->get('/supervisor/avisos/nuevo', [AvisoController::class, 'create']);
     $router->post('/supervisor/avisos', [AvisoController::class, 'store']);

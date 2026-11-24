@@ -387,6 +387,36 @@ final class UbicacionFisicaService
         )->execute([mb_substr($inmueble, 0, 150), $instalacionId]);
     }
 
+    /**
+     * Equivalencia inmueble GECA → instalación capturada por un usuario:
+     * el Admin TI, cualquiera; supervisor (y coordinador) solo hacia sus
+     * instalaciones y sin quitarle el inmueble a otra instalación.
+     *
+     * @param array<string, mixed> $actor
+     */
+    public function mapearInmueblePor(array $actor, string $inmueble, ?int $instalacionId): void
+    {
+        $inmueble = trim($inmueble);
+        if (($actor['rol'] ?? '') === 'admin_ti') {
+            $this->mapearInmueble($inmueble, $instalacionId);
+            return;
+        }
+        $mias = (new Alcance($this->pdo))->instalacionesSupervisadas((int) $actor['id']);
+        $existe = $this->pdo->prepare('SELECT 1 FROM ubicaciones WHERE inmueble = ? LIMIT 1');
+        $existe->execute([$inmueble]);
+        if ($inmueble === '' || !$existe->fetchColumn()) {
+            throw new ValidationException(['Ese inmueble no viene en el GECA. Escríbelo tal como aparece en la carga.']);
+        }
+        $actual = $this->instalacionDeInmuebleGeca($inmueble);
+        if ($actual !== null && !in_array($actual, $mias, true)) {
+            throw new ValidationException(['Ese inmueble ya está relacionado con otra instalación; pídele el cambio al Admin TI.']);
+        }
+        if ($instalacionId !== null && $instalacionId > 0 && !in_array($instalacionId, $mias, true)) {
+            throw new ValidationException(['Solo puedes relacionar inmuebles con tus instalaciones.']);
+        }
+        $this->mapearInmueble($inmueble, $instalacionId);
+    }
+
     public function guardarTipo(string $nombre): void
     {
         $nombre = trim($nombre);

@@ -4,6 +4,8 @@
  * @var list<array<string, mixed>> $semaforo
  * @var list<array<string, mixed>> $porInstalacion
  * @var list<array<string, mixed>> $tareas
+ * @var array<int, array{equipos: int, con_garantia: int, discrepancias: int, sin_trabajador: int}> $equipos
+ * @var array<int, list<array<string, mixed>>> $tecnicos
  */
 $luz = [
     'verde'    => ['success', 'bi-check-circle-fill', 'Al día'],
@@ -29,20 +31,40 @@ foreach ($semaforo as $s) {
     <div class="alert alert-info">Aún no tienes instalaciones a tu cargo. El Admin TI te las asigna en Gestión › Instalaciones.</div>
 <?php else: ?>
 <div class="row g-3 mb-4">
-    <?php foreach ($porInstalacion as $i): ?>
-        <div class="col-sm-6 col-xl-4">
-            <a href="<?= e(url('/ti/tickets?inst=' . (int) $i['id'])) ?>" class="card h-100 border-0 shadow-sm stat-card text-decoration-none text-body">
+    <?php foreach ($porInstalacion as $i): $iid = (int) $i['id']; $eq = $equipos[$iid] ?? ['equipos' => 0, 'con_garantia' => 0, 'discrepancias' => 0, 'sin_trabajador' => 0]; $inv = '/ti/equipos?inst=' . $iid; ?>
+        <div class="col-md-6 col-xxl-4">
+            <div class="card h-100 border-0 shadow-sm stat-card">
                 <div class="card-body">
-                    <div class="small text-body-secondary text-truncate"><i class="bi bi-buildings me-1"></i><?= e($i['nombre']) ?></div>
-                    <div class="d-flex align-items-baseline gap-2 mt-1">
-                        <span class="fs-3 fw-semibold stat-value"><?= e($i['abiertos']) ?></span><span class="small text-body-secondary">tickets abiertos</span>
+                    <div class="fw-semibold text-truncate"><i class="bi bi-buildings me-1"></i><?= e($i['nombre']) ?></div>
+                    <div class="row g-2 mt-1 text-center">
+                        <a class="col-4 text-decoration-none text-body" href="<?= e(url('/ti/tickets?inst=' . $iid)) ?>">
+                            <div class="fs-4 fw-semibold stat-value"><?= e($i['abiertos']) ?></div><div class="small text-body-secondary">tickets abiertos</div>
+                        </a>
+                        <a class="col-4 text-decoration-none text-body" href="<?= e(url($inv)) ?>">
+                            <div class="fs-4 fw-semibold stat-value"><?= e(number_format($eq['equipos'])) ?></div><div class="small text-body-secondary">equipos</div>
+                        </a>
+                        <a class="col-4 text-decoration-none text-body" href="<?= e(url('/supervisor/agentes')) ?>">
+                            <div class="fs-4 fw-semibold stat-value"><?= e(count($tecnicos[$iid] ?? [])) ?></div><div class="small text-body-secondary">técnicos</div>
+                        </a>
                     </div>
-                    <div class="small">
-                        <?php if ((int) $i['sin_asignar'] > 0): ?><span class="text-danger-emphasis me-2"><i class="bi bi-person-dash me-1"></i><?= e($i['sin_asignar']) ?> sin asignar</span><?php endif; ?>
-                        <?php if ((int) $i['discrepancias'] > 0): ?><span class="text-warning-emphasis"><i class="bi bi-geo-alt me-1"></i><?= e($i['discrepancias']) ?> discrepancias</span><?php endif; ?>
+                    <div class="small mt-2 d-flex flex-wrap gap-x-3 column-gap-3 row-gap-1">
+                        <?php if ((int) $i['sin_asignar'] > 0): ?><span class="text-danger-emphasis"><i class="bi bi-person-dash me-1"></i><?= e($i['sin_asignar']) ?> tickets sin asignar</span><?php endif; ?>
+                        <a class="text-success-emphasis text-decoration-none" href="<?= e(url($inv)) ?>"><i class="bi bi-shield-check me-1"></i><?= e(number_format($eq['con_garantia'])) ?> con garantía</a>
+                        <?php if ($eq['discrepancias'] > 0): ?><a class="text-warning-emphasis text-decoration-none" href="<?= e(url($inv . '&filtro=discrepancia')) ?>"><i class="bi bi-geo-alt me-1"></i><?= e(number_format($eq['discrepancias'])) ?> fuera de su ubicación GECA</a><?php endif; ?>
+                        <?php if ($eq['sin_trabajador'] > 0): ?><span class="text-body-secondary"><i class="bi bi-box-seam me-1"></i><?= e(number_format($eq['sin_trabajador'])) ?> sin trabajador (baja)</span><?php endif; ?>
                     </div>
+                    <?php if (!empty($tecnicos[$iid])): ?>
+                        <ul class="list-unstyled small mt-2 mb-0 border-top pt-2">
+                            <?php foreach ($tecnicos[$iid] as $tc): ?>
+                                <li class="d-flex justify-content-between gap-2">
+                                    <span class="text-truncate"><?= e($tc['nombre']) ?><?= $tc['tipo'] === 'prestamo' ? ' <span class="badge text-bg-info">Préstamo hasta ' . e(fecha_mx((string) $tc['hasta'], false)) . '</span>' : '' ?></span>
+                                    <span class="text-body-secondary text-nowrap"><?= e($tc['abiertos']) ?> abiertos</span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
                 </div>
-            </a>
+            </div>
         </div>
     <?php endforeach; ?>
 </div>

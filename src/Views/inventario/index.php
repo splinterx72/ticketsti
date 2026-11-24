@@ -6,6 +6,9 @@
  * @var int $page
  * @var int $pages
  * @var int $total
+ * @var string $inst  mias | todas | sin | id
+ * @var list<int> $mias
+ * @var list<array{id: int, nombre: string}> $instalaciones
  */
 $filtros = [
     'vigentes'     => 'Vigentes en GECA',
@@ -22,11 +25,24 @@ $filtros = [
 
 <form method="get" action="<?= e(url('/ti/equipos')) ?>" class="card border-0 shadow-sm mb-3" role="search">
     <div class="card-body row g-2 align-items-end">
-        <div class="col-md-7">
+        <div class="col-md-5">
             <label class="form-label small mb-1" for="q">Buscar</label>
             <input type="search" class="form-control" id="q" name="q" value="<?= e($q) ?>" placeholder="Serie (CPU o monitor), ficha, nombre, folio de resguardo, inmueble">
         </div>
-        <div class="col-8 col-md-3">
+        <div class="col-12 col-sm-6 col-md-3">
+            <label class="form-label small mb-1" for="inst">Instalación</label>
+            <select class="form-select" id="inst" name="inst">
+                <?php if ($mias !== []): ?><option value="mias" <?= $inst === 'mias' ? 'selected' : '' ?>>Mis instalaciones</option><?php endif; ?>
+                <option value="todas" <?= $inst === 'todas' ? 'selected' : '' ?>>Todas (todo el inventario)</option>
+                <optgroup label="Una instalación">
+                    <?php foreach ($instalaciones as $i): ?>
+                        <option value="<?= e($i['id']) ?>" <?= $inst === (string) $i['id'] ? 'selected' : '' ?>><?= e($i['nombre']) ?><?= in_array((int) $i['id'], $mias, true) ? ' ★' : '' ?></option>
+                    <?php endforeach; ?>
+                </optgroup>
+                <option value="sin" <?= $inst === 'sin' ? 'selected' : '' ?>>Sin instalación (inmueble sin equivalencia)</option>
+            </select>
+        </div>
+        <div class="col-8 col-sm-6 col-md-2">
             <label class="form-label small mb-1" for="filtro">Mostrar</label>
             <select class="form-select" id="filtro" name="filtro">
                 <?php foreach ($filtros as $k => $label): ?>
