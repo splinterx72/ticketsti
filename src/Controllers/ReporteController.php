@@ -22,7 +22,7 @@ final class ReporteController extends Controller
 
     public function index(): void
     {
-        $this->requireRole(self::ROLES);
+        $this->requireModulo('reportes', self::ROLES);
         [$desde, $hasta] = $this->rango();
         $pdo = Database::getInstance();
         $p = [$desde . ' 00:00:00', $hasta . ' 23:59:59'];
@@ -165,7 +165,7 @@ final class ReporteController extends Controller
     /** Descarga CSV (compatible con Excel) de los tickets creados en el periodo. */
     public function export(): void
     {
-        $this->requireRole(self::ROLES);
+        $this->requireModulo('reportes', self::ROLES);
         [$desde, $hasta] = $this->rango();
 
         $stmt = Database::getInstance()->prepare(

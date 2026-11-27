@@ -23,7 +23,7 @@ final class AvisoController extends Controller
 
     public function index(): void
     {
-        $this->requireRole(Roles::SUPERVISION);
+        $this->requireModulo('avisos', Roles::SUPERVISION);
         $svc = new AvisoService(Database::getInstance());
         $avisos = $svc->administrables(Auth::user());
         foreach ($avisos as &$a) {
@@ -35,7 +35,7 @@ final class AvisoController extends Controller
 
     public function create(): void
     {
-        $this->requireRole(Roles::SUPERVISION);
+        $this->requireModulo('avisos', Roles::SUPERVISION);
         $this->form(null, [
             'titulo' => '', 'mensaje' => '', 'importancia' => 'informativo', 'alcance' => 'todos', 'instalaciones' => [], 'requiere_confirmacion' => '',
             'inicia_en' => date('Y-m-d\TH:i'), 'termina_en' => date('Y-m-d\TH:i', strtotime('+7 days')),
@@ -44,14 +44,14 @@ final class AvisoController extends Controller
 
     public function store(): void
     {
-        $this->requireRole(Roles::SUPERVISION);
+        $this->requireModulo('avisos', Roles::SUPERVISION);
         $this->verifyCsrf();
         $this->guardar(null);
     }
 
     public function edit(int $id): void
     {
-        $this->requireRole(Roles::SUPERVISION);
+        $this->requireModulo('avisos', Roles::SUPERVISION);
         $aviso = $this->aviso($id);
         $aviso['inicia_en'] = date('Y-m-d\TH:i', (int) strtotime((string) $aviso['inicia_en']));
         $aviso['termina_en'] = date('Y-m-d\TH:i', (int) strtotime((string) $aviso['termina_en']));
@@ -60,7 +60,7 @@ final class AvisoController extends Controller
 
     public function update(int $id): void
     {
-        $this->requireRole(Roles::SUPERVISION);
+        $this->requireModulo('avisos', Roles::SUPERVISION);
         $this->verifyCsrf();
         $this->aviso($id);
         $this->guardar($id);
@@ -68,7 +68,7 @@ final class AvisoController extends Controller
 
     public function finish(int $id): void
     {
-        $this->requireRole(Roles::SUPERVISION);
+        $this->requireModulo('avisos', Roles::SUPERVISION);
         $this->verifyCsrf();
         $this->aviso($id);
         (new AvisoService(Database::getInstance()))->finalizar($id);
@@ -92,7 +92,7 @@ final class AvisoController extends Controller
     /** GET /supervisor/avisos/{id}/lectura — quién lo ha leído y quién falta. */
     public function lectura(int $id): void
     {
-        $this->requireRole(Roles::SUPERVISION);
+        $this->requireModulo('avisos', Roles::SUPERVISION);
         $aviso = $this->aviso($id);
         $this->view('avisos/lectura', [
             'title'   => 'Lectura del aviso',

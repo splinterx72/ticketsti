@@ -30,6 +30,7 @@ foreach ($files as $file) {
         $GLOBALS['__test_failures'] = [];
         try {
             reset_db();
+            \App\Services\ModuloService::olvidar();
             $test();
         } catch (Throwable $e) {
             $GLOBALS['__test_failures'][] = 'Excepción ' . $e::class . ': ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')';

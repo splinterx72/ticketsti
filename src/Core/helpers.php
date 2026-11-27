@@ -256,5 +256,12 @@ if (!function_exists('sla_badge')) {
         return '<span class="sla-badge ' . $clase . '" title="' . e($titulo) . '"><i class="bi ' . $icono . '"></i> '
             . e($texto) . '<span class="visually-hidden"> (' . e($titulo) . ')</span></span>';
     }
-}
 
+    /** ¿El módulo está encendido para el usuario en sesión? (Gestión › Módulos) */
+    function modulo(string $clave): bool
+    {
+        $user = \App\Core\Auth::user();
+        return $user !== null
+            && (new \App\Services\ModuloService(\App\Config\Database::getInstance()))->permite($clave, $user['rol'] ?? null);
+    }
+}

@@ -25,7 +25,7 @@ final class TareaController extends Controller
 
     public function index(): void
     {
-        $this->requireRole(Roles::TI);
+        $this->requireModulo('tareas', Roles::TI);
         $user = Auth::user();
         $svc = new TareaService(Database::getInstance());
         $esSupervisor = in_array($user['rol'], Roles::SUPERVISION, true);
@@ -40,7 +40,7 @@ final class TareaController extends Controller
 
     public function create(): void
     {
-        $this->requireRole(Roles::SUPERVISION);
+        $this->requireModulo('tareas', Roles::SUPERVISION);
         $this->view('tareas/form', [
             'title'   => 'Nueva tarea',
             'agentes' => (new Alcance(Database::getInstance()))->agentesDe((int) Auth::id()),
@@ -49,7 +49,7 @@ final class TareaController extends Controller
 
     public function store(): void
     {
-        $this->requireRole(Roles::SUPERVISION);
+        $this->requireModulo('tareas', Roles::SUPERVISION);
         if (empty($_POST) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
             Session::flash('danger', 'Los archivos exceden el tamaño máximo permitido por el servidor.');
             redirect('/tareas/nueva');
@@ -88,7 +88,7 @@ final class TareaController extends Controller
 
     public function show(int $id): void
     {
-        $this->requireRole(Roles::TI);
+        $this->requireModulo('tareas', Roles::TI);
         $user = Auth::user();
         $t = (new TareaService(Database::getInstance()))->detalle($id);
         if ($t === null) {
@@ -135,7 +135,7 @@ final class TareaController extends Controller
 
     public function archivo(int $id): void
     {
-        $this->requireRole(Roles::TI);
+        $this->requireModulo('tareas', Roles::TI);
         $svc = new TareaService(Database::getInstance());
         $a = $svc->archivo($id);
         if ($a === null || !$svc->puedeDescargar(Auth::user(), $a)) {
@@ -148,7 +148,7 @@ final class TareaController extends Controller
 
     private function accion(int $asignacionId, string $accion): void
     {
-        $this->requireRole(Roles::TI);
+        $this->requireModulo('tareas', Roles::TI);
         if (empty($_POST) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
             Session::flash('danger', 'Los archivos exceden el tamaño máximo permitido por el servidor.');
             redirect('/tareas');

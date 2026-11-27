@@ -44,6 +44,7 @@ CREATE TABLE instalaciones (
     nombre VARCHAR(150) NOT NULL UNIQUE,
     zona_id INT UNSIGNED NULL,
     modo_asignacion ENUM('manual', 'sugerida', 'automatica') NOT NULL DEFAULT 'sugerida',
+    remedy_activo TINYINT(1) NOT NULL DEFAULT 1,
     activo TINYINT(1) NOT NULL DEFAULT 1,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_instalacion_zona FOREIGN KEY (zona_id) REFERENCES zonas(id) ON DELETE SET NULL
@@ -233,7 +234,12 @@ CREATE TABLE garantias (
     fecha_vencimiento DATE NOT NULL,
     estado ENUM('vigente', 'en_reclamacion', 'vencida') NOT NULL DEFAULT 'vigente',
     notas TEXT NULL,
+    capturado_por INT UNSIGNED NULL,
+    actualizado_por INT UNSIGNED NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    actualizado_en TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_garantia_capturo FOREIGN KEY (capturado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+    CONSTRAINT fk_garantia_actualizo FOREIGN KEY (actualizado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
     CONSTRAINT fk_garantia_equipo FOREIGN KEY (equipo_id) REFERENCES equipos(id) ON DELETE CASCADE,
     INDEX idx_garantia_vencimiento (fecha_vencimiento, estado)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -523,6 +529,55 @@ CREATE TABLE verificaciones_email (
     CONSTRAINT fk_ve_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Módulos que el Admin TI enciende/apaga y qué roles los usan (admin_ti siempre).
+CREATE TABLE modulos (
+    clave VARCHAR(40) NOT NULL PRIMARY KEY,
+    nombre VARCHAR(80) NOT NULL,
+    descripcion VARCHAR(255) NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    roles VARCHAR(120) NOT NULL DEFAULT '',
+    actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Ajustes editables desde la aplicación (p. ej. correo de Remedy).
+CREATE TABLE ajustes (
+    clave VARCHAR(60) NOT NULL PRIMARY KEY,
+    valor TEXT NULL,
+    actualizado_por INT UNSIGNED NULL,
+    actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ajuste_usuario FOREIGN KEY (actualizado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Plantillas de correos comunes que TI envía a los trabajadores.
+CREATE TABLE plantillas_correo (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    asunto VARCHAR(180) NOT NULL,
+    cuerpo TEXT NOT NULL,
+    activa TINYINT(1) NOT NULL DEFAULT 1,
+    creado_por INT UNSIGNED NULL,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    actualizado_en TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_plantilla_creado FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Bitácora de correos enviados con plantilla.
+CREATE TABLE correos_enviados (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    plantilla_id INT UNSIGNED NULL,
+    destinatario_id INT UNSIGNED NULL,
+    email VARCHAR(150) NOT NULL,
+    ticket_id INT UNSIGNED NULL,
+    asunto VARCHAR(180) NOT NULL,
+    enviado_por INT UNSIGNED NULL,
+    enviado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ce_destinatario (destinatario_id),
+    CONSTRAINT fk_ce_plantilla FOREIGN KEY (plantilla_id) REFERENCES plantillas_correo(id) ON DELETE SET NULL,
+    CONSTRAINT fk_ce_destinatario FOREIGN KEY (destinatario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+    CONSTRAINT fk_ce_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
+    CONSTRAINT fk_ce_enviado FOREIGN KEY (enviado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ---------------------------------------------------------------------
@@ -546,3 +601,17 @@ INSERT INTO niveles (nombre, orden) VALUES
 
 INSERT INTO ubicacion_tipos (nombre) VALUES
 ('Edificio'), ('Nave'), ('Taller'), ('Área'), ('Caseta'), ('Otro');
+
+INSERT INTO modulos (clave, nombre, descripcion, roles) VALUES
+('garantias', 'Garantías', 'TI registra y modifica pólizas; el trabajador ve el historial de sus equipos.', 'usuario,agente_ti,supervisor,coordinador'),
+('bitlocker', 'BitLocker', 'Identificador y llave de recuperación por equipo.', 'usuario,agente_ti,supervisor,coordinador'),
+('inventario', 'Inventario', 'Consulta de equipos por instalación.', 'agente_ti,supervisor,coordinador'),
+('reportes', 'Reportes', 'Indicadores, tablero de agentes y exportación.', 'agente_ti,supervisor,coordinador'),
+('tareas', 'Tareas', 'Tareas del supervisor con entregas y evidencias.', 'agente_ti,supervisor,coordinador'),
+('avisos', 'Publicar avisos', 'Publicar avisos y noticias (leerlos es para todos).', 'supervisor,coordinador'),
+('plantillas', 'Correos con plantilla', 'Enviar correos comunes a los trabajadores.', 'agente_ti,supervisor,coordinador');
+
+INSERT INTO plantillas_correo (nombre, asunto, cuerpo) VALUES
+('Mantenimiento programado', 'Mantenimiento programado a tu equipo', 'Hola {nombre}:\n\nTe avisamos que realizaremos mantenimiento a tu equipo. Por favor guarda tu información y deja el equipo encendido.\n\nAtentamente,\n{agente}\nMesa de Ayuda TI'),
+('Confirmar solución', '[{folio}] ¿Quedó resuelto tu ticket?', 'Hola {nombre}:\n\nAtendimos tu ticket {folio} "{titulo}". Por favor confírmanos si quedó resuelto respondiendo desde el sistema.\n\nAtentamente,\n{agente}\nMesa de Ayuda TI'),
+('Doble autenticación', 'Necesitamos comunicarnos contigo', 'Hola {nombre}:\n\nPara continuar con tu atención necesitamos que nos dictes el código de doble autenticación que aparece en tu pantalla. Te llamaremos a tu extensión o celular; si prefieres, comunícate con {agente}.\n\nMesa de Ayuda TI');

@@ -25,7 +25,7 @@ final class InventarioController extends Controller
 
     public function index(): void
     {
-        $this->requireRole(self::ROLES);
+        $this->requireModulo('inventario', self::ROLES);
         $pdo = Database::getInstance();
         (new GarantiaService($pdo))->refreshVencidas();
 
@@ -114,7 +114,7 @@ final class InventarioController extends Controller
 
     public function show(int $id): void
     {
-        $this->requireRole(self::ROLES);
+        $this->requireModulo('inventario', self::ROLES);
         $pdo = Database::getInstance();
 
         $stmt = $pdo->prepare(

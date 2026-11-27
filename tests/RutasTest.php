@@ -31,7 +31,7 @@ function codigo_accion(string $clase, string $metodo): string
     $codigo = implode('', array_slice($lineas, $ref->getStartLine() - 1, $ref->getEndLine() - $ref->getStartLine() + 1));
     preg_match_all('/\$this->(\w+)\(/', $codigo, $llamadas);
     foreach (array_unique($llamadas[1]) as $m) {
-        if (method_exists('App\\Controllers\\' . $clase, $m) && !in_array($m, ['requireLogin', 'requireRole'], true)) {
+        if (method_exists('App\\Controllers\\' . $clase, $m) && !in_array($m, ['requireLogin', 'requireRole', 'requireModulo'], true)) {
             $r = new ReflectionMethod('App\\Controllers\\' . $clase, $m);
             if ($r->getDeclaringClass()->getName() === 'App\\Controllers\\' . $clase) {
                 $codigo .= implode('', array_slice($lineas, $r->getStartLine() - 1, $r->getEndLine() - $r->getStartLine() + 1));
@@ -51,7 +51,7 @@ function test_toda_ruta_privada_exige_sesion_y_respeta_bloqueo(): void
             continue;
         }
         $codigo = codigo_accion($clase, $metodo);
-        assert_true(preg_match('/\$this->require(Login|Role)\(/', $codigo) === 1, "{$ruta} ({$clase}::{$metodo}) no pasa por requireLogin/requireRole");
+        assert_true(preg_match('/\$this->require(Login|Role|Modulo)\(/', $codigo) === 1, "{$ruta} ({$clase}::{$metodo}) no pasa por requireLogin/requireRole");
     }
 }
 

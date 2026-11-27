@@ -109,12 +109,14 @@ $dl = static function (array $pairs): string {
             </div>
         </div>
 
+        <?php if (modulo('bitlocker')): ?>
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <span><i class="bi bi-key me-1"></i><strong>BitLocker</strong> <span class="small text-body-secondary">— identificador y llave de recuperación (cifrada, con bitácora)</span></span>
                 <a href="<?= e(url('/equipos/' . (int) $eq['id'] . '/bitlocker')) ?>" class="btn btn-sm btn-outline-primary">Abrir</a>
             </div>
         </div>
+        <?php endif; ?>
 
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">

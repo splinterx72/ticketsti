@@ -22,7 +22,7 @@ final class GarantiaController extends Controller
 
     public function index(): void
     {
-        $this->requireRole(self::ROLES);
+        $this->requireModulo('garantias', self::ROLES);
         $pdo = Database::getInstance();
         $service = new GarantiaService($pdo);
         $resumen = $service->resumen();
@@ -78,7 +78,7 @@ final class GarantiaController extends Controller
 
     public function create(): void
     {
-        $this->requireRole(self::ROLES);
+        $this->requireModulo('garantias', self::ROLES);
         $serie = '';
         $elemento = 'equipo';
         $equipoId = (int) ($_GET['equipo'] ?? 0);
@@ -104,7 +104,7 @@ final class GarantiaController extends Controller
 
     public function store(): void
     {
-        $this->requireRole(self::ROLES);
+        $this->requireModulo('garantias', self::ROLES);
         $this->verifyCsrf();
         try {
             $id = (new GarantiaService(Database::getInstance()))->save(null, $this->collect());
@@ -118,7 +118,7 @@ final class GarantiaController extends Controller
 
     public function edit(int $id): void
     {
-        $this->requireRole(self::ROLES);
+        $this->requireModulo('garantias', self::ROLES);
         $g = (new GarantiaService(Database::getInstance()))->find($id);
         if ($g === null) {
             throw new HttpException(404, 'La garantía no existe.');
@@ -128,7 +128,7 @@ final class GarantiaController extends Controller
 
     public function update(int $id): void
     {
-        $this->requireRole(self::ROLES);
+        $this->requireModulo('garantias', self::ROLES);
         $this->verifyCsrf();
         $service = new GarantiaService(Database::getInstance());
         if ($service->find($id) === null) {

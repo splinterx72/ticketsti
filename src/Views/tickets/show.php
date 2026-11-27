@@ -199,7 +199,7 @@ $monitor = match ($t['componente_afectado']) {
                 <?php if ($t['serie'] !== null): ?>
                     <dt>Equipo</dt>
                     <dd class="font-monospace"><?= e($t['serie']) ?> <span class="font-sans-serif text-body-secondary"><?= e(trim(($t['marca'] ?? '') . ' ' . ($t['modelo'] ?? ''))) ?></span>
-                        <?php if (!empty($t['equipo_id'])): ?><a class="font-sans-serif small ms-1" href="<?= e(url('/equipos/' . (int) $t['equipo_id'] . '/bitlocker')) ?>"><i class="bi bi-key me-1"></i>BitLocker</a><?php endif; ?></dd>
+                        <?php if (!empty($t['equipo_id']) && modulo('bitlocker')): ?><a class="font-sans-serif small ms-1" href="<?= e(url('/equipos/' . (int) $t['equipo_id'] . '/bitlocker')) ?>"><i class="bi bi-key me-1"></i>BitLocker</a><?php endif; ?></dd>
                 <?php endif; ?>
                 <?php if ($monitor): ?>
                     <dt>Monitor</dt><dd><?= e($monitor) ?></dd>

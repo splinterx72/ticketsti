@@ -19,6 +19,7 @@ use App\Controllers\CuentaController;
 use App\Controllers\DashboardController;
 use App\Controllers\EquipoController;
 use App\Controllers\GarantiaController;
+use App\Controllers\ModuloController;
 use App\Controllers\GecaController;
 use App\Controllers\InstallController;
 use App\Controllers\InstalacionController;
@@ -209,6 +210,8 @@ if (!$installMode) {
     $router->post('/ti/instalaciones/{id}', [InstalacionController::class, 'update']);
     $router->post('/ti/instalaciones/{id}/supervisores', [InstalacionController::class, 'addSupervisor']);
     $router->post('/ti/instalaciones/asignacion/{id}/quitar', [InstalacionController::class, 'removeSupervisor']);
+    $router->get('/ti/modulos', [ModuloController::class, 'index']);
+    $router->post('/ti/modulos', [ModuloController::class, 'save']);
     $router->get('/ti/sla', [SlaController::class, 'index']);
     $router->post('/ti/sla', [SlaController::class, 'save']);
     $router->get('/ti/zonas', [ZonaController::class, 'index']);

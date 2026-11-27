@@ -63,6 +63,21 @@ abstract class Controller
         }
     }
 
+    /**
+     * Módulo encendido por el Admin TI para el rol del usuario (y, si se
+     * indican, además uno de esos roles).
+     *
+     * @param list<string>|null $roles
+     */
+    protected function requireModulo(string $clave, ?array $roles = null): void
+    {
+        $roles !== null ? $this->requireRole($roles) : $this->requireLogin();
+        $user = Auth::user();
+        if (!(new \App\Services\ModuloService(\App\Config\Database::getInstance()))->permite($clave, $user['rol'] ?? null)) {
+            throw new HttpException(403, 'Este módulo no está habilitado para tu perfil.');
+        }
+    }
+
     protected function input(string $key, string $default = ''): string
     {
         $value = $_POST[$key] ?? $default;

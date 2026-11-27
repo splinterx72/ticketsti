@@ -41,6 +41,8 @@ final class Installer
         'aviso_lecturas', 'sla_prioridades', 'ticket_archivos',
         // BitLocker y asignación
         'equipo_bitlocker', 'bitlocker_consultas', 'agente_estado', 'agente_departamentos',
+        // Módulos, correo y plantillas
+        'modulos', 'ajustes', 'plantillas_correo', 'correos_enviados',
     ];
 
     public const TIMEZONES = [

@@ -21,13 +21,13 @@ final class BitLockerController extends Controller
 {
     public function show(int $id): void
     {
-        $this->requireLogin();
+        $this->requireModulo('bitlocker');
         $this->pantalla($id, null, null);
     }
 
     public function store(int $id): void
     {
-        $this->requireLogin();
+        $this->requireModulo('bitlocker');
         $this->verifyCsrf();
         try {
             self::servicio()->guardar($id, Auth::user(), [
@@ -47,7 +47,7 @@ final class BitLockerController extends Controller
     /** Muestra la llave una sola vez en esta respuesta (no se guarda en sesión). */
     public function reveal(int $id): void
     {
-        $this->requireLogin();
+        $this->requireModulo('bitlocker');
         $this->verifyCsrf();
         $registro = $id;
         $stmt = Database::getInstance()->prepare('SELECT equipo_id FROM equipo_bitlocker WHERE id = ?');

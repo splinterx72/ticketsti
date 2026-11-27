@@ -59,17 +59,22 @@ $rolLabel = \App\Core\Roles::LABELS;
                         <li class="nav-item">
                             <a class="nav-link<?= $isActive('/ti/tickets') ?>" href="<?= e(url('/ti/tickets')) ?>"><i class="bi bi-kanban me-1"></i>Bandeja TI</a>
                         </li>
+                        <?php if (modulo('tareas')): ?>
                         <li class="nav-item">
                             <a class="nav-link<?= $isActive('/tareas') ?>" href="<?= e(url('/tareas')) ?>"><i class="bi bi-list-task me-1"></i>Tareas</a>
                         </li>
+                        <?php endif; ?>
                         <?php
-                        $gestion = [
-                            ['/ti/equipos', 'bi-pc-display', 'Inventario'],
-                            ['/ti/garantias', 'bi-shield-check', 'Garantías'],
-                            ['/ti/reportes', 'bi-bar-chart', 'Reportes'],
+                        $gestion = array_values(array_filter([
+                            modulo('inventario') ? ['/ti/equipos', 'bi-pc-display', 'Inventario'] : null,
+                            modulo('garantias') ? ['/ti/garantias', 'bi-shield-check', 'Garantías'] : null,
+                            modulo('reportes') ? ['/ti/reportes', 'bi-bar-chart', 'Reportes'] : null,
                             ['/geca', 'bi-cloud-arrow-up', 'Carga GECA'],
-                        ];
+                            modulo('plantillas') ? ['/ti/plantillas', 'bi-envelope-paper', 'Plantillas de correo'] : null,
+                        ]));
                         if ($rol === 'admin_ti') {
+                            $gestion[] = ['/ti/modulos', 'bi-toggles', 'Módulos'];
+                            $gestion[] = ['/ti/correo', 'bi-envelope-at', 'Correo y Remedy'];
                             $gestion[] = ['/ti/zonas', 'bi-map', 'Zonas'];
                             $gestion[] = ['/ti/sla', 'bi-stopwatch', 'Tiempos de atención'];
                             $gestion[] = ['/ti/instalaciones', 'bi-buildings', 'Instalaciones'];
@@ -96,8 +101,10 @@ $rolLabel = \App\Core\Roles::LABELS;
                             ['/supervisor', 'bi-speedometer', 'Panel'],
                             ['/supervisor/ubicaciones', 'bi-geo-alt', 'Ubicaciones'],
                             ['/supervisor/agentes', 'bi-people', 'Agentes'],
-                            ['/supervisor/avisos', 'bi-megaphone', 'Avisos'],
                         ];
+                        if (modulo('avisos')) {
+                            $supervision[] = ['/supervisor/avisos', 'bi-megaphone', 'Avisos'];
+                        }
                         if ($rol === 'coordinador') {
                             array_splice($supervision, 1, 0, [['/supervisor/supervisores', 'bi-diagram-3', 'Supervisores de mi zona']]);
                         } ?>
