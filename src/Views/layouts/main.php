@@ -68,6 +68,7 @@ $rolLabel = \App\Core\Roles::LABELS;
                         $gestion = array_values(array_filter([
                             modulo('inventario') ? ['/ti/equipos', 'bi-pc-display', 'Inventario'] : null,
                             modulo('garantias') ? ['/ti/garantias', 'bi-shield-check', 'Garantías'] : null,
+                            modulo('bitlocker') ? ['/bitlocker', 'bi-key', 'BitLocker'] : null,
                             modulo('reportes') ? ['/ti/reportes', 'bi-bar-chart', 'Reportes'] : null,
                             ['/geca', 'bi-cloud-arrow-up', 'Carga GECA'],
                             modulo('plantillas') ? ['/ti/plantillas', 'bi-envelope-paper', 'Plantillas de correo'] : null,
@@ -146,6 +147,9 @@ $rolLabel = \App\Core\Roles::LABELS;
                             <li><a class="dropdown-item" href="<?= e(url('/cuenta')) ?>"><i class="bi bi-person-gear me-2"></i>Mi cuenta</a></li>
                             <?php if (modulo('garantias')): ?>
                                 <li><a class="dropdown-item" href="<?= e(url('/garantias')) ?>"><i class="bi bi-shield-check me-2"></i>Mis garantías</a></li>
+                            <?php endif; ?>
+                            <?php if (modulo('bitlocker')): ?>
+                                <li><a class="dropdown-item" href="<?= e(url('/bitlocker')) ?>"><i class="bi bi-key me-2"></i>Mis llaves BitLocker</a></li>
                             <?php endif; ?>
                             <li><hr class="dropdown-divider"></li>
                             <li>

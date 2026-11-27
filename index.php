@@ -252,6 +252,7 @@ if (!$installMode) {
     $router->post('/supervisor/avisos/{id}/finalizar', [AvisoController::class, 'finish']);
     $router->get('/avisos/{id}/imagen', [AvisoController::class, 'imagen']);
     $router->get('/tickets/archivo/{id}', [TicketController::class, 'archivo']);
+    $router->get('/bitlocker', [BitLockerController::class, 'index']);
     $router->get('/equipos/{id}/bitlocker', [BitLockerController::class, 'show']);
     $router->post('/equipos/{id}/bitlocker', [BitLockerController::class, 'store']);
     $router->post('/bitlocker/{id}/mostrar', [BitLockerController::class, 'reveal']);

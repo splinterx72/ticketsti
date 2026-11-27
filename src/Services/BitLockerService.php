@@ -146,6 +146,59 @@ final class BitLockerService
         return $stmt->fetchAll();
     }
 
+    /**
+     * Buscador de TI: por identificador (basta el inicio que dicta el usuario
+     * desde la pantalla de recuperación), por serie o por ficha del
+     * resguardante. Solo equipos dentro del alcance; nunca trae la llave.
+     *
+     * @param array<string, mixed> $user
+     * @return list<array<string, mixed>>
+     */
+    public function buscar(array $user, string $q): array
+    {
+        if (!Roles::esTi($user['rol'] ?? null)) {
+            return [];
+        }
+        $q = strtoupper(trim(str_replace(['{', '}', ' '], '', $q)));
+        $patron = (string) preg_replace('/[^A-Z0-9-]/', '', $q);
+        if ($q === '') {
+            return [];
+        }
+        $like = strlen($patron) >= 4 ? $patron . '%' : null;
+        $stmt = $this->pdo->prepare(
+            'SELECT DISTINCT e.id, e.serie, e.marca, e.modelo, e.tipo_componente, u.nombre AS resguardante, u.ficha
+               FROM equipos e
+               LEFT JOIN usuarios u ON u.id = e.usuario_id
+               LEFT JOIN equipo_bitlocker b ON b.equipo_id = e.id
+              WHERE u.ficha = ?' . ($like !== null ? ' OR b.identificador LIKE ? OR e.serie LIKE ?' : '') . '
+              ORDER BY e.serie LIMIT 100'
+        );
+        $stmt->execute($like !== null ? [$q, $like, $like] : [$q]);
+        $out = [];
+        $ids = $this->pdo->prepare('SELECT CONCAT(unidad, \' \', identificador) FROM equipo_bitlocker WHERE equipo_id = ? ORDER BY unidad, id DESC');
+        foreach ($stmt->fetchAll() as $r) {
+            if (!$this->puede((int) $r['id'], $user)) {
+                continue;
+            }
+            $ids->execute([(int) $r['id']]);
+            $r['identificadores'] = array_map('strval', $ids->fetchAll(PDO::FETCH_COLUMN));
+            $out[] = $r;
+        }
+        return $out;
+    }
+
+    /** @return list<array<string, mixed>> equipos del trabajador y cuántas llaves tiene cada uno */
+    public function misEquipos(int $usuarioId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT e.id, e.serie, e.marca, e.modelo, e.tipo_componente,
+                    (SELECT COUNT(*) FROM equipo_bitlocker b WHERE b.equipo_id = e.id) AS registros
+               FROM equipos e WHERE e.usuario_id = ? ORDER BY e.es_principal DESC, e.serie'
+        );
+        $stmt->execute([$usuarioId]);
+        return $stmt->fetchAll();
+    }
+
     /** @param array<string, mixed> $user */
     public function puede(int $equipoId, array $user): bool
     {

@@ -19,6 +19,23 @@ use App\Services\BitLockerService;
  */
 final class BitLockerController extends Controller
 {
+    /** GET /bitlocker: mis equipos y, para TI, el buscador por identificador, serie o ficha. */
+    public function index(): void
+    {
+        $this->requireModulo('bitlocker');
+        $user = Auth::user();
+        $svc = new BitLockerService(Database::getInstance(), Cifrado::delSistema());
+        $esTi = Roles::esTi($user['rol'] ?? null);
+        $q = trim((string) ($_GET['q'] ?? ''));
+        $this->view('bitlocker/index', [
+            'title'      => 'BitLocker',
+            'esTi'       => $esTi,
+            'q'          => mb_substr($q, 0, 60),
+            'resultados' => $esTi && $q !== '' ? $svc->buscar($user, $q) : null,
+            'misEquipos' => $svc->misEquipos((int) $user['id']),
+        ]);
+    }
+
     public function show(int $id): void
     {
         $this->requireModulo('bitlocker');

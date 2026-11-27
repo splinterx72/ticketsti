@@ -62,3 +62,37 @@ function test_mostrar_la_llave_pide_contrasena_y_queda_en_bitacora(): void
     $otra = new BitLockerService(test_pdo(), new Cifrado(str_repeat('z', 32)));
     assert_throws(\RuntimeException::class, fn () => $otra->mostrar($id, $d['w'], 'Clave#Segura2026', 'x'), 'con otra clave de cifrado no se puede leer');
 }
+
+function test_buscador_por_identificador_serie_o_ficha_respeta_el_alcance(): void
+{
+    $d = equipo_con_dueno();
+    $svc = new BitLockerService(test_pdo(), new Cifrado(str_repeat('k', 32)));
+    $svc->guardar($d['eq'], $d['w'], ['unidad' => 'C:', 'identificador' => ID_OK, 'llave' => LLAVE_OK, 'nota' => '']);
+    $ag = usuario('AG', 'agente_ti');
+    asignar_agente($ag['id'], $d['km']);
+
+    $porId = $svc->buscar($ag, '1a2b3c4d');
+    assert_eq(array_column($porId, 'serie'), ['CPU-BL1'], 'los 8 caracteres que dicta el usuario bastan');
+    assert_eq($porId[0]['identificadores'], ['C: 1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D'], 'muestra unidad e identificador');
+    assert_true(!array_key_exists('llave_cifrada', $porId[0]), 'nunca trae la llave');
+    assert_eq(array_column($svc->buscar($ag, '{1A2B 3C4D'), 'serie'), ['CPU-BL1'], 'tolera llaves y espacios');
+    assert_eq(array_column($svc->buscar($ag, 'cpu-bl1'), 'serie'), ['CPU-BL1'], 'por serie');
+    assert_eq(array_column($svc->buscar($ag, 'W1'), 'serie'), ['CPU-BL1'], 'por ficha del resguardante');
+    assert_eq($svc->buscar($ag, 'ab'), [], 'texto muy corto: nada');
+
+    $fuera = usuario('AGX', 'agente_ti');
+    asignar_agente($fuera['id'], $d['laguna']);
+    assert_eq($svc->buscar($fuera, '1A2B3C4D'), [], 'otra instalación: no lo encuentra');
+    assert_eq($svc->buscar($d['w'], '1A2B3C4D'), [], 'un trabajador no usa el buscador');
+}
+
+function test_mis_equipos_con_sus_llaves(): void
+{
+    $d = equipo_con_dueno();
+    equipo_geca($d['w'], 'CPU-BL2');
+    $svc = new BitLockerService(test_pdo(), new Cifrado(str_repeat('k', 32)));
+    $svc->guardar($d['eq'], $d['w'], ['unidad' => 'C:', 'identificador' => ID_OK, 'llave' => '', 'nota' => '']);
+    $mios = $svc->misEquipos((int) $d['w']['id']);
+    assert_eq(array_column($mios, 'serie'), ['CPU-BL1', 'CPU-BL2'], 'todos sus equipos');
+    assert_eq(array_map(static fn (array $e): int => (int) $e['registros'], $mios), [1, 0], 'cuántas llaves tiene cada uno');
+}
