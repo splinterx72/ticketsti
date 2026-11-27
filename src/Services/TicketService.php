@@ -398,8 +398,13 @@ final class TicketService
                 $this->pdo->prepare('UPDATE tickets SET estado_id = ? WHERE id = ?')->execute([$nuevo, (int) $ticket['id']]);
                 $this->insertComment((int) $ticket['id'], (int) $user['id'], '[Sistema] El usuario respondió; estado: En espera de usuario → En proceso.', false);
             } else {
-                // Actualiza actualizado_en para que suba en la bandeja.
-                $this->pdo->prepare('UPDATE tickets SET actualizado_en = CURRENT_TIMESTAMP WHERE id = ?')->execute([(int) $ticket['id']]);
+                // Actualiza actualizado_en para que suba en la bandeja; la primera
+                // respuesta de TI (que no sea el propio solicitante) cuenta como atención.
+                $atiende = $esTi && (int) $user['id'] !== (int) $ticket['usuario_solicitante_id'];
+                $this->pdo->prepare(
+                    'UPDATE tickets SET actualizado_en = CURRENT_TIMESTAMP'
+                    . ($atiende ? ', atendido_en = COALESCE(atendido_en, CURRENT_TIMESTAMP)' : '') . ' WHERE id = ?'
+                )->execute([(int) $ticket['id']]);
             }
             $this->pdo->commit();
         } catch (Throwable $e) {
@@ -480,7 +485,8 @@ final class TicketService
             $stmt = $this->pdo->prepare(
                 'UPDATE tickets
                     SET estado_id = ?, prioridad = ?, departamento_id = ?, agente_asignado_id = ?,
-                        cerrado_en = CASE WHEN ? = 1 THEN COALESCE(cerrado_en, CURRENT_TIMESTAMP) ELSE NULL END
+                        cerrado_en = CASE WHEN ? = 1 THEN COALESCE(cerrado_en, CURRENT_TIMESTAMP) ELSE NULL END,
+                        atendido_en = COALESCE(atendido_en, CURRENT_TIMESTAMP)
                   WHERE id = ?'
             );
             $stmt->execute([$estadoId, $prioridad, $deptoId, $agenteId > 0 ? $agenteId : null, $estado['es_cierre'], (int) $ticket['id']]);

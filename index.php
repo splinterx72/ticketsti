@@ -13,6 +13,7 @@ use App\Controllers\AdminLocalController;
 use App\Controllers\AuthController;
 use App\Controllers\AvisoController;
 use App\Controllers\ZonaController;
+use App\Controllers\SlaController;
 use App\Controllers\CuentaController;
 use App\Controllers\DashboardController;
 use App\Controllers\EquipoController;
@@ -205,6 +206,8 @@ if (!$installMode) {
     $router->post('/ti/instalaciones/{id}', [InstalacionController::class, 'update']);
     $router->post('/ti/instalaciones/{id}/supervisores', [InstalacionController::class, 'addSupervisor']);
     $router->post('/ti/instalaciones/asignacion/{id}/quitar', [InstalacionController::class, 'removeSupervisor']);
+    $router->get('/ti/sla', [SlaController::class, 'index']);
+    $router->post('/ti/sla', [SlaController::class, 'save']);
     $router->get('/ti/zonas', [ZonaController::class, 'index']);
     $router->post('/ti/zonas', [ZonaController::class, 'store']);
     $router->post('/ti/zonas/instalaciones', [ZonaController::class, 'instalaciones']);
@@ -263,6 +266,7 @@ try {
     if (!$installMode) {
         try {
             (new \App\Services\Recordatorios(Database::getInstance()))->ejecutarSiPendiente();
+            (new \App\Services\SlaService(Database::getInstance()))->escalarSiPendiente();
         } catch (Throwable $e) {
             error_log('[Recordatorios] ' . $e->getMessage());
         }

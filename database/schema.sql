@@ -222,6 +222,18 @@ CREATE TABLE estados (
     es_cierre TINYINT(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Tiempos de atención (SLA) por prioridad, en horas naturales. Los edita el Admin TI.
+CREATE TABLE sla_prioridades (
+    prioridad ENUM('baja', 'media', 'alta', 'critica') NOT NULL PRIMARY KEY,
+    horas_respuesta SMALLINT UNSIGNED NOT NULL,
+    horas_resolucion SMALLINT UNSIGNED NOT NULL,
+    actualizado_por INT UNSIGNED NULL,
+    actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO sla_prioridades (prioridad, horas_respuesta, horas_resolucion) VALUES
+('critica', 1, 4), ('alta', 2, 8), ('media', 4, 24), ('baja', 8, 72);
+
 CREATE TABLE tickets (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     folio VARCHAR(25) NOT NULL UNIQUE,
@@ -245,6 +257,7 @@ CREATE TABLE tickets (
     referencia VARCHAR(255) NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    atendido_en TIMESTAMP NULL,
     cerrado_en TIMESTAMP NULL,
     CONSTRAINT fk_ticket_instalacion FOREIGN KEY (instalacion_id) REFERENCES instalaciones(id) ON DELETE SET NULL,
     CONSTRAINT fk_ticket_rep_ubf FOREIGN KEY (reportada_ubicacion_fisica_id) REFERENCES ubicaciones_fisicas(id) ON DELETE SET NULL,

@@ -163,6 +163,7 @@ final class TicketController extends Controller
                 ? (new GarantiaService(Database::getInstance()))->activasDeEquipo((int) $ticket['equipo_id'])
                 : [],
             'esTi'         => $esTi,
+            'sla'          => $esTi ? (new \App\Services\SlaService(Database::getInstance()))->estado($ticket) : null,
             'estados'      => $esTi ? Catalog::estados() : [],
             'departamentos' => $esTi ? Catalog::departamentos() : [],
             'agentes'      => $esTi ? Catalog::agentes() : [],

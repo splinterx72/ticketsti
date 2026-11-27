@@ -12,6 +12,8 @@ use App\Core\Session;
 use App\Core\ValidationException;
 use App\Services\Alcance;
 use App\Services\Catalog;
+use App\Services\UbicacionFisicaService;
+use App\Services\SlaService;
 use App\Services\Mail\Notifier;
 use App\Services\TicketService;
 
@@ -36,9 +38,11 @@ final class TiController extends Controller
             'tipo'   => (string) ($_GET['tipo'] ?? ''),
             'prioridad' => (string) ($_GET['prioridad'] ?? ''),
             'inst'   => (int) ($_GET['inst'] ?? 0),
+            'ubic'   => (int) ($_GET['ubic'] ?? 0),
+            'nivel'  => (int) ($_GET['nivel'] ?? 0),
             'q'      => trim((string) ($_GET['q'] ?? '')),
         ];
-        if (!in_array($f['vista'], ['abiertos', 'mios', 'sin_asignar', 'sin_instalacion', 'discrepancias', 'cerrados', 'todos'], true)) {
+        if (!in_array($f['vista'], ['abiertos', 'mios', 'sin_asignar', 'sla', 'sin_instalacion', 'discrepancias', 'cerrados', 'todos'], true)) {
             $f['vista'] = 'abiertos';
         }
         if (!array_key_exists($f['tipo'], Catalog::TIPOS)) {
@@ -76,6 +80,9 @@ final class TiController extends Controller
             case 'discrepancias':
                 $where[] = 'es.es_cierre = 0 AND t.discrepancia_ubicacion = 1';
                 break;
+            case 'sla':
+                $where[] = SlaService::sqlVencido();
+                break;
             case 'cerrados':
                 $where[] = 'es.es_cierre = 1';
                 break;
@@ -100,6 +107,14 @@ final class TiController extends Controller
             $where[] = 't.instalacion_id = ?';
             $params[] = $f['inst'];
         }
+        if ($f['ubic'] > 0) {
+            $where[] = 't.reportada_ubicacion_fisica_id = ?';
+            $params[] = $f['ubic'];
+        }
+        if ($f['nivel'] > 0) {
+            $where[] = 't.reportada_nivel_id = ?';
+            $params[] = $f['nivel'];
+        }
         if ($f['q'] !== '') {
             $where[] = '(t.folio LIKE ? OR t.titulo LIKE ? OR s.nombre LIKE ? OR s.ficha = ? OR e.serie LIKE ? OR t.hostname_reportado LIKE ?)';
             $like = '%' . addcslashes($f['q'], '%_\\') . '%';
@@ -120,7 +135,7 @@ final class TiController extends Controller
         [$page, $pages, $offset] = TicketController::paginate($total, self::PER_PAGE);
 
         $stmt = $pdo->prepare(
-            "SELECT t.id, t.folio, t.titulo, t.tipo_ticket, t.prioridad, t.creado_en, t.actualizado_en,
+            "SELECT t.id, t.folio, t.titulo, t.tipo_ticket, t.prioridad, t.creado_en, t.actualizado_en, t.atendido_en, t.cerrado_en,
                     t.discrepancia_ubicacion, t.componente_afectado, t.agente_asignado_id,
                     es.nombre AS estado_nombre, es.color_hex AS estado_color, es.es_cierre,
                     s.nombre AS solicitante_nombre, s.ficha AS solicitante_ficha,
@@ -142,7 +157,8 @@ final class TiController extends Controller
                 SUM(es.es_cierre = 0 AND t.agente_asignado_id = ?) AS mios,
                 SUM(es.es_cierre = 0 AND t.discrepancia_ubicacion = 1) AS discrepancias,
                 SUM(es.es_cierre = 0 AND t.prioridad IN ('alta', 'critica')) AS urgentes,
-                SUM(es.es_cierre = 0 AND t.instalacion_id IS NULL) AS sin_instalacion
+                SUM(es.es_cierre = 0 AND t.instalacion_id IS NULL) AS sin_instalacion,
+                SUM(" . SlaService::sqlVencido() . ") AS sla
                FROM tickets t JOIN estados es ON es.id = t.estado_id
               WHERE {$scopeSql}"
         );
@@ -155,9 +171,21 @@ final class TiController extends Controller
             $instalaciones = $st->fetchAll();
         }
 
+        $sla = new SlaService($pdo);
+        $tickets = $stmt->fetchAll();
+        foreach ($tickets as &$t) {
+            $t['sla'] = $sla->estado($t);
+        }
+        unset($t);
+        $filtroLugar = null;
+        if ($f['ubic'] > 0) {
+            $filtroLugar = (new UbicacionFisicaService($pdo))->etiqueta($f['ubic'], $f['nivel'] > 0 ? $f['nivel'] : null, null);
+        }
+
         $this->view('ti/bandeja', [
             'title'    => 'Bandeja de TI',
-            'tickets'  => $stmt->fetchAll(),
+            'tickets'  => $tickets,
+            'filtroLugar' => $filtroLugar,
             'filtros'  => $f,
             'resumen'  => array_map('intval', $resumen->fetch() ?: []),
             'estados'  => Catalog::estados(),

@@ -189,6 +189,35 @@ final class Notifier
      * @param array<string, mixed> $u
      * @param list<string>         $responsables
      */
+    /**
+     * Escalamiento por tiempo de atención vencido.
+     *
+     * @param array<string, mixed> $t
+     * @param list<string> $destinos
+     */
+    public static function escalamientoSla(array $t, string $tipo, array $destinos): void
+    {
+        $que = $tipo === 'respuesta' ? 'sin primera atención' : 'sin resolver';
+        $datos = [
+            'Folio'       => (string) $t['folio'],
+            'Prioridad'   => ucfirst((string) $t['prioridad']),
+            'Instalación' => (string) ($t['instalacion'] ?? 'Sin instalación'),
+            'Agente'      => (string) ($t['agente'] ?? 'Sin asignar'),
+            'Creado'      => date('d/m/Y H:i', (int) strtotime((string) $t['creado_en'])),
+        ];
+        foreach (self::unicos($destinos) as $email) {
+            self::queue(
+                $email,
+                "[{$t['folio']}] Tiempo de atención vencido: {$que}",
+                'Ticket fuera de tiempo',
+                "El ticket {$t['folio']} ({$t['titulo']}) sigue {$que} y ya superó el tiempo de " . ($tipo === 'respuesta' ? 'respuesta' : 'resolución') . ' de su prioridad.',
+                $datos,
+                self::baseUrl() . '/tickets/' . (int) $t['id'],
+                'Ver el ticket'
+            );
+        }
+    }
+
     public static function adminLocal(array $u, int $dias, string $vence, array $responsables): void
     {
         $cuando = match (true) {

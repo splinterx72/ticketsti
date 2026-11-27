@@ -71,6 +71,7 @@ $rolLabel = \App\Core\Roles::LABELS;
                         ];
                         if ($rol === 'admin_ti') {
                             $gestion[] = ['/ti/zonas', 'bi-map', 'Zonas'];
+                            $gestion[] = ['/ti/sla', 'bi-stopwatch', 'Tiempos de atención'];
                             $gestion[] = ['/ti/instalaciones', 'bi-buildings', 'Instalaciones'];
                             $gestion[] = ['/ti/usuarios', 'bi-people', 'Usuarios'];
                         }

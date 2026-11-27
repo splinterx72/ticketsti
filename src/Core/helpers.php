@@ -232,3 +232,29 @@ if (!function_exists('tipo_equipo')) {
         };
     }
 }
+
+if (!function_exists('sla_badge')) {
+    /**
+     * Semáforo de tiempo de atención (ícono + texto, nunca solo color).
+     * Abierto sin atender: plazo de respuesta; atendido: plazo de resolución.
+     *
+     * @param array{respuesta: string, resolucion: string, vence_respuesta: string, vence_resolucion: string} $sla
+     */
+    function sla_badge(array $sla, bool $cerrado): string
+    {
+        $etapa = $cerrado || !in_array($sla['respuesta'], ['en_tiempo', 'por_vencer', 'vencido'], true) ? 'resolucion' : 'respuesta';
+        $estado = $sla[$etapa];
+        [$clase, $icono, $texto] = match ($estado) {
+            'en_tiempo'       => ['sla-ok', 'bi-clock', 'En tiempo'],
+            'por_vencer'      => ['sla-riesgo', 'bi-hourglass-split', 'Por vencer'],
+            'vencido'         => ['sla-vencido', 'bi-alarm', 'Vencido'],
+            'cumplido'        => ['sla-ok', 'bi-check2', 'Cumplido'],
+            default           => ['sla-vencido', 'bi-x', 'Fuera de tiempo'],
+        };
+        $vence = $etapa === 'respuesta' ? $sla['vence_respuesta'] : $sla['vence_resolucion'];
+        $titulo = ($etapa === 'respuesta' ? 'Primera atención' : 'Resolución') . ' a más tardar: ' . fecha_mx($vence);
+        return '<span class="sla-badge ' . $clase . '" title="' . e($titulo) . '"><i class="bi ' . $icono . '"></i> '
+            . e($texto) . '<span class="visually-hidden"> (' . e($titulo) . ')</span></span>';
+    }
+}
+

@@ -14,6 +14,7 @@ $vistas = [
     'abiertos'      => ['Abiertos', $resumen['abiertos'] ?? 0, 'bi-inbox'],
     'mios'          => ['Asignados a mí', $resumen['mios'] ?? 0, 'bi-person-check'],
     'sin_asignar'   => ['Sin asignar', $resumen['sin_asignar'] ?? 0, 'bi-person-dash'],
+    'sla'           => ['Fuera de tiempo', $resumen['sla'] ?? 0, 'bi-alarm'],
     'sin_instalacion' => ['Sin instalación', $resumen['sin_instalacion'] ?? 0, 'bi-question-circle'],
     'discrepancias' => ['Discrepancias', $resumen['discrepancias'] ?? 0, 'bi-geo-alt'],
     'cerrados'      => ['Cerrados', null, 'bi-archive'],
@@ -27,6 +28,12 @@ $vistas = [
     <?php endif; ?>
 </div>
 
+<?php if (!empty($filtroLugar)): ?>
+    <div class="d-flex align-items-center gap-2 mb-3 small">
+        <span class="badge text-bg-light border fs-6 fw-normal"><i class="bi bi-geo-alt me-1"></i><?= e($filtroLugar) ?></span>
+        <a href="<?= e(query_url('/ti/tickets', ['ubic' => null, 'nivel' => null])) ?>" class="link-secondary">Quitar filtro de lugar</a>
+    </div>
+<?php endif; ?>
 <ul class="nav nav-pills flex-nowrap overflow-auto mb-3 pb-1">
     <?php foreach ($vistas as $key => [$label, $count, $icon]): ?>
         <li class="nav-item">
@@ -113,7 +120,7 @@ $vistas = [
             <table class="table table-hover align-middle mb-0 inbox-table">
                 <thead class="table-light">
                 <tr>
-                    <th>Folio</th><th>Asunto</th><th>Solicitante</th><th>Estado</th><th>Prioridad</th><th>Atiende</th><th>Actualizado</th><th></th>
+                    <th>Folio</th><th>Asunto</th><th>Solicitante</th><th>Estado</th><th>Prioridad</th><th>Tiempo</th><th>Atiende</th><th>Actualizado</th><th></th>
                 </tr>
                 </thead>
                 <tbody>
@@ -131,6 +138,7 @@ $vistas = [
                         <td class="small"><?= e($t['solicitante_nombre']) ?><div class="text-body-secondary font-monospace"><?= e($t['solicitante_ficha']) ?></div></td>
                         <td><?= estado_badge($t['estado_nombre'], $t['estado_color']) ?></td>
                         <td><?= prioridad_badge($t['prioridad']) ?></td>
+                        <td><?= sla_badge($t['sla'], (int) $t['es_cierre'] === 1) ?></td>
                         <td class="small"><?= e($t['agente_nombre'] ?? '—') ?></td>
                         <td class="small text-body-secondary" title="<?= e(fecha_mx($t['actualizado_en'])) ?>"><?= e(hace($t['actualizado_en'])) ?></td>
                         <td class="text-end">

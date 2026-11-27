@@ -229,6 +229,22 @@ $monitor = match ($t['componente_afectado']) {
             </div>
         <?php endif; ?>
 
+        <?php if ($esTi && !empty($sla)): ?>
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-stopwatch me-1"></i>Tiempos de atención</span><?= sla_badge($sla, $cerrado) ?>
+                </div>
+                <dl class="card-body small mb-0 detail-list">
+                    <dt>Primera atención</dt>
+                    <dd><?= !empty($t['atendido_en']) ? e(fecha_mx((string) $t['atendido_en'])) : 'Pendiente' ?> <span class="text-body-secondary">(límite <?= e(fecha_mx($sla['vence_respuesta'])) ?>)</span></dd>
+                    <dt>Resolución</dt>
+                    <dd><?= !empty($t['cerrado_en']) ? e(fecha_mx((string) $t['cerrado_en'])) : 'Pendiente' ?> <span class="text-body-secondary">(límite <?= e(fecha_mx($sla['vence_resolucion'])) ?>)</span></dd>
+                </dl>
+                <div class="progress rounded-0" style="height: 4px;" role="progressbar" aria-label="Avance del plazo de resolución" aria-valuenow="<?= e((int) round($sla['avance'] * 100)) ?>" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar <?= $sla['avance'] >= 1 ? 'bg-danger' : ($sla['avance'] >= 0.75 ? 'bg-warning' : '') ?>" style="width: <?= e((int) round($sla['avance'] * 100)) ?>%"></div>
+                </div>
+            </div>
+        <?php endif; ?>
         <?php if ($esTi): ?>
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white fw-semibold"><i class="bi bi-person me-1"></i>Solicitante</div>

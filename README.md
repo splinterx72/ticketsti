@@ -97,9 +97,9 @@ Importa en phpMyAdmin, **en este orden y una sola vez cada uno**, los que aún n
 
 Después, como Admin TI: *Usuarios › Crear cuenta* (por ejemplo `ADMIN-TI` de tipo *Administración*) y *Gestión › Zonas*.
 
-### Tarea Cron diaria (recordatorios)
+### Tarea Cron (recordatorios y tiempos de atención)
 
-cPanel › **Cron Jobs** › *Common Settings: Once Per Day* › Command:
+cPanel › **Cron Jobs** › *Common Settings: Once Per Hour* (cada hora, para que los avisos de tickets fuera de tiempo salgan a tiempo; los recordatorios diarios no se repiten) › Command:
 
 ```
 /usr/local/bin/php /home/USUARIO/public_html/bin/cron.php

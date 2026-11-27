@@ -3,9 +3,10 @@
 declare(strict_types=1);
 
 /**
- * Tarea diaria (recordatorios de contraseña de admin local y de tareas).
+ * Tarea programada: recordatorios diarios (contraseña de admin local, tareas) y
+ * escalamiento de tickets fuera de tiempo (SLA). Programarla cada hora.
  *
- * cPanel › Cron Jobs › Common Settings: "Once Per Day", comando:
+ * cPanel › Cron Jobs › Common Settings: "Once Per Hour", comando:
  *   /usr/local/bin/php /home/USUARIO/public_html/bin/cron.php
  * (ajusta la ruta a donde subiste el sistema). Solo se ejecuta por consola;
  * la carpeta bin/ está bloqueada para acceso web.
@@ -40,8 +41,9 @@ App\Config\Database::configure((array) $config['db'], (string) ($config['app']['
 
 try {
     $resultado = (new App\Services\Recordatorios(App\Config\Database::getInstance()))->ejecutar(date('Y-m-d'));
+    $escalados = (new App\Services\SlaService(App\Config\Database::getInstance()))->escalar();
     $cola = count(App\Services\Mail\Notifier::cola());
-    echo date('Y-m-d H:i') . " · recordatorios: {$resultado['enviados']} · correos en cola: {$cola}\n";
+    echo date('Y-m-d H:i') . " · recordatorios: {$resultado['enviados']} · escalamientos SLA: {$escalados} · correos en cola: {$cola}\n";
 } catch (Throwable $e) {
     error_log('[Cron] ' . $e->getMessage());
     fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
