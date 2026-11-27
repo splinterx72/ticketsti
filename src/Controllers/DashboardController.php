@@ -112,6 +112,7 @@ final class DashboardController extends Controller
             )->fetch() ?: null;
         }
 
+        $data['formatosPorFirmar'] = modulo('formatos') ? (new \App\Services\FormatoService(Database::getInstance()))->pendientesDe(Auth::user()) : [];
         $this->view('dashboard/index', $data);
     }
 }

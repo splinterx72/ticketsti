@@ -157,6 +157,12 @@ final class TicketController extends Controller
         }
 
         Notifier::ticketCreado($result['id']);
+        $formato = (new \App\Services\FormatoService(Database::getInstance()))->activo($result['id']);
+        if ($formato !== null) {
+            Notifier::formatoTurno((int) $formato['id']);
+            Session::flash('success', "Ticket {$result['folio']} creado. Firma la autorización de formateo para continuar.");
+            redirect('/formatos/' . (int) $formato['id']);
+        }
         if ((int) $input['para_usuario_id'] > 0 && (int) $input['para_usuario_id'] !== (int) Auth::id()) {
             Session::flash('info', 'El ticket quedó a nombre de la persona que te autorizó; a los dos les llegarán los avisos.');
         }
@@ -196,6 +202,7 @@ final class TicketController extends Controller
             'estados'      => $esTi ? Catalog::estados() : [],
             'departamentos' => $esTi ? Catalog::departamentos() : [],
             'agentes'      => $esTi ? Catalog::agentes() : [],
+            'formatos'     => modulo('formatos') ? (new \App\Services\FormatoService(Database::getInstance()))->deTicket($id) : [],
             'plantillas'   => $esTi && modulo('plantillas') ? (new \App\Services\PlantillaService(Database::getInstance()))->todas(true) : null,
             // Sugerencia en vivo (disponibilidad de hoy) mientras no haya agente.
             'candidatos'   => $esTi && $ticket['agente_asignado_id'] === null && (int) $ticket['es_cierre'] === 0

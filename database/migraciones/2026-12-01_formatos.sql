@@ -88,3 +88,7 @@ ALTER TABLE equipos
 -- Ciudad para "Lugar y fecha" de los formatos.
 ALTER TABLE instalaciones
     ADD COLUMN ciudad VARCHAR(120) NULL AFTER remedy_activo;
+
+-- Módulo para que el Admin TI lo encienda o apague por perfil.
+INSERT IGNORE INTO modulos (clave, nombre, descripcion, roles) VALUES
+('formatos', 'Formatos con firma', 'Autorización de formateo y otros formatos oficiales: firmas del usuario, su jefe y TI.', 'usuario,agente_ti,supervisor,coordinador');

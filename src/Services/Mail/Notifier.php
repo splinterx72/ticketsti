@@ -498,6 +498,66 @@ final class Notifier
      * @param array<string, string> $datos
      * @return array{0: string, 1: string}
      */
+    /**
+     * Formato con firmas: avisa a quien le toca firmar (usuario → su jefe
+     * inmediato → el agente del ticket o los agentes de la instalación).
+     */
+    public static function formatoTurno(int $formatoId): void
+    {
+        $pdo = Database::getInstance();
+        $svc = new \App\Services\FormatoService($pdo);
+        $f = $svc->find($formatoId);
+        $turno = $f !== null ? \App\Services\FormatoService::turno($f) : null;
+        if ($f === null || $turno === null) {
+            return;
+        }
+        $d = $svc->datos($f);
+        $destinos = [];
+        if ($turno === 'usuario') {
+            $destinos[] = (string) $f['usuario_email'];
+        } elseif ($turno === 'responsable') {
+            if ((string) $f['jefe_ficha'] !== '') {
+                $stmt = $pdo->prepare('SELECT email FROM usuarios WHERE ficha = ? AND activo = 1 AND registrado = 1');
+                $stmt->execute([(string) $f['jefe_ficha']]);
+                $destinos[] = (string) $stmt->fetchColumn();
+            }
+        } else {
+            $t = $f['ticket_id'] !== null ? self::ticket((int) $f['ticket_id']) : null;
+            if ($t !== null && $t['agente_email'] !== null) {
+                $destinos[] = (string) $t['agente_email'];
+            } elseif ($t !== null && $t['instalacion_id'] !== null) {
+                $stmt = $pdo->prepare(
+                    'SELECT u.email FROM agente_instalaciones ai JOIN usuarios u ON u.id = ai.agente_id
+                      WHERE ai.instalacion_id = ? AND u.activo = 1 AND (ai.desde IS NULL OR ai.desde <= CURDATE()) AND (ai.hasta IS NULL OR ai.hasta >= CURDATE())'
+                );
+                $stmt->execute([(int) $t['instalacion_id']]);
+                $destinos = array_map('strval', $stmt->fetchAll(\PDO::FETCH_COLUMN));
+            }
+        }
+        $titulo = match ($turno) {
+            'usuario' => 'Autoriza el formateo de tu equipo',
+            'responsable' => 'Autorización de formateo pendiente',
+            default => 'Formato autorizado: puedes formatear',
+        };
+        $intro = match ($turno) {
+            'usuario' => 'Antes de formatear tu equipo necesitamos tu firma. Recuerda respaldar tu información (OneDrive, Teams o SharePoint): al formatear se elimina y no se puede recuperar.',
+            'responsable' => "{$d['usuario']} (ficha {$d['ficha']}) firmó la autorización para formatear su equipo; como su jefe, falta tu autorización.",
+            default => 'El usuario y su responsable ya firmaron. Firma como responsable de TI al realizar el formateo.',
+        };
+        foreach (self::unicos($destinos) as $email) {
+            self::queue(
+                $email,
+                "[{$f['folio']}] {$titulo}",
+                $titulo,
+                $intro,
+                ['Formato' => (string) $f['titulo'], 'Folio' => (string) $f['folio'], 'Usuario' => "{$d['usuario']} (ficha {$d['ficha']})",
+                 'Equipo' => trim("{$d['tipo']} {$d['marca']} {$d['modelo']} · serie {$d['serie']}"), 'Ticket' => (string) ($f['ticket_folio'] ?? '—')],
+                self::baseUrl() . '/formatos/' . (int) $f['id'],
+                'Abrir y firmar'
+            );
+        }
+    }
+
     /** Correo escrito por TI (plantillas): asunto y cuerpo tal cual, con enlace al ticket o al sistema. */
     public static function libre(string $to, string $asunto, string $cuerpo, ?int $ticketId = null): void
     {

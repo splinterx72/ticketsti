@@ -23,6 +23,7 @@ use App\Controllers\ModuloController;
 use App\Controllers\CorreoController;
 use App\Controllers\PlantillaController;
 use App\Controllers\DelegacionController;
+use App\Controllers\FormatoController;
 use App\Controllers\GecaController;
 use App\Controllers\InstallController;
 use App\Controllers\InstalacionController;
@@ -172,6 +173,15 @@ if (!$installMode) {
     $router->post('/tickets/{id}/gestion', [TiController::class, 'manage']);
     $router->post('/tickets/{id}/tomar', [TiController::class, 'take']);
     $router->post('/tickets/{id}/asignar-sugerido', [TiController::class, 'assignSuggested']);
+    $router->post('/tickets/{id}/formato', [FormatoController::class, 'emitir']);
+    $router->get('/formatos/verificar', [FormatoController::class, 'verificar']);
+    $router->get('/formatos/{id}', [FormatoController::class, 'show']);
+    $router->get('/formatos/{id}/imprimir', [FormatoController::class, 'imprimir']);
+    $router->post('/formatos/{id}/firmar', [FormatoController::class, 'firmar']);
+    $router->post('/formatos/{id}/autografa', [FormatoController::class, 'autografa']);
+    $router->get('/formatos/{id}/escaneo', [FormatoController::class, 'escaneo']);
+    $router->post('/formatos/{id}/cancelar', [FormatoController::class, 'cancelar']);
+    $router->post('/formatos/{id}/inventario', [FormatoController::class, 'inventario']);
     $router->post('/ti/mi-estado', [TiController::class, 'myStatus']);
 
     // Mi cuenta.

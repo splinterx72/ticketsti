@@ -701,7 +701,8 @@ INSERT INTO modulos (clave, nombre, descripcion, roles) VALUES
 ('reportes', 'Reportes', 'Indicadores, tablero de agentes y exportación.', 'agente_ti,supervisor,coordinador'),
 ('tareas', 'Tareas', 'Tareas del supervisor con entregas y evidencias.', 'agente_ti,supervisor,coordinador'),
 ('avisos', 'Publicar avisos', 'Publicar avisos y noticias (leerlos es para todos).', 'supervisor,coordinador'),
-('plantillas', 'Correos con plantilla', 'Enviar correos comunes a los trabajadores.', 'agente_ti,supervisor,coordinador');
+('plantillas', 'Correos con plantilla', 'Enviar correos comunes a los trabajadores.', 'agente_ti,supervisor,coordinador'),
+('formatos', 'Formatos con firma', 'Autorización de formateo y otros formatos oficiales: firmas del usuario, su jefe y TI.', 'usuario,agente_ti,supervisor,coordinador');
 
 INSERT INTO plantillas_correo (nombre, asunto, cuerpo) VALUES
 ('Mantenimiento programado', 'Mantenimiento programado a tu equipo', 'Hola {nombre}:\n\nTe avisamos que realizaremos mantenimiento a tu equipo. Por favor guarda tu información y deja el equipo encendido.\n\nAtentamente,\n{agente}\nMesa de Ayuda TI'),

@@ -195,8 +195,44 @@ $monitor = match ($t['componente_afectado']) {
                             </select>
                         </div>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold" for="folio_remedy">Folio Remedy</label>
+                        <input class="form-control form-control-sm font-monospace" id="folio_remedy" name="folio_remedy" maxlength="40" value="<?= e($t['folio_remedy'] ?? '') ?>" placeholder="Captúralo cuando llegue (p. ej. WO0000014931785)">
+                    </div>
                     <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-check2 me-1"></i>Guardar cambios</button>
                 </form>
+            </div>
+        <?php endif; ?>
+
+        <?php $formatos = $formatos ?? []; $hayActivo = array_filter($formatos, static fn (array $x): bool => str_starts_with((string) $x['estado'], 'pendiente')) !== []; ?>
+        <?php if ($formatos !== [] || ($esTi && modulo('formatos') && $t['equipo_id'] !== null && !$cerrado)): ?>
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white fw-semibold"><i class="bi bi-file-earmark-check me-1"></i>Autorización de formateo</div>
+                <?php if ($formatos !== []): ?>
+                    <ul class="list-group list-group-flush">
+                        <?php foreach ($formatos as $fm):
+                            $txt = match ($fm['estado']) {
+                                'completo' => ['Completo', 'text-success', 'bi-check-circle-fill'],
+                                'cancelado' => ['Cancelado', 'text-body-secondary', 'bi-x-circle'],
+                                'pendiente_usuario' => ['Falta firma del usuario', 'text-warning-emphasis', 'bi-hourglass-split'],
+                                'pendiente_responsable' => ['Falta firma del jefe', 'text-warning-emphasis', 'bi-hourglass-split'],
+                                default => ['Falta firma de TI', 'text-warning-emphasis', 'bi-hourglass-split'],
+                            }; ?>
+                            <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                                <span><span class="font-monospace small"><?= e($fm['folio']) ?></span>
+                                    <div class="small <?= e($txt[1]) ?>"><i class="bi <?= e($txt[2]) ?> me-1"></i><?= e($txt[0]) ?></div></span>
+                                <a class="btn btn-sm btn-outline-primary" href="<?= e(url('/formatos/' . (int) $fm['id'])) ?>"><?= str_starts_with((string) $fm['estado'], 'pendiente') ? 'Abrir y firmar' : 'Ver' ?></a>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+                <?php if ($esTi && modulo('formatos') && $t['equipo_id'] !== null && !$cerrado && !$hayActivo): ?>
+                    <form method="post" action="<?= e(url('/tickets/' . (int) $t['id'] . '/formato')) ?>" class="card-body">
+                        <?= csrf_field() ?>
+                        <p class="small text-body-secondary mb-2">Si el equipo se va a formatear, genera la autorización: la firman el usuario, su jefe y TI, y el ticket no se cierra hasta completarla.</p>
+                        <button class="btn btn-sm btn-outline-primary w-100" type="submit"><i class="bi bi-file-earmark-plus me-1"></i>Generar formato de formateo</button>
+                    </form>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
 
@@ -204,6 +240,7 @@ $monitor = match ($t['componente_afectado']) {
             <div class="card-header bg-white fw-semibold"><i class="bi bi-info-circle me-1"></i>Detalles</div>
             <dl class="card-body small mb-0 detail-list">
                 <dt>Departamento</dt><dd><?= e($t['departamento_nombre']) ?></dd>
+                <?php if (!empty($t['folio_remedy'])): ?><dt>Folio Remedy</dt><dd class="font-monospace"><?= e($t['folio_remedy']) ?></dd><?php endif; ?>
                 <dt>Atiende</dt><dd><?= e($t['agente_nombre'] ?? 'Sin asignar') ?></dd>
                 <dt>Componente</dt><dd><?= e(componente_label($t['componente_afectado'])) ?></dd>
                 <?php if ($t['serie'] !== null): ?>

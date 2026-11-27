@@ -24,6 +24,7 @@ final class ModuloService
         'tareas'     => 'agente_ti,supervisor,coordinador',
         'avisos'     => 'supervisor,coordinador',
         'plantillas' => 'agente_ti,supervisor,coordinador',
+        'formatos'   => 'usuario,agente_ti,supervisor,coordinador',
     ];
 
     /** Roles a los que puede darse cada módulo (el resto depende de funciones que esos roles no tienen). */
@@ -35,6 +36,7 @@ final class ModuloService
         'tareas'     => ['agente_ti', 'supervisor', 'coordinador'],
         'avisos'     => ['supervisor', 'coordinador'],
         'plantillas' => ['agente_ti', 'supervisor', 'coordinador'],
+        'formatos'   => ['usuario', 'agente_ti', 'supervisor', 'coordinador'],
     ];
 
     /** @var array<string, array{activo: bool, roles: list<string>}>|null */

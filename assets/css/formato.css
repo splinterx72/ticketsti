@@ -1,0 +1,63 @@
+/* Hoja carta de los formatos oficiales (pantalla e impresión). */
+.hoja-scroll { overflow-x: auto; padding-bottom: .5rem; }
+.hoja-carta {
+    width: 215.9mm; min-height: 279.4mm; margin: 0 auto; padding: 10mm 14mm 9mm;
+    background: #fff; color: #000; box-shadow: 0 6px 20px rgba(0,0,0,.15);
+    display: flex; flex-direction: column; justify-content: space-between;
+    font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: 9.6pt; line-height: 1.22;
+}
+.hoja-carta * { color: #000; }
+.hoja-encabezado { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; align-items: center; column-gap: 8mm; }
+.hoja-logo-izq { grid-row: 1; grid-column: 1; min-height: 12mm; }
+.hoja-logo-izq img { max-height: 13mm; max-width: 95mm; }
+.hoja-logo-der { grid-row: 1 / span 2; grid-column: 2; text-align: right; }
+.hoja-logo-der img { max-height: 20mm; max-width: 25mm; }
+.hoja-dependencia { grid-row: 2; grid-column: 1; text-align: center; font-weight: 700; font-size: 7.6pt; line-height: 1.25; padding-left: 20mm; }
+.hoja-linea { border: 0; border-top: .7px solid #999; margin: 1.5mm 0 1.5mm; opacity: 1; }
+.hoja-titulo { text-align: center; font-size: 10.5pt; font-weight: 700; margin: 0 0 3mm; font-family: inherit; letter-spacing: 0; }
+.hoja-lugar { text-align: right; font-size: 7.8pt; margin: 0 0 2mm; }
+.hoja-seccion { font-weight: 700; font-size: 10pt; margin: 1.5mm 0 .5mm; }
+.hoja-tabla { width: 100%; border-collapse: collapse; }
+.hoja-tabla th, .hoja-tabla td { border: 1px solid #000; padding: .8mm 1.6mm; vertical-align: middle; font-size: 8.6pt; }
+.hoja-usuario td { height: 7.6mm; }
+.hoja-usuario .lbl { width: 17%; white-space: nowrap; }
+.hoja-usuario td:nth-child(2) { width: 44%; }
+.hoja-usuario td:nth-child(3) { width: 13%; }
+.hoja-nota { margin: .5mm 0 2.5mm; font-size: 9.6pt; }
+.hoja-politicas { text-align: justify; font-size: 8.9pt; }
+.hoja-politicas p { margin: 0 0 1.4mm; }
+.hoja-politicas .intro, .hoja-politicas .subtitulo { font-weight: 700; margin-bottom: .4mm; }
+.hoja-politicas .subtitulo { margin-top: 2.6mm; }
+.hoja-politicas .manifiesto { margin: 2.8mm 0 2.4mm; }
+.hoja-equipo th { font-weight: 700; text-align: center; }
+.hoja-equipo td { text-align: center; height: 8.5mm; }
+.hoja-equipo .serie { font-weight: 700; font-size: 10pt; }
+.hoja-motivos th { text-align: center; font-weight: 700; }
+.hoja-motivos .aplica { width: 9%; text-align: center; font-weight: 700; }
+.hoja-notas { font-size: 7.4pt; margin: 1mm 0 4mm; }
+.hoja-notas p { margin: 0 0 .7mm; }
+.hoja-firmas { table-layout: fixed; }
+.hoja-firmas td { text-align: center; width: 33.33%; font-size: 7.4pt; }
+.hoja-firmas .trazo td { height: 19mm; vertical-align: bottom; padding: 1mm; }
+.hoja-firmas .trazo img { max-height: 17mm; max-width: 100%; }
+.hoja-firmas .autografa { font-style: italic; font-size: 7pt; color: #444; }
+.hoja-firmas .nombre td { font-size: 7.4pt; height: 9mm; }
+.hoja-firmas .nombre .rol { font-size: 6.6pt; color: #333; margin-top: .4mm; }
+.hoja-firmas .fecha td { height: 5.5mm; }
+.hoja-pie-linea { display: flex; align-items: center; gap: 6mm; }
+.hoja-pie-linea img { max-height: 16mm; max-width: 40mm; }
+.hoja-pie-linea .linea { flex: 1; height: 1mm; background: #9d2449; opacity: .85; }
+.hoja-pie-datos { display: flex; justify-content: space-between; font-size: 7pt; margin-top: 2mm; letter-spacing: .3px; }
+
+/* Página de impresión */
+.imprimir-cuerpo { background: #e5e7eb; margin: 0; padding: 16px 8px 32px; }
+.imprimir-barra { max-width: 215.9mm; margin: 0 auto 12px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; font-family: Roboto, Arial, sans-serif; }
+.imprimir-barra .btn { font-family: inherit; }
+
+@media print {
+    @page { size: letter portrait; margin: 0; }
+    html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+    .imprimir-barra, .no-imprimir { display: none !important; }
+    .hoja-carta { box-shadow: none; width: 215.9mm; height: 278.5mm; min-height: 0; margin: 0; overflow: hidden; page-break-after: avoid; break-inside: avoid; }
+    .hoja-scroll { overflow: visible; }
+}

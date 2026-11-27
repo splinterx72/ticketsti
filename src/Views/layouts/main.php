@@ -31,6 +31,7 @@ $rolLabel = \App\Core\Roles::LABELS;
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@500;700&family=Roboto:wght@400;500;700&display=swap">
     <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset('css/theme.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset('css/formato.css')) ?>">
 </head>
 <body class="d-flex flex-column min-vh-100">
 
@@ -233,5 +234,6 @@ $rolLabel = \App\Core\Roles::LABELS;
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script src="<?= e(asset('js/ubicacion-picker.js')) ?>"></script>
 <script src="<?= e(asset('js/app.js')) ?>"></script>
+<script src="<?= e(asset('js/firma.js')) ?>"></script>
 </body>
 </html>

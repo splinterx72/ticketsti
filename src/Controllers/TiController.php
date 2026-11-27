@@ -211,7 +211,7 @@ final class TiController extends Controller
         }
 
         $input = [];
-        foreach (['estado_id', 'prioridad', 'departamento_id', 'agente_asignado_id'] as $k) {
+        foreach (['estado_id', 'prioridad', 'departamento_id', 'agente_asignado_id', 'folio_remedy'] as $k) {
             $input[$k] = $this->input($k);
         }
 

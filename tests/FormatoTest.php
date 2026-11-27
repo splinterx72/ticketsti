@@ -199,3 +199,39 @@ function test_cancelar_libera_el_ticket(): void
     $svc->emitir((int) $s['ticket'], $s['ag']);
     assert_true($svc->bloqueoCierre((int) $s['ticket']) !== null, 'se puede emitir otro');
 }
+
+function test_avisa_por_correo_a_quien_le_toca_firmar(): void
+{
+    $GLOBALS['__app_config']['mail']['driver'] = 'smtp';
+    \App\Services\Mail\Notifier::reiniciarCola();
+    try {
+        $s = escenario_formato();
+        $svc = new FormatoService(test_pdo());
+        $id = $svc->emitir((int) $s['ticket'], $s['ag']);
+        \App\Services\Mail\Notifier::formatoTurno($id);
+        assert_eq(array_column(\App\Services\Mail\Notifier::cola(), 'to'), ['alexis@pemex.com'], 'primero al usuario');
+        \App\Services\Mail\Notifier::reiniciarCola();
+        $svc->firmar($id, 'usuario', $s['w'], ['png' => firma_png(), 'password' => CLAVE_F, 'motivos' => [1]]);
+        \App\Services\Mail\Notifier::formatoTurno($id);
+        $cola = \App\Services\Mail\Notifier::cola();
+        assert_eq(array_column($cola, 'to'), ['jefe@pemex.com'], 'luego a su jefe inmediato');
+        assert_true(str_contains($cola[0]['text'], 'ALEXIS JIMENEZ HERNANDEZ') && str_contains($cola[0]['text'], '5CD4221L1H'), 'dice de quién y qué equipo');
+        \App\Services\Mail\Notifier::reiniciarCola();
+        $svc->firmar($id, 'responsable', $s['jefe'], ['png' => firma_png(), 'password' => CLAVE_F]);
+        \App\Services\Mail\Notifier::formatoTurno($id);
+        assert_eq(array_column(\App\Services\Mail\Notifier::cola(), 'to'), ['jacqueline@pemex.com'], 'al final a TI (agente de la instalación)');
+    } finally {
+        \App\Services\Mail\Notifier::reiniciarCola();
+    }
+}
+
+function test_el_folio_remedy_que_llega_despues_aparece_aunque_ya_este_firmado(): void
+{
+    $s = escenario_formato();
+    $svc = new FormatoService(test_pdo());
+    $id = $svc->emitir((int) $s['ticket'], $s['ag']);
+    $svc->autografa($id, $s['ag'], ['archivo' => 'escaneos/x.pdf', 'password' => CLAVE_F, 'ficha' => '330981', 'metodo' => 'Instalación limpia', 'motivos' => [1]]);
+    assert_eq($svc->datos($svc->find($id))['remedy'], '', 'aún sin folio');
+    test_pdo()->prepare("UPDATE tickets SET folio_remedy = 'WO0000014931785' WHERE id = ?")->execute([$s['ticket']]);
+    assert_eq($svc->datos($svc->find($id))['remedy'], 'WO0000014931785', 'el folio de Remedy se toma del ticket aun después de firmado');
+}

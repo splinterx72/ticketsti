@@ -206,7 +206,14 @@ final class FormatoService
     public function datos(array $f): array
     {
         if (!empty($f['datos'])) {
-            return (json_decode((string) $f['datos'], true) ?: []) + ['responsable_sugerido' => null];
+            // Lo firmado queda congelado; el folio de Remedy es del ticket y suele llegar después.
+            $congelado = (json_decode((string) $f['datos'], true) ?: []) + ['responsable_sugerido' => null];
+            if ($f['ticket_id'] !== null) {
+                $q = $this->pdo->prepare('SELECT folio_remedy FROM tickets WHERE id = ?');
+                $q->execute([(int) $f['ticket_id']]);
+                $congelado['remedy'] = (string) ($q->fetchColumn() ?: '');
+            }
+            return $congelado;
         }
         $c = $f['contenido'];
         $stmt = $this->pdo->prepare(

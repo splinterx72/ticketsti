@@ -34,8 +34,8 @@ function test_admin_apaga_modulos_y_cambia_roles(): void
 function test_lista_para_la_pantalla_del_admin(): void
 {
     $lista = (new ModuloService(test_pdo()))->todos();
-    assert_eq(array_column($lista, 'clave'), ['avisos', 'bitlocker', 'garantias', 'inventario', 'plantillas', 'reportes', 'tareas'], 'los siete módulos');
-    assert_eq($lista[2]['roles'], ['usuario', 'agente_ti', 'supervisor', 'coordinador'], 'roles como lista');
+    assert_eq(array_column($lista, 'clave'), ['avisos', 'bitlocker', 'formatos', 'garantias', 'inventario', 'plantillas', 'reportes', 'tareas'], 'los ocho módulos');
+    assert_eq($lista[3]['roles'], ['usuario', 'agente_ti', 'supervisor', 'coordinador'], 'roles como lista');
 }
 
 function test_sin_tabla_de_modulos_se_conservan_los_permisos_de_siempre(): void

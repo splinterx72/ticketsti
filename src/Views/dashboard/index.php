@@ -28,6 +28,18 @@ $n = static fn (array $src, string $k): string => number_format((int) ($src[$k] 
 
 <?= partial('avisos', ['avisos' => $avisos]) ?>
 
+<?php foreach ($formatosPorFirmar ?? [] as $fp): ?>
+    <div class="msg msg-advertencia mb-3" role="status">
+        <span class="msg-ico" aria-hidden="true"><i class="bi bi-pen"></i></span>
+        <div class="msg-cuerpo">
+            <div class="msg-titulo">Tienes un formato por firmar</div>
+            <div class="msg-texto"><?= e($fp['titulo']) ?> <span class="font-monospace"><?= e($fp['folio']) ?></span>
+                <?= $fp['estado'] === 'pendiente_responsable' ? '· como jefe de ' . e($fp['usuario_nombre']) : '' ?></div>
+        </div>
+        <a class="btn btn-sm btn-primary ms-auto align-self-center" href="<?= e(url('/formatos/' . (int) $fp['id'])) ?>">Firmar</a>
+    </div>
+<?php endforeach; ?>
+
 <?php if ($esTi): ?>
     <div class="row g-3 mb-4">
         <?php
