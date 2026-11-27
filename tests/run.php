@@ -30,6 +30,7 @@ foreach ($files as $file) {
         $GLOBALS['__test_failures'] = [];
         try {
             reset_db();
+            $GLOBALS['__app_config'] = $GLOBALS['__config_inicial'];
             \App\Services\ModuloService::olvidar();
             $test();
         } catch (Throwable $e) {

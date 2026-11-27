@@ -119,6 +119,7 @@ if (!function_exists('tipo_label')) {
             'incidencia'              => 'Incidencia',
             'solicitud'               => 'Solicitud',
             'garantia'                => 'Garantía',
+            'formateo'                => 'Formateo',
             'actualizacion_ubicacion' => 'Actualización de ubicación',
             default                   => $tipo,
         };

@@ -203,6 +203,10 @@ final class TicketService
             }
         }
 
+        if ($tipo === 'formateo' && $equipo === null) {
+            $errors[] = 'Para solicitar un formateo elige el equipo que se va a formatear.';
+        }
+
         $componente = $in['componente_afectado'] ?? 'general';
         if ($equipo === null) {
             $componente = 'general';
@@ -274,6 +278,9 @@ final class TicketService
             }
 
             $this->guardarAdjuntos($id, null, $userId, false, $archivos);
+            if ($tipo === 'formateo') {
+                (new FormatoService($this->pdo))->emitir($id, $user);
+            }
             $asignadoA = (new AsignadorService($this->pdo))->alCrear($id);
             $this->pdo->commit();
         } catch (Throwable $e) {
@@ -480,11 +487,30 @@ final class TicketService
                 $errors[] = 'El agente seleccionado no es válido.';
             }
         }
+        // Folio de Remedy: llega después; TI lo captura cuando lo tenga.
+        $remedy = (string) ($ticket['folio_remedy'] ?? '');
+        if (array_key_exists('folio_remedy', $in)) {
+            $remedy = mb_strtoupper(trim((string) $in['folio_remedy']));
+            if ($remedy !== '' && preg_match('/^[A-Z0-9-]{3,40}$/', $remedy) !== 1) {
+                $errors[] = 'El folio de Remedy solo admite letras, números y guiones (máximo 40).';
+            }
+        }
+        if ($errors === [] && (int) $estado['es_cierre'] === 1 && (int) $ticket['es_cierre'] === 0) {
+            $bloqueo = (new FormatoService($this->pdo))->bloqueoCierre((int) $ticket['id']);
+            if ($bloqueo !== null) {
+                $errors[] = $bloqueo;
+            } elseif ($remedy === '' && (new Mail\CorreoAjustes($this->pdo))->exigeFolioRemedy($ticket['instalacion_id'] !== null ? (int) $ticket['instalacion_id'] : null)) {
+                $errors[] = 'Captura el folio de Remedy antes de cerrar el ticket (esta instalación envía sus tickets a Remedy).';
+            }
+        }
         if ($errors !== []) {
             throw new ValidationException($errors);
         }
 
         $cambios = [];
+        if ($remedy !== (string) ($ticket['folio_remedy'] ?? '')) {
+            $cambios[] = 'folio Remedy: ' . ($remedy !== '' ? $remedy : 'sin folio');
+        }
         if ($estadoId !== (int) $ticket['estado_id']) {
             $cambios[] = "estado: {$ticket['estado_nombre']} → {$estado['nombre']}";
         }
@@ -505,12 +531,12 @@ final class TicketService
         try {
             $stmt = $this->pdo->prepare(
                 'UPDATE tickets
-                    SET estado_id = ?, prioridad = ?, departamento_id = ?, agente_asignado_id = ?,
+                    SET estado_id = ?, prioridad = ?, departamento_id = ?, agente_asignado_id = ?, folio_remedy = ?,
                         cerrado_en = CASE WHEN ? = 1 THEN COALESCE(cerrado_en, CURRENT_TIMESTAMP) ELSE NULL END,
                         atendido_en = COALESCE(atendido_en, CURRENT_TIMESTAMP)
                   WHERE id = ?'
             );
-            $stmt->execute([$estadoId, $prioridad, $deptoId, $agenteId > 0 ? $agenteId : null, $estado['es_cierre'], (int) $ticket['id']]);
+            $stmt->execute([$estadoId, $prioridad, $deptoId, $agenteId > 0 ? $agenteId : null, $remedy !== '' ? $remedy : null, $estado['es_cierre'], (int) $ticket['id']]);
             // Visible para el solicitante: así sigue el avance de su ticket.
             $this->insertComment((int) $ticket['id'], (int) $agente['id'], '[Sistema] ' . ucfirst(implode('; ', $cambios)) . '.', false);
             $this->pdo->commit();

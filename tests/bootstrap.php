@@ -42,7 +42,9 @@ $config = require ROOT_PATH . '/config/config.example.php';
 $config['db'] = test_db_config();
 $config['app']['base_url'] = 'http://localhost/tickets';
 $config['mail']['driver'] = 'off';
+$config['mail']['mesa_institucional'] = '';   // cada prueba que use Remedy lo configura
 $GLOBALS['__app_config'] = $config;
+$GLOBALS['__config_inicial'] = $config;
 
 /** Conexión sin base seleccionada (para crear/borrar bases de prueba). */
 function test_server_pdo(): PDO

@@ -45,6 +45,7 @@ CREATE TABLE instalaciones (
     zona_id INT UNSIGNED NULL,
     modo_asignacion ENUM('manual', 'sugerida', 'automatica') NOT NULL DEFAULT 'sugerida',
     remedy_activo TINYINT(1) NOT NULL DEFAULT 1,
+    ciudad VARCHAR(120) NULL,
     activo TINYINT(1) NOT NULL DEFAULT 1,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_instalacion_zona FOREIGN KEY (zona_id) REFERENCES zonas(id) ON DELETE SET NULL
@@ -145,6 +146,7 @@ CREATE TABLE equipos (
     ubicacion_geca_id INT UNSIGNED NULL,
     ubicacion_real_id INT UNSIGNED NULL,
     es_principal TINYINT(1) NOT NULL DEFAULT 0,
+    inventario VARCHAR(40) NULL,
     folio_resguardo VARCHAR(40) NULL,
     fecha_resguardo DATE NULL,
     estado_resguardo VARCHAR(60) NULL,
@@ -273,7 +275,7 @@ INSERT INTO sla_prioridades (prioridad, horas_respuesta, horas_resolucion) VALUE
 CREATE TABLE tickets (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     folio VARCHAR(25) NOT NULL UNIQUE,
-    tipo_ticket ENUM('incidencia', 'solicitud', 'actualizacion_ubicacion', 'garantia') NOT NULL DEFAULT 'incidencia',
+    tipo_ticket ENUM('incidencia', 'solicitud', 'actualizacion_ubicacion', 'garantia', 'formateo') NOT NULL DEFAULT 'incidencia',
     titulo VARCHAR(180) NOT NULL,
     descripcion TEXT NOT NULL,
     prioridad ENUM('baja', 'media', 'alta', 'critica') NOT NULL DEFAULT 'media',
@@ -281,6 +283,7 @@ CREATE TABLE tickets (
     creado_por_id INT UNSIGNED NULL,
     agente_asignado_id INT UNSIGNED NULL,
     sugerido_agente_id INT UNSIGNED NULL,
+    folio_remedy VARCHAR(40) NULL,
     departamento_id INT UNSIGNED NOT NULL,
     estado_id TINYINT UNSIGNED NOT NULL,
     equipo_id INT UNSIGNED NULL,
@@ -596,6 +599,75 @@ CREATE TABLE delegaciones (
     CONSTRAINT fk_deleg_jefe FOREIGN KEY (jefe_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     CONSTRAINT fk_deleg_delegado FOREIGN KEY (delegado_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     CONSTRAINT fk_deleg_creado FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Formatos oficiales (p. ej. autorización de formateo). Cada plantilla es la
+-- versión de un año: logos, textos y motivos. Lo que ya se firmó apunta a su
+-- versión y nunca cambia; si se edita una versión usada, se crea otra.
+CREATE TABLE formato_plantillas (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    clave VARCHAR(40) NOT NULL,
+    anio SMALLINT UNSIGNED NOT NULL,
+    version SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+    titulo VARCHAR(150) NOT NULL,
+    contenido MEDIUMTEXT NOT NULL,
+    logo_izq VARCHAR(120) NULL,
+    logo_der VARCHAR(120) NULL,
+    logo_pie VARCHAR(120) NULL,
+    creado_por INT UNSIGNED NULL,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_plantilla_version (clave, anio, version),
+    CONSTRAINT fk_fplant_creado FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Documento emitido (folio FF-AAAA-NNNNNN). Firmas en orden: usuario →
+-- responsable (jefe) → TI. Al completarse se congela una copia de los datos.
+CREATE TABLE formatos (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    folio VARCHAR(25) NOT NULL UNIQUE,
+    codigo CHAR(8) NOT NULL,
+    plantilla_id INT UNSIGNED NOT NULL,
+    ticket_id INT UNSIGNED NULL,
+    usuario_id INT UNSIGNED NOT NULL,
+    equipo_id INT UNSIGNED NULL,
+    motivos TEXT NULL,
+    metodo VARCHAR(80) NULL,
+    datos MEDIUMTEXT NULL,
+    estado ENUM('pendiente_usuario', 'pendiente_responsable', 'pendiente_ti', 'completo', 'cancelado') NOT NULL DEFAULT 'pendiente_usuario',
+    archivo_autografo VARCHAR(120) NULL,
+    creado_por INT UNSIGNED NULL,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completado_en TIMESTAMP NULL,
+    cancelado_en TIMESTAMP NULL,
+    motivo_cancelacion VARCHAR(255) NULL,
+    INDEX idx_formato_ticket (ticket_id),
+    INDEX idx_formato_usuario (usuario_id),
+    CONSTRAINT fk_formato_plantilla FOREIGN KEY (plantilla_id) REFERENCES formato_plantillas(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_formato_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
+    CONSTRAINT fk_formato_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_formato_equipo FOREIGN KEY (equipo_id) REFERENCES equipos(id) ON DELETE SET NULL,
+    CONSTRAINT fk_formato_creado FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Firma de cada rol: dibujada (en su sesión o presencial en el dispositivo
+-- del técnico) o autógrafa (papel escaneado). Queda quién la capturó y cuándo.
+CREATE TABLE formato_firmas (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    formato_id INT UNSIGNED NOT NULL,
+    rol ENUM('usuario', 'responsable', 'ti') NOT NULL,
+    firmante_id INT UNSIGNED NULL,
+    nombre VARCHAR(150) NOT NULL,
+    ficha VARCHAR(20) NOT NULL,
+    imagen VARCHAR(120) NULL,
+    modo ENUM('sesion', 'presencial', 'autografa') NOT NULL,
+    motivo VARCHAR(255) NULL,
+    capturado_por INT UNSIGNED NULL,
+    ip VARCHAR(45) NULL,
+    firmado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_firma_rol (formato_id, rol),
+    CONSTRAINT fk_ffirma_formato FOREIGN KEY (formato_id) REFERENCES formatos(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ffirma_firmante FOREIGN KEY (firmante_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+    CONSTRAINT fk_ffirma_capturo FOREIGN KEY (capturado_por) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

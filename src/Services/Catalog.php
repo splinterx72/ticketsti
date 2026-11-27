@@ -24,11 +24,12 @@ final class Catalog
         'incidencia'              => 'Incidencia (algo no funciona)',
         'solicitud'               => 'Solicitud (instalación, acceso, cambio)',
         'garantia'                => 'Garantía de hardware',
+        'formateo'                => 'Solicitud de formateo (requiere autorización firmada)',
         'actualizacion_ubicacion' => 'Actualización de ubicación',
     ];
 
     /** Tipos que puede elegir un trabajador al crear un ticket. */
-    public const TIPOS_USUARIO = ['incidencia', 'solicitud', 'garantia'];
+    public const TIPOS_USUARIO = ['incidencia', 'solicitud', 'garantia', 'formateo'];
 
     public const PRIORIDADES = [
         'baja'    => 'Baja',

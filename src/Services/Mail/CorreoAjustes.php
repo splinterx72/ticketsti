@@ -19,6 +19,7 @@ final class CorreoAjustes
 {
     private const REMEDY = 'correo.remedy';
     private const COPIAS = 'correo.copias';
+    private const EXIGIR = 'correo.exigir_folio_remedy';
 
     public function __construct(private readonly PDO $pdo)
     {
@@ -60,6 +61,25 @@ final class CorreoAjustes
         }
         $this->escribir(self::REMEDY, $remedy, $actorId);
         $this->escribir(self::COPIAS, implode(', ', $lista), $actorId);
+    }
+
+    /**
+     * ¿Se exige el folio de Remedy para cerrar? Solo si hay correo de Remedy,
+     * la instalación le envía sus tickets y el Admin no lo desactivó.
+     */
+    public function exigeFolioRemedy(?int $instalacionId): bool
+    {
+        return $this->leer(self::EXIGIR) !== '0' && $this->remedy() !== '' && $this->remedyActivo($instalacionId);
+    }
+
+    public function exigirFolio(): bool
+    {
+        return $this->leer(self::EXIGIR) !== '0';
+    }
+
+    public function guardarExigirFolio(bool $exigir, int $actorId): void
+    {
+        $this->escribir(self::EXIGIR, $exigir ? '1' : '0', $actorId);
     }
 
     /** Ticket sin instalación: sí va a Remedy. */

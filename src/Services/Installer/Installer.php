@@ -45,6 +45,8 @@ final class Installer
         'modulos', 'ajustes', 'plantillas_correo', 'correos_enviados',
         // Delegación de tickets
         'delegaciones',
+        // Formatos oficiales con firmas
+        'formato_plantillas', 'formatos', 'formato_firmas',
     ];
 
     public const TIMEZONES = [
