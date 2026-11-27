@@ -174,6 +174,15 @@ final class Installer
             $missing === [] ? 'ok' : 'warn',
             $missing === [] ? 'Se podrán cargar archivos .xlsx y .csv.' : 'Faltan: ' . implode(', ', $missing) . '. Solo se aceptará CSV hasta activarlas.'
         );
+        // Extensiones de módulos: sin ellas el sistema instala, pero esa función no sirve.
+        foreach ([
+            'fileinfo' => 'Validar el tipo real de los adjuntos y evidencias',
+            'gd'       => 'Reducir las imágenes de las noticias',
+            'sodium'   => 'Cifrar las llaves de BitLocker',
+        ] as $ext => $why) {
+            $loaded = extension_loaded($ext);
+            $add('PHP', "Extensión {$ext}", $loaded ? 'ok' : 'warn', $loaded ? $why : "Falta: {$why}. Actívala en cPanel > Select PHP Version > Extensions.");
+        }
         $uploads = filter_var(ini_get('file_uploads'), FILTER_VALIDATE_BOOLEAN);
         $add('PHP', 'Subida de archivos (file_uploads)', $uploads ? 'ok' : 'fail', $uploads ? 'Habilitada.' : 'Deshabilitada; actívala en MultiPHP INI Editor.');
 

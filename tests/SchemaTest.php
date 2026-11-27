@@ -122,3 +122,11 @@ function test_installer_reconoce_reinstalacion(): void
     $viejo = $installer->inspectDatabase(test_db_config('usr_mesa_test_mig'));
     assert_eq($viejo['mode'], 'partial', 'schema de Fase 4 = parcial (requiere migración)');
 }
+
+function test_requisitos_revisan_las_extensiones_que_usan_los_modulos(): void
+{
+    $etiquetas = array_column((new Installer(ROOT_PATH))->requirements('http://localhost/tickets')['items'], 'label');
+    foreach (['Extensión fileinfo', 'Extensión gd', 'Extensión sodium'] as $e) {
+        assert_true(in_array($e, $etiquetas, true), "el asistente revisa: {$e}");
+    }
+}
