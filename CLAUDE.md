@@ -78,6 +78,12 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
   * "Mi día" del agente (`TableroService::rutaAgente`, `misAsignados`): asignados por urgencia, ruta instalación › edificio › nivel con indicaciones; bandeja filtra por `ubic`/`nivel`.
   * Tableros de supervisor y coordinador (`TableroService::panel`): indicadores, tendencia 30 días, semáforo SLA, por tipo, por instalación, por edificio, equipos por tipo y tabla por zona › instalación.
   * Migración `2026-11-27_sla_avisos_adjuntos.sql`.
+* **Fase 8 (hecha):**
+  * BitLocker por equipo (`BitLockerService`, `/equipos/{id}/bitlocker`): identificador obligatorio (8 caracteres o GUID) y llave de 48 dígitos opcional, **cifrada** con `Core/Cifrado` (libsodium; clave en `security.clave_cifrado` o `storage/keys/cifrado.key`, que no debe perderse). Capturan y ven el resguardante y el TI de la instalación del equipo (sin instalación: cualquier TI; admin: todo). Ver la llave pide la contraseña y un motivo, y queda en `bitlocker_consultas`. **Nunca** viaja en correos, exportaciones ni reportes.
+  * Celular opcional (`usuarios.celular`) en registro y Mi cuenta, con aviso de doble autenticación (`VerificacionEmailService::celular`).
+  * Correo de ticket nuevo/asignado para TI y Remedy con ficha completa (`Notifier::fichaCompleta`): solicitante, extensión, celular, jefe, ubicación física con indicaciones, GECA, equipo, garantía, adjuntos y límites SLA. La confirmación al trabajador sigue breve.
+  * Asignación inteligente (`AsignadorService`): candidatos vigentes y disponibles de la instalación, sin bloqueo de admin local y con la especialidad (`agente_departamentos`; sin filas = todas); puntos = carga abierta ponderada (crítica 4, alta 3, media 2, baja 1) + 3 si ocupado − 1 si ya atiende ese edificio; empate por turnos. `instalaciones.modo_asignacion`: `manual`, `sugerida` (por omisión, `tickets.sugerido_agente_id` y botón "Asignar") o `automatica` (asigna, bitácora y correo). Disponibilidad (`agente_estado`: disponible/ocupado/fuera/vacaciones con fecha "hasta") desde el encabezado del agente o *Supervisión › Agentes*.
+  * Migración `2026-11-28_bitlocker_asignacion.sql`.
 * **Fase 4 (hecha):**
   * Garantías (`GarantiaService`, `/ti/garantias`): alta por serie de CPU o de monitor y validación del monitor casado. Las vigentes con fecha pasada se marcan como vencidas al consultarlas (sin cron). "Por vencer" = 60 días.
   * Inventario TI (`/ti/equipos`, `/ti/equipos/{id}`): ficha GECA, ubicaciones, garantías e historial de tickets. El detalle del ticket muestra la garantía que cubre el componente reportado.
@@ -150,4 +156,4 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 
 ## 4. Esquema de base de datos
 
-La fuente de verdad es **`database/schema.sql`** (31 tablas; lista completa en `Installer::TABLES`) con semillas de `estados`, `departamentos`, `niveles` y `ubicacion_tipos`. Cualquier cambio de esquema se hace ahí **y** como script incremental en `database/migraciones/` importable desde phpMyAdmin (ver `database/migraciones/LEEME.md`); `tests/SchemaTest.php` verifica que ambos coincidan.
+La fuente de verdad es **`database/schema.sql`** (35 tablas; lista completa en `Installer::TABLES`) con semillas de `estados`, `departamentos`, `niveles` y `ubicacion_tipos`. Cualquier cambio de esquema se hace ahí **y** como script incremental en `database/migraciones/` importable desde phpMyAdmin (ver `database/migraciones/LEEME.md`); `tests/SchemaTest.php` verifica que ambos coincidan.

@@ -31,6 +31,8 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 * **Inventario por instalación** y **cuentas de administración y de prueba** creadas por el Admin TI; folios de ticket y tarea no consecutivos (`TK-2026-483920`).
 * **Tiempos de atención (SLA)** configurables por prioridad, semáforo en la bandeja y avisos automáticos de tickets fuera de tiempo; **adjuntos** (fotos/PDF) en tickets; avisos con **acuse de lectura**.
 * **Tableros con gráficas** para supervisores y coordinadores, y **"Mi día"** del agente con su ruta por edificio y nivel.
+* **BitLocker por equipo**: identificador y llave de recuperación (cifrada, se muestra solo con contraseña y queda en bitácora); celular opcional del trabajador para la doble autenticación.
+* **Asignación sugerida**: el sistema propone al agente disponible con menos carga y la especialidad del ticket (o lo asigna solo, según la instalación); cada agente marca su disponibilidad.
 * **Carga semanal del GECA** (`/geca`): `.xlsx` o `.csv` (coma o punto y coma, UTF-8 o ANSI de Excel), reporte "Equipos entregados con estatus" (una fila por componente, monitores casados con su computadora), **UPSERT** por `ficha` y `serie` en una sola transacción, historial de cargas, detalle con advertencias y plantilla descargable.
 
 Rendimiento medido con el GECA real: 124 317 filas (21 MB .xlsx) en ~40 s usando ~145 MB de RAM.
@@ -97,6 +99,11 @@ Importa en phpMyAdmin, **en este orden y una sola vez cada uno**, los que aún n
 2. `2026-11-24_avisos_imagen.sql` — noticias con imagen en la entrada.
 3. `2026-11-24_coordinadores_cuentas.sql` — coordinadores por zona y cuentas de administración/prueba.
 4. `2026-11-27_sla_avisos_adjuntos.sql` — tiempos de atención (SLA), acuse de lectura de avisos y adjuntos en tickets.
+5. `2026-11-28_bitlocker_asignacion.sql` — BitLocker por equipo, celular, disponibilidad/especialidades de agentes y asignación sugerida.
+
+Para BitLocker agrega en `config/config.php`, dentro de `'security'`, la línea
+`'clave_cifrado' => '…',` con una clave propia (base64 de 32 bytes). Si no la agregas, el sistema crea
+`storage/keys/cifrado.key` la primera vez. **Respáldala y no la cambies**: sin ella las llaves guardadas no se pueden leer.
 
 Después, como Admin TI: *Usuarios › Crear cuenta* (por ejemplo `ADMIN-TI` de tipo *Administración*) y *Gestión › Zonas*.
 
