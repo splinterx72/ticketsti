@@ -133,6 +133,9 @@ $n = static fn (array $src, string $k): string => number_format((int) ($src[$k] 
                                         <div class="small text-warning-emphasis"><i class="bi bi-exclamation-triangle me-1"></i>En GECA figura en: <?= e($eq['ubicacion_geca']) ?></div>
                                     <?php endif; ?>
                                 </div>
+                                <a class="btn btn-sm btn-outline-secondary flex-shrink-0" href="<?= e(url('/equipos/' . (int) $eq['id'] . '/bitlocker')) ?>" title="Llave de recuperación BitLocker">
+                                    <i class="bi bi-key"></i><span class="d-none d-sm-inline ms-1">BitLocker</span>
+                                </a>
                                 <?php if ((int) $eq['es_principal'] !== 1): ?>
                                     <form method="post" action="<?= e(url('/equipos/' . (int) $eq['id'] . '/principal')) ?>" class="m-0 flex-shrink-0">
                                         <?= csrf_field() ?>

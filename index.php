@@ -14,6 +14,7 @@ use App\Controllers\AuthController;
 use App\Controllers\AvisoController;
 use App\Controllers\ZonaController;
 use App\Controllers\SlaController;
+use App\Controllers\BitLockerController;
 use App\Controllers\CuentaController;
 use App\Controllers\DashboardController;
 use App\Controllers\EquipoController;
@@ -230,6 +231,9 @@ if (!$installMode) {
     $router->post('/supervisor/avisos/{id}/finalizar', [AvisoController::class, 'finish']);
     $router->get('/avisos/{id}/imagen', [AvisoController::class, 'imagen']);
     $router->get('/tickets/archivo/{id}', [TicketController::class, 'archivo']);
+    $router->get('/equipos/{id}/bitlocker', [BitLockerController::class, 'show']);
+    $router->post('/equipos/{id}/bitlocker', [BitLockerController::class, 'store']);
+    $router->post('/bitlocker/{id}/mostrar', [BitLockerController::class, 'reveal']);
     $router->post('/avisos/{id}/leido', [AvisoController::class, 'leido']);
     $router->get('/supervisor/avisos/{id}/lectura', [AvisoController::class, 'lectura']);
     $router->get('/supervisor/agentes', [SupervisorController::class, 'agentes']);

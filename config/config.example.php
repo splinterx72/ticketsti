@@ -92,5 +92,8 @@ return [
         // Intentos de login fallidos antes de bloquear temporalmente.
         'login_max_attempts' => 5,
         'login_lock_seconds' => 300,
+        // Clave (base64 de 32 bytes) para cifrar las llaves de BitLocker. El instalador la genera.
+        // Si queda vacía, el sistema crea una en storage/keys/cifrado.key. NO la cambies ni la pierdas.
+        'clave_cifrado' => '',
     ],
 ];

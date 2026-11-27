@@ -298,3 +298,5 @@ html:has(.installer-bg) { background: #0a4f62; }
 .kpi-etq { font-size: .8rem; color: var(--bs-secondary-color); }
 .kpi-alerta .kpi-valor { color: var(--msg-error-a); }
 
+.bitlocker-llave { letter-spacing: .04em; background: var(--msg-adv-t); border: 1.5px solid var(--msg-adv-b); border-radius: .5rem; padding: .3rem .6rem; }
+

@@ -39,6 +39,8 @@ final class Installer
         'zonas', 'coordinador_zonas',
         // SLA, acuse de lectura y adjuntos
         'aviso_lecturas', 'sla_prioridades', 'ticket_archivos',
+        // BitLocker y asignación
+        'equipo_bitlocker', 'bitlocker_consultas',
     ];
 
     public const TIMEZONES = [
@@ -634,6 +636,7 @@ final class Installer
         $db = $state['db'];
         $site = $state['site'];
         $x = static fn (mixed $v): string => var_export($v, true);
+        $claveCifrado = $x(base64_encode(random_bytes(32)));
         $now = (new DateTimeImmutable('now', new DateTimeZone((string) $site['timezone'])))->format('Y-m-d H:i:s T');
         $secure = $site['force_https'] ? 'true' : 'null';
         $domain = (string) preg_replace('/^www\./i', '', (string) (parse_url((string) $site['base_url'], PHP_URL_HOST) ?: 'localhost'));
@@ -710,6 +713,8 @@ return [
     'security' => [
         'login_max_attempts' => 5,
         'login_lock_seconds' => 300,
+        // Cifra las llaves de BitLocker. NO la cambies ni la pierdas: sin ella no se pueden leer.
+        'clave_cifrado' => {$claveCifrado},
     ],
 ];
 
