@@ -33,7 +33,7 @@ if ($hasOld) {
     <a href="<?= e(url('/tickets')) ?>" class="btn btn-link"><i class="bi bi-arrow-left me-1"></i>Mis tickets</a>
 </div>
 
-<form method="post" action="<?= e(url('/tickets')) ?>" id="ticketForm" class="needs-loading" novalidate>
+<form method="post" action="<?= e(url('/tickets')) ?>" id="ticketForm" class="needs-loading" enctype="multipart/form-data" novalidate>
     <?= csrf_field() ?>
     <div class="row g-4">
         <div class="col-lg-7">
@@ -66,6 +66,11 @@ if ($hasOld) {
                             <label for="descripcion" class="form-label fw-semibold">Descripción</label>
                             <textarea class="form-control" id="descripcion" name="descripcion" rows="6" maxlength="5000" required
                                       placeholder="¿Qué pasa? ¿Desde cuándo? ¿Aparece algún mensaje de error?"><?= e($old['descripcion'] ?? '') ?></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label for="adjuntos" class="form-label fw-semibold">Fotos o capturas <span class="fw-normal text-body-secondary">(opcional)</span></label>
+                            <input type="file" class="form-control" id="adjuntos" name="adjuntos[]" multiple accept=".jpg,.jpeg,.png,.webp,.pdf">
+                            <div class="form-text">Hasta 5 archivos de 10 MB: una foto de la pantalla o del mensaje de error ayuda mucho al técnico.</div>
                         </div>
                     </div>
                 </div>

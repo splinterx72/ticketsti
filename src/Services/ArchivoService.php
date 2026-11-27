@@ -101,6 +101,29 @@ final class ArchivoService
         return ['ruta' => $ruta, 'nombre_original' => $nombre, 'mime' => $mime, 'tamano' => $tamano];
     }
 
+    /**
+     * Guarda varias subidas; si una falla, borra las ya guardadas y relanza el error.
+     *
+     * @param list<array<string, mixed>> $subidas
+     * @return list<array{ruta: string, nombre_original: string, mime: string, tamano: int}>
+     */
+    public function guardarVarios(array $subidas, string $subcarpeta, int $maximo): array
+    {
+        if (count($subidas) > $maximo) {
+            throw new ValidationException(["Máximo {$maximo} archivos por envío."]);
+        }
+        $ok = [];
+        try {
+            foreach ($subidas as $up) {
+                $ok[] = $this->guardar($up, $subcarpeta);
+            }
+        } catch (\Throwable $e) {
+            $this->descartar($ok);
+            throw $e;
+        }
+        return $ok;
+    }
+
     /** Borra archivos ya guardados (si la operación posterior falla). @param list<array{ruta: string}> $archivos */
     public function descartar(array $archivos): void
     {

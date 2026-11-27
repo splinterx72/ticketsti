@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\ValidationException;
 use App\Core\Auth;
 use App\Core\Csrf;
 use App\Core\HttpException;
@@ -80,5 +81,33 @@ abstract class Controller
             $old[$k] = $this->input($k);
         }
         Session::set('_old', $old);
+    }
+
+    /**
+     * Normaliza $_FILES[$campo] (input múltiple) a una lista de subidas,
+     * ignorando los campos vacíos.
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected static function subidas(string $campo): array
+    {
+        $f = $_FILES[$campo] ?? null;
+        if (!is_array($f) || !isset($f['name'])) {
+            return [];
+        }
+        if (!is_array($f['name'])) {
+            return (int) $f['error'] === UPLOAD_ERR_NO_FILE ? [] : [$f];
+        }
+        $out = [];
+        foreach ($f['name'] as $i => $name) {
+            if ((int) ($f['error'][$i] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+            $out[] = ['name' => $name, 'tmp_name' => $f['tmp_name'][$i] ?? '', 'size' => $f['size'][$i] ?? 0, 'error' => $f['error'][$i] ?? UPLOAD_ERR_NO_FILE];
+        }
+        if (count($out) > 10) {
+            throw new ValidationException(['Máximo 10 archivos por envío.']);
+        }
+        return $out;
     }
 }

@@ -38,7 +38,7 @@ final class Installer
         // Coordinadores por zona
         'zonas', 'coordinador_zonas',
         // SLA, acuse de lectura y adjuntos
-        'aviso_lecturas', 'sla_prioridades',
+        'aviso_lecturas', 'sla_prioridades', 'ticket_archivos',
     ];
 
     public const TIMEZONES = [

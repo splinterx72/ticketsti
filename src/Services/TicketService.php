@@ -146,7 +146,7 @@ final class TicketService
      * @param array<string, string> $in    datos del formulario
      * @return array{id: int, folio: string, discrepancia: bool, vinculado: ?string}
      */
-    public function create(array $user, array $in): array
+    public function create(array $user, array $in, array $archivos = []): array
     {
         $userId = (int) $user['id'];
         $esTi = Roles::esTi($user['rol']);
@@ -255,6 +255,7 @@ final class TicketService
                 }
             }
 
+            $this->guardarAdjuntos($id, null, $userId, false, $archivos);
             $this->pdo->commit();
         } catch (Throwable $e) {
             if ($this->pdo->inTransaction()) {
@@ -371,7 +372,7 @@ final class TicketService
      * @param array<string, mixed> $ticket
      * @param array<string, mixed> $user
      */
-    public function addComment(array $ticket, array $user, string $mensaje, bool $interna): void
+    public function addComment(array $ticket, array $user, string $mensaje, bool $interna, array $archivos = []): void
     {
         $esTi = Roles::esTi($user['rol']);
         $mensaje = self::cleanText($mensaje);
@@ -388,7 +389,8 @@ final class TicketService
 
         $this->pdo->beginTransaction();
         try {
-            $this->insertComment((int) $ticket['id'], (int) $user['id'], $mensaje, $esTi && $interna);
+            $comentarioId = $this->insertComment((int) $ticket['id'], (int) $user['id'], $mensaje, $esTi && $interna);
+            $this->guardarAdjuntos((int) $ticket['id'], $comentarioId, (int) $user['id'], $esTi && $interna, $archivos);
 
             // Si TI esperaba respuesta del usuario, el ticket vuelve a "En proceso".
             $esperaId = Catalog::estadoIdPorNombre(Catalog::ESTADO_ESPERA_USUARIO);
@@ -506,12 +508,49 @@ final class TicketService
     //  Utilidades
     // ==================================================================
 
-    private function insertComment(int $ticketId, int $userId, string $mensaje, bool $interna): void
+    private function insertComment(int $ticketId, int $userId, string $mensaje, bool $interna): int
     {
         $stmt = $this->pdo->prepare(
             'INSERT INTO comentarios (ticket_id, usuario_id, mensaje, es_nota_interna) VALUES (?, ?, ?, ?)'
         );
         $stmt->execute([$ticketId, $userId, $mensaje, $interna ? 1 : 0]);
+        return (int) $this->pdo->lastInsertId();
+    }
+
+    /**
+     * @param list<array{ruta: string, nombre_original: string, mime: string, tamano: int}> $archivos ya guardados por ArchivoService
+     */
+    private function guardarAdjuntos(int $ticketId, ?int $comentarioId, int $userId, bool $interno, array $archivos): void
+    {
+        if (count($archivos) > 5) {
+            throw new ValidationException(['Máximo 5 archivos por envío.']);
+        }
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO ticket_archivos (ticket_id, comentario_id, ruta, nombre_original, mime, tamano, interno, subido_por)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+        foreach ($archivos as $a) {
+            $stmt->execute([$ticketId, $comentarioId, $a['ruta'], $a['nombre_original'], $a['mime'], (int) $a['tamano'], $interno ? 1 : 0, $userId]);
+        }
+    }
+
+    /** @return list<array<string, mixed>> adjuntos del ticket (sin los de notas internas si $incluirInternos = false) */
+    public function archivosDe(int $ticketId, bool $incluirInternos): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id, ticket_id, comentario_id, ruta, nombre_original, mime, tamano, interno, creado_en
+               FROM ticket_archivos WHERE ticket_id = ?' . ($incluirInternos ? '' : ' AND interno = 0') . ' ORDER BY id'
+        );
+        $stmt->execute([$ticketId]);
+        return $stmt->fetchAll();
+    }
+
+    /** @return array<string, mixed>|null */
+    public function archivo(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM ticket_archivos WHERE id = ?');
+        $stmt->execute([$id]);
+        return $stmt->fetch() ?: null;
     }
 
     /**

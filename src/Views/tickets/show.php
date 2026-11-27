@@ -42,6 +42,7 @@ $monitor = match ($t['componente_afectado']) {
                     <span title="<?= e(fecha_mx($t['creado_en'])) ?>">(<?= e(fecha_mx($t['creado_en'])) ?>)</span>
                 </div>
                 <div class="ticket-description"><?= texto_multilinea($t['descripcion']) ?></div>
+                <?= partial('adjuntos', ['adjuntos' => array_values(array_filter($adjuntos ?? [], static fn (array $x): bool => $x['comentario_id'] === null))]) ?>
                 <?php if ($t['indicaciones'] !== null): ?>
                     <div class="alert alert-warning small mt-3 mb-0 d-flex gap-2" role="note">
                         <i class="bi bi-cone-striped flex-shrink-0"></i>
@@ -77,6 +78,7 @@ $monitor = match ($t['componente_afectado']) {
                                 <span class="text-body-secondary" title="<?= e(fecha_mx($c['creado_en'])) ?>"><?= e(hace($c['creado_en'])) ?></span>
                             </div>
                             <div><?= texto_multilinea($c['mensaje']) ?></div>
+                            <?= partial('adjuntos', ['adjuntos' => array_values(array_filter($adjuntos ?? [], static fn (array $x): bool => (int) $x['comentario_id'] === (int) $c['id']))]) ?>
                         </div>
                     </div>
                 <?php endif; ?>
@@ -88,12 +90,13 @@ $monitor = match ($t['componente_afectado']) {
                 Este ticket está cerrado. Si el problema continúa, <a href="<?= e(url('/tickets/nuevo')) ?>">crea un ticket nuevo</a>.
             </div>
         <?php else: ?>
-            <form method="post" action="<?= e(url('/tickets/' . (int) $t['id'] . '/comentarios')) ?>" class="card border-0 shadow-sm needs-loading">
+            <form method="post" action="<?= e(url('/tickets/' . (int) $t['id'] . '/comentarios')) ?>" class="card border-0 shadow-sm needs-loading" enctype="multipart/form-data">
                 <div class="card-body">
                     <?= csrf_field() ?>
                     <label for="mensaje" class="form-label fw-semibold">Agregar comentario</label>
                     <textarea class="form-control" id="mensaje" name="mensaje" rows="3" maxlength="5000" required
                               placeholder="<?= $esTi ? 'Respuesta al usuario o nota interna…' : 'Escribe información adicional o responde a TI…' ?>"><?= e($old['mensaje'] ?? '') ?></textarea>
+                    <input type="file" class="form-control form-control-sm mt-2" name="adjuntos[]" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" aria-label="Adjuntar fotos o PDF (opcional)">
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
                         <?php if ($esTi): ?>
                             <div class="form-check">

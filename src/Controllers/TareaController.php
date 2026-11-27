@@ -190,32 +190,4 @@ final class TareaController extends Controller
         Session::flash('success', $mensajes[$accion]);
         redirect('/tareas/' . (int) $asig['tarea_id']);
     }
-
-    /**
-     * Normaliza $_FILES[$campo] (input múltiple) a una lista de subidas,
-     * ignorando los campos vacíos.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private static function subidas(string $campo): array
-    {
-        $f = $_FILES[$campo] ?? null;
-        if (!is_array($f) || !isset($f['name'])) {
-            return [];
-        }
-        if (!is_array($f['name'])) {
-            return (int) $f['error'] === UPLOAD_ERR_NO_FILE ? [] : [$f];
-        }
-        $out = [];
-        foreach ($f['name'] as $i => $name) {
-            if ((int) ($f['error'][$i] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-                continue;
-            }
-            $out[] = ['name' => $name, 'tmp_name' => $f['tmp_name'][$i] ?? '', 'size' => $f['size'][$i] ?? 0, 'error' => $f['error'][$i] ?? UPLOAD_ERR_NO_FILE];
-        }
-        if (count($out) > 10) {
-            throw new ValidationException(['Máximo 10 archivos por envío.']);
-        }
-        return $out;
-    }
 }

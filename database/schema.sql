@@ -284,6 +284,24 @@ CREATE TABLE comentarios (
     CONSTRAINT fk_comentario_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Adjuntos de tickets (fotos, capturas, PDF) al crear o en comentarios.
+CREATE TABLE ticket_archivos (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ticket_id INT UNSIGNED NOT NULL,
+    comentario_id INT UNSIGNED NULL,
+    ruta VARCHAR(255) NOT NULL,
+    nombre_original VARCHAR(200) NOT NULL,
+    mime VARCHAR(100) NOT NULL,
+    tamano INT UNSIGNED NOT NULL,
+    interno TINYINT(1) NOT NULL DEFAULT 0,
+    subido_por INT UNSIGNED NULL,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_tkarch_ticket (ticket_id),
+    CONSTRAINT fk_tkarch_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    CONSTRAINT fk_tkarch_comentario FOREIGN KEY (comentario_id) REFERENCES comentarios(id) ON DELETE SET NULL,
+    CONSTRAINT fk_tkarch_subido_por FOREIGN KEY (subido_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ---------------------------------------------------------------------
 --  Responsabilidad por instalación (supervisores y agentes)
 -- ---------------------------------------------------------------------

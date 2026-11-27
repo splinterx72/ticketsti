@@ -8,6 +8,7 @@
 /storage/sessions/*
 /storage/tareas/*
 /storage/avisos/*
+/storage/tickets/*
 !/storage/**/.gitignore
 
 # Sistema / editores

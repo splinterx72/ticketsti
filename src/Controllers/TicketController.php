@@ -11,6 +11,7 @@ use App\Core\HttpException;
 use App\Core\Session;
 use App\Core\ValidationException;
 use App\Services\Alcance;
+use App\Services\ArchivoService;
 use App\Services\Catalog;
 use App\Services\GarantiaService;
 use App\Services\Mail\Notifier;
@@ -124,9 +125,13 @@ final class TicketController extends Controller
         }
         $input['descripcion'] = is_string($_POST['descripcion'] ?? null) ? (string) $_POST['descripcion'] : '';
 
+        $archivos = self::archivosTicket();
+        $guardados = [];
         try {
-            $result = (new TicketService(Database::getInstance()))->create(Auth::user(), $input);
+            $guardados = $archivos->guardarVarios(self::subidas('adjuntos'), 'adjuntos', 5);
+            $result = (new TicketService(Database::getInstance()))->create(Auth::user(), $input, $guardados);
         } catch (ValidationException $e) {
+            $archivos->descartar($guardados);
             foreach ($e->errors() as $error) {
                 Session::flash('danger', $error);
             }
@@ -159,6 +164,7 @@ final class TicketController extends Controller
             'title'        => $ticket['folio'],
             'ticket'       => $ticket,
             'comentarios'  => $service->comentarios($id, $esTi),
+            'adjuntos'     => $service->archivosDe($id, $esTi),
             'garantias'    => $ticket['equipo_id'] !== null
                 ? (new GarantiaService(Database::getInstance()))->activasDeEquipo((int) $ticket['equipo_id'])
                 : [],
@@ -184,18 +190,41 @@ final class TicketController extends Controller
         }
 
         $mensaje = is_string($_POST['mensaje'] ?? null) ? (string) $_POST['mensaje'] : '';
+        $archivos = self::archivosTicket();
+        $guardados = [];
         try {
             $interna = $esTi && !empty($_POST['es_nota_interna']);
-            $service->addComment($ticket, $user, $mensaje, $interna);
+            $guardados = $archivos->guardarVarios(self::subidas('adjuntos'), 'adjuntos', 5);
+            $service->addComment($ticket, $user, $mensaje, $interna, $guardados);
             Notifier::comentario($id, (int) $user['id'], trim($mensaje), $interna);
             Session::flash('success', !empty($_POST['es_nota_interna']) && $esTi ? 'Nota interna agregada.' : 'Comentario enviado.');
         } catch (ValidationException $e) {
+            $archivos->descartar($guardados);
             foreach ($e->errors() as $error) {
                 Session::flash('danger', $error);
             }
             $this->rememberInput(['mensaje']);
         }
         redirect('/tickets/' . $id . '#comentarios');
+    }
+
+    /** GET /tickets/archivo/{id}: solo quien puede ver el ticket; los de notas internas, solo TI que lo gestiona. */
+    public function archivo(int $id): void
+    {
+        $this->requireLogin();
+        $service = new TicketService(Database::getInstance());
+        $a = $service->archivo($id);
+        $ticket = $a !== null ? $service->find((int) $a['ticket_id']) : null;
+        [$puedeVer, $esTi] = self::acceso(Auth::user(), $ticket);
+        if ($a === null || !$puedeVer || ((int) $a['interno'] === 1 && !$esTi)) {
+            throw new HttpException(404, 'El archivo no existe.');
+        }
+        self::archivosTicket()->enviar($a);
+    }
+
+    private static function archivosTicket(): ArchivoService
+    {
+        return new ArchivoService(STORAGE_PATH . '/tickets');
     }
 
     /**
