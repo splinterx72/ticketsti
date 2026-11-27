@@ -37,6 +37,8 @@ final class Installer
         'recordatorios_enviados', 'sistema_estado', 'verificaciones_email',
         // Coordinadores por zona
         'zonas', 'coordinador_zonas',
+        // SLA, acuse de lectura y adjuntos
+        'aviso_lecturas',
     ];
 
     public const TIMEZONES = [

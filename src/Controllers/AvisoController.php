@@ -19,22 +19,25 @@ use App\Services\ImagenAvisoService;
  */
 final class AvisoController extends Controller
 {
-    private const CAMPOS = ['titulo', 'mensaje', 'importancia', 'inicia_en', 'termina_en', 'alcance'];
+    private const CAMPOS = ['titulo', 'mensaje', 'importancia', 'inicia_en', 'termina_en', 'alcance', 'requiere_confirmacion'];
 
     public function index(): void
     {
         $this->requireRole(Roles::SUPERVISION);
-        $this->view('avisos/index', [
-            'title'  => 'Avisos',
-            'avisos' => (new AvisoService(Database::getInstance()))->administrables(Auth::user()),
-        ]);
+        $svc = new AvisoService(Database::getInstance());
+        $avisos = $svc->administrables(Auth::user());
+        foreach ($avisos as &$a) {
+            $a['lectura'] = (int) $a['requiere_confirmacion'] === 1 ? $svc->lectura((int) $a['id']) : null;
+        }
+        unset($a);
+        $this->view('avisos/index', ['title' => 'Avisos', 'avisos' => $avisos]);
     }
 
     public function create(): void
     {
         $this->requireRole(Roles::SUPERVISION);
         $this->form(null, [
-            'titulo' => '', 'mensaje' => '', 'importancia' => 'informativo', 'alcance' => 'todos', 'instalaciones' => [],
+            'titulo' => '', 'mensaje' => '', 'importancia' => 'informativo', 'alcance' => 'todos', 'instalaciones' => [], 'requiere_confirmacion' => '',
             'inicia_en' => date('Y-m-d\TH:i'), 'termina_en' => date('Y-m-d\TH:i', strtotime('+7 days')),
         ]);
     }
@@ -71,6 +74,31 @@ final class AvisoController extends Controller
         (new AvisoService(Database::getInstance()))->finalizar($id);
         Session::flash('success', 'Aviso retirado del inicio.');
         redirect('/supervisor/avisos');
+    }
+
+    /** POST /avisos/{id}/leido — "Enterado". */
+    public function leido(int $id): void
+    {
+        $this->requireLogin();
+        $this->verifyCsrf();
+        try {
+            (new AvisoService(Database::getInstance()))->marcarLeido($id, Auth::user());
+        } catch (ValidationException $e) {
+            Session::flash('warning', implode(' ', $e->errors()));
+        }
+        redirect('/#avisos');
+    }
+
+    /** GET /supervisor/avisos/{id}/lectura — quién lo ha leído y quién falta. */
+    public function lectura(int $id): void
+    {
+        $this->requireRole(Roles::SUPERVISION);
+        $aviso = $this->aviso($id);
+        $this->view('avisos/lectura', [
+            'title'   => 'Lectura del aviso',
+            'aviso'   => $aviso,
+            'lectura' => (new AvisoService(Database::getInstance()))->lectura($id),
+        ]);
     }
 
     /**

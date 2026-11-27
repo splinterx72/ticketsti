@@ -119,12 +119,7 @@ $total = count($slides);
                 Tus equipos aparecen tal como están en tu resguardo del <strong>GECA</strong>.
             </p>
 
-            <?php foreach ($flash ?? [] as $msg): ?>
-                <div class="alert alert-<?= e($msg['type']) ?> alert-dismissible fade show small" role="alert">
-                    <?= e($msg['message']) ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-                </div>
-            <?php endforeach; ?>
+            <?= partial('flash', ['flash' => $flash ?? []]) ?>
 
             <form method="post" action="<?= e(url('/login')) ?>" class="access-form" novalidate>
                 <?= csrf_field() ?>

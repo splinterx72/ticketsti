@@ -55,6 +55,12 @@ $imp = \App\Services\AvisoService::IMPORTANCIAS;
                 <?php endforeach; ?>
             </div>
         </fieldset>
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="requiere_confirmacion" name="requiere_confirmacion" value="1"
+                   <?= $v('requiere_confirmacion') !== '' && $v('requiere_confirmacion') !== '0' ? 'checked' : '' ?> <?= $id === null ? 'data-por-importancia' : '' ?>>
+            <label class="form-check-label" for="requiere_confirmacion"><strong>Pedir confirmación de lectura</strong>
+                <span class="text-body-secondary">— el aviso late hasta que cada persona pulse “Enterado” y tú ves quién falta.</span></label>
+        </div>
         <div class="row g-3 mb-3">
             <div class="col-sm-6">
                 <label for="inicia_en" class="form-label fw-semibold">Se muestra desde</label>

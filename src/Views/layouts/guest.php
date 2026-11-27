@@ -33,12 +33,7 @@
                 <p class="small opacity-75 mb-0">Soporte técnico y control de resguardos GECA</p>
             </div>
 
-            <?php foreach ($flash ?? [] as $msg): ?>
-                <div class="alert alert-<?= e($msg['type']) ?> alert-dismissible fade show" role="alert">
-                    <?= e($msg['message']) ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-                </div>
-            <?php endforeach; ?>
+            <?= partial('flash', ['flash' => $flash ?? []]) ?>
 
             <?= $content ?>
         </div>

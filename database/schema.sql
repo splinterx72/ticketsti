@@ -335,6 +335,7 @@ CREATE TABLE avisos (
     termina_en DATETIME NOT NULL,
     alcance ENUM('todos', 'instalaciones') NOT NULL DEFAULT 'todos',
     imagen VARCHAR(255) NULL,
+    requiere_confirmacion TINYINT(1) NOT NULL DEFAULT 1,
     autor_id INT UNSIGNED NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_avisos_vigencia (inicia_en, termina_en),
@@ -347,6 +348,17 @@ CREATE TABLE aviso_instalaciones (
     PRIMARY KEY (aviso_id, instalacion_id),
     CONSTRAINT fk_avi_aviso FOREIGN KEY (aviso_id) REFERENCES avisos(id) ON DELETE CASCADE,
     CONSTRAINT fk_avi_instalacion FOREIGN KEY (instalacion_id) REFERENCES instalaciones(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Acuse de lectura: quién pulsó "Enterado" y cuándo.
+CREATE TABLE aviso_lecturas (
+    aviso_id INT UNSIGNED NOT NULL,
+    usuario_id INT UNSIGNED NOT NULL,
+    leido_en DATETIME NOT NULL,
+    PRIMARY KEY (aviso_id, usuario_id),
+    INDEX idx_al_usuario (usuario_id),
+    CONSTRAINT fk_al_aviso FOREIGN KEY (aviso_id) REFERENCES avisos(id) ON DELETE CASCADE,
+    CONSTRAINT fk_al_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------

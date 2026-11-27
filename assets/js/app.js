@@ -241,4 +241,31 @@
             marco.classList.remove('is-empty');
         });
     });
+
+    // --- Mensajes: cerrar con animación; los de éxito se cierran solos (data-autocierre) ---
+    function cerrarMensaje(el) {
+        if (el.classList.contains('saliendo')) { return; }
+        el.style.maxHeight = el.offsetHeight + 'px';
+        el.classList.add('saliendo');
+        setTimeout(function () { el.remove(); }, 360);
+    }
+    document.querySelectorAll('.msg').forEach(function (el) {
+        var x = el.querySelector('.msg-cerrar');
+        if (x) { x.addEventListener('click', function () { cerrarMensaje(el); }); }
+        var barra = el.querySelector('.msg-barra');
+        if (barra) {
+            barra.addEventListener('animationend', function () { cerrarMensaje(el); });
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                setTimeout(function () { cerrarMensaje(el); }, parseInt(el.getAttribute('data-autocierre') || '6000', 10));
+            }
+        }
+    });
+
+    // --- Aviso nuevo: "Pedir confirmación de lectura" según la importancia elegida ---
+    var conf = document.querySelector('input[name="requiere_confirmacion"][data-por-importancia]');
+    if (conf) {
+        document.querySelectorAll('input[name="importancia"]').forEach(function (r) {
+            r.addEventListener('change', function () { conf.checked = r.value === 'urgente' || r.value === 'importante'; });
+        });
+    }
 })();

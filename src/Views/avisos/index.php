@@ -32,6 +32,14 @@ $ahora = date('Y-m-d H:i:s');
                             <?= $a['alcance'] === 'todos' ? 'Para todos' : 'Para: ' . e($a['instalaciones'] ?? '') ?> ·
                             <?= e($a['autor'] ?? '—') ?>
                         </div>
+                        <?php if ($a['lectura'] !== null): $l = $a['lectura']; $pct = $l['total'] > 0 ? (int) round($l['leidos'] * 100 / $l['total']) : 0; ?>
+                            <a class="d-flex align-items-center gap-2 small mt-2 text-decoration-none" href="<?= e(url('/supervisor/avisos/' . (int) $a['id'] . '/lectura')) ?>" style="max-width: 26rem;">
+                                <span class="progress flex-grow-1" style="height: .45rem;" role="progressbar" aria-valuenow="<?= e($pct) ?>" aria-valuemin="0" aria-valuemax="100" aria-label="Leído">
+                                    <span class="progress-bar" style="width: <?= e($pct) ?>%"></span>
+                                </span>
+                                <span class="text-nowrap text-body"><i class="bi bi-eye me-1"></i>Leído por <strong><?= e($l['leidos']) ?></strong> de <?= e($l['total']) ?></span>
+                            </a>
+                        <?php endif; ?>
                     </div>
                     <div class="d-flex gap-2 align-items-start">
                         <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('/supervisor/avisos/' . (int) $a['id'] . '/editar')) ?>"><i class="bi bi-pencil"></i><span class="visually-hidden">Editar</span></a>

@@ -70,22 +70,88 @@ final class AvisoService
         $instalaciones = $user === null ? [] : $this->instalacionesDe($user);
 
         $sql = "SELECT DISTINCT a.id, a.titulo, a.mensaje, a.importancia, a.inicia_en, a.termina_en, a.alcance, a.imagen,
-                       u.nombre AS autor
+                       a.requiere_confirmacion, l.leido_en, u.nombre AS autor
                   FROM avisos a
                   LEFT JOIN usuarios u ON u.id = a.autor_id
                   LEFT JOIN aviso_instalaciones ai ON ai.aviso_id = a.id
+                  LEFT JOIN aviso_lecturas l ON l.aviso_id = a.id AND l.usuario_id = ?
                  WHERE a.inicia_en <= ? AND a.termina_en > ?
                    AND (a.alcance = 'todos'";
-        $params = [$ahora, $ahora];
+        $params = [$user === null ? 0 : (int) $user['id'], $ahora, $ahora];
         if ($instalaciones !== []) {
             $sql .= ' OR ai.instalacion_id IN (' . implode(',', array_fill(0, count($instalaciones), '?')) . ')';
             $params = array_merge($params, $instalaciones);
         }
-        $sql .= ") ORDER BY FIELD(a.importancia, 'urgente', 'importante', 'informativo'), a.inicia_en DESC, a.id DESC";
+        $sql .= ") ORDER BY (a.requiere_confirmacion = 1 AND l.leido_en IS NULL) DESC,
+                  FIELD(a.importancia, 'urgente', 'importante', 'informativo'), a.inicia_en DESC, a.id DESC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
+    }
+
+    /** "Enterado": registra que el usuario leyó un aviso que le toca. @param array<string, mixed> $user */
+    public function marcarLeido(int $avisoId, array $user): void
+    {
+        if (!in_array($avisoId, array_map('intval', array_column($this->vigentesPara($user), 'id')), true)) {
+            throw new ValidationException(['Ese aviso no está vigente para ti.']);
+        }
+        $this->pdo->prepare('INSERT IGNORE INTO aviso_lecturas (aviso_id, usuario_id, leido_en) VALUES (?, ?, NOW())')
+            ->execute([$avisoId, (int) $user['id']]);
+    }
+
+    /** Avisos vigentes que piden confirmación y el usuario no ha leído. @param array<string, mixed> $user */
+    public function pendientesDe(array $user): int
+    {
+        return count(array_filter(
+            $this->vigentesPara($user),
+            static fn (array $a): bool => (int) $a['requiere_confirmacion'] === 1 && $a['leido_en'] === null
+        ));
+    }
+
+    /**
+     * Reporte de lectura: a quién va dirigido y quién lo ha confirmado.
+     * Destinatarios: "todos" = cuentas activas; por instalación = trabajadores
+     * cuya ubicación habitual está ahí + TI asignado (agente, supervisor o
+     * coordinador de la zona) vigente.
+     *
+     * @return array{total: int, leidos: int, faltan: list<array{id: int, nombre: string, ficha: string}>}
+     */
+    public function lectura(int $avisoId): array
+    {
+        $a = $this->find($avisoId);
+        if ($a === null) {
+            return ['total' => 0, 'leidos' => 0, 'faltan' => []];
+        }
+        $hoy = date('Y-m-d');
+        if ($a['alcance'] === 'todos' || $a['instalaciones'] === []) {
+            $dest = $this->pdo->query('SELECT id FROM usuarios WHERE registrado = 1 AND activo = 1')->fetchAll(PDO::FETCH_COLUMN);
+        } else {
+            $ids = array_map('intval', $a['instalaciones']);
+            $in = implode(',', $ids);
+            $vig = "(x.desde IS NULL OR x.desde <= '{$hoy}') AND (x.hasta IS NULL OR x.hasta >= '{$hoy}')";
+            $dest = $this->pdo->query(
+                "SELECT u.id FROM usuarios u JOIN ubicaciones_fisicas uf ON uf.id = u.habitual_ubicacion_fisica_id
+                  WHERE uf.instalacion_id IN ({$in}) AND u.registrado = 1 AND u.activo = 1
+                 UNION SELECT x.agente_id FROM agente_instalaciones x WHERE x.instalacion_id IN ({$in}) AND {$vig}
+                 UNION SELECT x.supervisor_id FROM supervisor_instalaciones x WHERE x.instalacion_id IN ({$in}) AND {$vig}
+                 UNION SELECT x.coordinador_id FROM coordinador_zonas x JOIN instalaciones i ON i.zona_id = x.zona_id
+                  WHERE i.id IN ({$in}) AND {$vig}"
+            )->fetchAll(PDO::FETCH_COLUMN);
+        }
+        $dest = array_values(array_unique(array_map('intval', $dest)));
+        if ($dest === []) {
+            return ['total' => 0, 'leidos' => 0, 'faltan' => []];
+        }
+        $lista = implode(',', $dest);
+        $leidos = (int) $this->pdo->query("SELECT COUNT(*) FROM aviso_lecturas WHERE aviso_id = {$avisoId} AND usuario_id IN ({$lista})")->fetchColumn();
+        $faltan = $this->pdo->query(
+            "SELECT u.id, u.nombre, u.ficha FROM usuarios u
+              WHERE u.id IN ({$lista}) AND u.activo = 1
+                AND NOT EXISTS (SELECT 1 FROM aviso_lecturas l WHERE l.aviso_id = {$avisoId} AND l.usuario_id = u.id)
+              ORDER BY u.nombre LIMIT 200"
+        )->fetchAll();
+        return ['total' => count($dest), 'leidos' => $leidos, 'faltan' => $faltan];
     }
 
     /**
@@ -230,6 +296,7 @@ final class AvisoService
             throw new ValidationException($errors);
         }
 
+        $requiere = !empty($in['requiere_confirmacion']) ? 1 : 0;
         $nueva = isset($in['imagen']) && (string) $in['imagen'] !== '' ? (string) $in['imagen'] : null;
         $anterior = $id === null ? null : ($this->find($id)['imagen'] ?? null);
         $quitar = !empty($in['quitar_imagen']);
@@ -240,13 +307,15 @@ final class AvisoService
         try {
             if ($id === null) {
                 $this->pdo->prepare(
-                    'INSERT INTO avisos (titulo, mensaje, importancia, inicia_en, termina_en, alcance, imagen, autor_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-                )->execute([$titulo, $mensaje, $importancia, $inicia, $termina, $alcance, $imagen, (int) $autor['id']]);
+                    'INSERT INTO avisos (titulo, mensaje, importancia, inicia_en, termina_en, alcance, imagen, requiere_confirmacion, autor_id)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                )->execute([$titulo, $mensaje, $importancia, $inicia, $termina, $alcance, $imagen, $requiere, (int) $autor['id']]);
                 $id = (int) $this->pdo->lastInsertId();
             } else {
                 $this->pdo->prepare(
-                    'UPDATE avisos SET titulo = ?, mensaje = ?, importancia = ?, inicia_en = ?, termina_en = ?, alcance = ?, imagen = ? WHERE id = ?'
-                )->execute([$titulo, $mensaje, $importancia, $inicia, $termina, $alcance, $imagen, $id]);
+                    'UPDATE avisos SET titulo = ?, mensaje = ?, importancia = ?, inicia_en = ?, termina_en = ?, alcance = ?, imagen = ?,
+                            requiere_confirmacion = ? WHERE id = ?'
+                )->execute([$titulo, $mensaje, $importancia, $inicia, $termina, $alcance, $imagen, $requiere, $id]);
                 $this->pdo->prepare('DELETE FROM aviso_instalaciones WHERE aviso_id = ?')->execute([$id]);
             }
             if ($alcance === 'instalaciones') {

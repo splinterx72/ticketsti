@@ -71,13 +71,7 @@ $maxStep = $maxStep ?? $step;
                 <?php endif; ?>
 
                 <div class="card-body p-3 p-sm-4 p-lg-5">
-                    <?php foreach ($flash ?? [] as $msg): ?>
-                        <div class="alert alert-<?= e($msg['type']) ?> alert-dismissible fade show d-flex gap-2" role="alert">
-                            <i class="bi <?= $msg['type'] === 'success' ? 'bi-check-circle' : ($msg['type'] === 'danger' ? 'bi-x-octagon' : 'bi-info-circle') ?> flex-shrink-0"></i>
-                            <div><?= e($msg['message']) ?></div>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-                        </div>
-                    <?php endforeach; ?>
+                    <?= partial('flash', ['flash' => $flash ?? []]) ?>
 
                     <?= $content ?>
                 </div>

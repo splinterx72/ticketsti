@@ -152,3 +152,99 @@ html:has(.installer-bg) { background: #0a4f62; }
 @media (max-width: 575.98px) {
     .user-context .container { font-size: .8rem; }
 }
+
+/* =====================================================================
+   Mensajes: fondo blanco, borde pastel por tipo, ícono y animación.
+   El pastel solo va en bordes; el texto queda oscuro (contraste AA).
+   ===================================================================== */
+:root {
+    --msg-error-b: #f4a7a7; --msg-error-a: #c0392b; --msg-error-t: #fbecec; --msg-error-g: rgba(192, 57, 43, .45);
+    --msg-adv-b: #f5d98b;   --msg-adv-a: #a66a10;   --msg-adv-t: #fdf5e2;   --msg-adv-g: rgba(214, 160, 40, .45);
+    --msg-info-b: #a8c8f0;  --msg-info-a: #2563a8;  --msg-info-t: #e8f0fa;  --msg-info-g: rgba(37, 99, 168, .4);
+    --msg-ok-b: #a8ddbf;    --msg-ok-a: #1e7a4c;    --msg-ok-t: #e6f5ec;    --msg-ok-g: rgba(30, 122, 76, .4);
+}
+.msg {
+    --b: var(--msg-info-b); --a: var(--msg-info-a); --t: var(--msg-info-t); --g: var(--msg-info-g);
+    position: relative; display: flex; gap: .85rem; align-items: flex-start;
+    background: #fff; border: 1.5px solid var(--b); border-left-width: 5px; border-radius: .9rem;
+    padding: .85rem 2.75rem .85rem .9rem; margin-bottom: .75rem; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(16, 42, 54, .05), 0 8px 22px -12px var(--g);
+    animation: msg-in .38s cubic-bezier(.2, .8, .2, 1) both;
+}
+.msg::before {            /* halo al aparecer (una vez; dos en errores) */
+    content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
+    box-shadow: 0 0 0 4px var(--g); opacity: 0; animation: msg-halo 1.2s ease-out .15s 1;
+}
+.msg-error { --b: var(--msg-error-b); --a: var(--msg-error-a); --t: var(--msg-error-t); --g: var(--msg-error-g); }
+.msg-error::before { animation-iteration-count: 2; }
+.msg-advertencia { --b: var(--msg-adv-b); --a: var(--msg-adv-a); --t: var(--msg-adv-t); --g: var(--msg-adv-g); }
+.msg-exito { --b: var(--msg-ok-b); --a: var(--msg-ok-a); --t: var(--msg-ok-t); --g: var(--msg-ok-g); }
+.msg-ico {
+    flex: 0 0 2.1rem; height: 2.1rem; border-radius: 50%; display: grid; place-items: center;
+    background: var(--t); color: var(--a); font-size: 1.05rem;
+}
+.msg-cuerpo { flex: 1; min-width: 0; }
+.msg-titulo { font-weight: 700; font-size: .95rem; color: var(--bs-emphasis-color); }
+.msg-texto { font-size: .92rem; color: #3b4a50; overflow-wrap: anywhere; }
+.msg-cerrar {
+    position: absolute; top: .55rem; right: .55rem; width: 1.8rem; height: 1.8rem; border: 0; border-radius: .5rem;
+    background: transparent; color: #7a8b92; font-size: 1.25rem; line-height: 1;
+}
+.msg-cerrar:hover { background: var(--t); color: var(--a); }
+.msg-barra { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--b); transform-origin: left; animation: msg-barra 6s linear forwards; }
+.msg:hover .msg-barra { animation-play-state: paused; }
+.msg-banner { align-items: center; padding-right: .9rem; }
+.msg-banner .msg-accion { margin-left: auto; white-space: nowrap; }
+.msg.saliendo { animation: msg-out .35s ease forwards; }
+@keyframes msg-in { from { opacity: 0; transform: translateY(-8px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes msg-halo { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.02); } }
+@keyframes msg-barra { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes msg-out { to { opacity: 0; transform: translateY(-6px); } }
+
+/* Las notas .alert dentro de las pantallas, con la misma familia (sin animación) */
+.alert { background: #fff; border: 1.5px solid var(--b, var(--msg-info-b)); border-left-width: 5px; border-radius: .9rem; color: #2b3a40; }
+.alert-info, .alert-primary, .alert-secondary, .alert-light { --b: var(--msg-info-b); }
+.alert-danger { --b: var(--msg-error-b); }
+.alert-warning { --b: var(--msg-adv-b); }
+.alert-success { --b: var(--msg-ok-b); }
+.alert .bi:first-child { color: var(--a, var(--msg-info-a)); }
+.alert-danger { --a: var(--msg-error-a); } .alert-warning { --a: var(--msg-adv-a); } .alert-success { --a: var(--msg-ok-a); }
+
+@media (prefers-reduced-motion: reduce) {
+    .msg, .msg::before, .msg-barra { animation: none !important; }
+}
+
+/* Avisos del inicio: misma familia que los mensajes; los pendientes "laten" hasta "Enterado". */
+.aviso-card {
+    --b: var(--msg-info-b); --a: var(--msg-info-a); --t: var(--msg-info-t); --g: var(--msg-info-g); --vel: 2.2s; --fuerte: #6f9fd8;
+    position: relative; display: flex; gap: .9rem; align-items: flex-start;
+    background: #fff; border: 1.5px solid var(--b); border-left-width: 5px; border-radius: .9rem;
+    padding: .9rem 1rem; margin-bottom: .75rem; box-shadow: 0 8px 22px -14px rgba(16, 42, 54, .35);
+    animation: msg-in .38s cubic-bezier(.2, .8, .2, 1) both;
+}
+.aviso-card.msg-error { --fuerte: #e07a70; --vel: 1.4s; }
+.aviso-card.msg-advertencia { --fuerte: #e2b54a; }
+.aviso-card::before {
+    content: ""; position: absolute; inset: -2px; border-radius: 1rem; pointer-events: none;
+    box-shadow: 0 0 0 4px var(--g), 0 0 22px 2px var(--g); opacity: 0;
+}
+.aviso-card.is-pendiente { animation: msg-in .38s both, aviso-borde var(--vel) ease-in-out .4s infinite; }
+.aviso-card.is-pendiente::before { animation: aviso-halo var(--vel) ease-in-out .4s infinite; }
+@keyframes aviso-halo { 0%, 100% { opacity: 0; transform: scale(.995); } 50% { opacity: 1; transform: scale(1.01); } }
+@keyframes aviso-borde { 0%, 100% { border-color: var(--b); background: #fff; } 50% { border-color: var(--fuerte); background: var(--t); } }
+.aviso-chip {
+    font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--a);
+    background: var(--t); border: 1px solid var(--b); border-radius: 999px; padding: .1rem .55rem; font-family: var(--mesa-font-condensed);
+}
+.aviso-nuevo { font-size: .68rem; font-weight: 700; color: #fff; background: var(--a); border-radius: 999px; padding: .1rem .5rem; }
+.aviso-enterado { border: 1.5px solid var(--a); color: var(--a); background: #fff; font-weight: 700; border-radius: .6rem; }
+.aviso-enterado:hover { background: var(--t); color: var(--a); }
+.aviso-leido { color: var(--msg-ok-a); font-weight: 600; }
+.min-w-0 { min-width: 0; }
+.nav-avisos .badge { font-size: .65rem; }
+@media (prefers-reduced-motion: reduce) {
+    .aviso-card { animation: none !important; }
+    .aviso-card.is-pendiente::before { animation: none; }
+    .aviso-card.is-pendiente { animation: aviso-borde 3.5s ease-in-out infinite !important; border-width: 2px; border-left-width: 6px; }
+}
+

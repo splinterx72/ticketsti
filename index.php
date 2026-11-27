@@ -226,6 +226,8 @@ if (!$installMode) {
     $router->post('/supervisor/avisos/{id}', [AvisoController::class, 'update']);
     $router->post('/supervisor/avisos/{id}/finalizar', [AvisoController::class, 'finish']);
     $router->get('/avisos/{id}/imagen', [AvisoController::class, 'imagen']);
+    $router->post('/avisos/{id}/leido', [AvisoController::class, 'leido']);
+    $router->get('/supervisor/avisos/{id}/lectura', [AvisoController::class, 'lectura']);
     $router->get('/supervisor/agentes', [SupervisorController::class, 'agentes']);
     $router->post('/supervisor/agentes', [SupervisorController::class, 'storeAgente']);
     $router->post('/supervisor/prestamos', [SupervisorController::class, 'storePrestamo']);

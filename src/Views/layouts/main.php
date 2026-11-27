@@ -113,6 +113,21 @@ $rolLabel = \App\Core\Roles::LABELS;
                     <?php endif; ?>
                 </ul>
                 <ul class="navbar-nav">
+                    <?php
+                    $avisosPendientes = 0;
+                    try {
+                        $avisosPendientes = (new \App\Services\AvisoService(\App\Config\Database::getInstance()))->pendientesDe($authUser);
+                    } catch (\Throwable) {
+                    }
+                    if ($avisosPendientes > 0): ?>
+                        <li class="nav-item nav-avisos">
+                            <a class="nav-link" href="<?= e(url('/#avisos')) ?>" title="Avisos sin leer">
+                                <i class="bi bi-bell-fill"></i>
+                                <span class="badge rounded-pill text-bg-danger"><?= e($avisosPendientes) ?></span>
+                                <span class="visually-hidden">avisos sin leer</span>
+                            </a>
+                        </li>
+                    <?php endif; ?>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle text-truncate<?= $isActive('/cuenta') ?>" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="max-width: 18rem;">
                             <i class="bi bi-person-circle me-1"></i><?= e($authUser['nombre']) ?>
@@ -154,21 +169,16 @@ $rolLabel = \App\Core\Roles::LABELS;
 <main class="container py-4 flex-grow-1">
     <?php if ($authUser !== null && \App\Services\AdminLocalService::enAviso($authUser)):
         $diasAL = \App\Services\AdminLocalService::diasRestantes($authUser['admin_local_cambiado_en']); ?>
-        <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert">
-            <i class="bi bi-shield-exclamation fs-5"></i>
-            <div class="me-auto">
-                <strong>Tu contraseña de admin local vence en <?= e($diasAL) ?> día<?= $diasAL === 1 ? '' : 's' ?>.</strong>
-                Cámbiala ya: a 5 días tu acceso se bloquea hasta registrar el cambio.
+        <div class="msg msg-advertencia msg-banner" role="alert">
+            <span class="msg-ico" aria-hidden="true"><i class="bi bi-shield-exclamation"></i></span>
+            <div class="msg-cuerpo">
+                <div class="msg-titulo">Tu contraseña de admin local vence en <?= e($diasAL) ?> día<?= $diasAL === 1 ? '' : 's' ?>.</div>
+                <div class="msg-texto">Cámbiala ya: a 5 días tu acceso se bloquea hasta registrar el cambio.</div>
             </div>
-            <a class="btn btn-sm btn-warning" href="<?= e(url('/admin-local')) ?>">Registrar cambio</a>
+            <a class="btn btn-sm btn-outline-warning msg-accion" href="<?= e(url('/admin-local')) ?>">Registrar cambio</a>
         </div>
     <?php endif; ?>
-    <?php foreach ($flash ?? [] as $msg): ?>
-        <div class="alert alert-<?= e($msg['type']) ?> alert-dismissible fade show" role="alert">
-            <?= e($msg['message']) ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-        </div>
-    <?php endforeach; ?>
+    <?= partial('flash', ['flash' => $flash ?? []]) ?>
 
     <?= $content ?>
 </main>
