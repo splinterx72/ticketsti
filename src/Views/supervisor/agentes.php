@@ -6,6 +6,9 @@
  * @var list<array<string, mixed>> $salientes
  * @var list<array<string, mixed>> $candidatos
  * @var list<array{id: int, nombre: string, email: ?string, prestado: bool}> $misAgentes
+ * @var array<int, array{estado: string, hasta: ?string, especialidades: list<int>}> $disponibilidad
+ * @var list<array{id: int, nombre: string}> $departamentos
+ * @var array<int, string> $modos
  */
 $mias = array_column($instalaciones, 'id');
 $base = array_values(array_filter($misAgentes, static fn (array $a): bool => !$a['prestado']));
@@ -115,6 +118,77 @@ $hasta = static fn (?string $h): string => $h ? 'hasta ' . fecha_mx($h, false) :
                 <div class="card-footer bg-white text-end"><button class="btn btn-primary btn-sm" type="submit">Registrar préstamo</button></div>
             <?php endif; ?>
         </form>
+    </div>
+</div>
+
+<h2 class="h5 mt-4 mb-3" id="disponibilidad"><i class="bi bi-stars me-1"></i>Asignación de tickets</h2>
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-semibold">Modo por instalación</div>
+            <ul class="list-group list-group-flush">
+                <?php foreach ($instalaciones as $i): $modo = $modos[$i['id']] ?? 'sugerida'; ?>
+                    <li class="list-group-item">
+                        <form method="post" action="<?= e(url('/supervisor/instalaciones/' . (int) $i['id'] . '/asignacion')) ?>" class="d-flex flex-wrap align-items-center gap-2 m-0">
+                            <?= csrf_field() ?>
+                            <label class="small fw-semibold flex-grow-1" for="modo_<?= (int) $i['id'] ?>"><?= e($i['nombre']) ?></label>
+                            <select class="form-select form-select-sm w-auto" id="modo_<?= (int) $i['id'] ?>" name="modo">
+                                <?php foreach (\App\Services\AsignadorService::MODOS as $k => $lbl): ?>
+                                    <option value="<?= e($k) ?>" <?= $k === $modo ? 'selected' : '' ?>><?= e($lbl) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button class="btn btn-sm btn-outline-primary" type="submit">Guardar</button>
+                        </form>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+            <div class="card-body small text-body-secondary">
+                <strong>Sugerida:</strong> el sistema propone al agente con menos carga (pondera la prioridad), disponible, con la especialidad y, si puede, que ya atienda ese edificio; TI lo acepta con un clic.
+                <strong>Automática:</strong> lo asigna solo y avisa al agente. <strong>Manual:</strong> sin sugerencia.
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-semibold">Disponibilidad y especialidades</div>
+            <?php if ($misAgentes === []): ?>
+                <div class="card-body small text-body-secondary">Todavía no hay agentes asignados.</div>
+            <?php else: ?>
+                <ul class="list-group list-group-flush">
+                    <?php foreach ($misAgentes as $a): $d = $disponibilidad[$a['id']]; ?>
+                        <li class="list-group-item">
+                            <form method="post" action="<?= e(url('/supervisor/agentes/' . (int) $a['id'] . '/disponibilidad')) ?>" class="row g-2 align-items-end m-0">
+                                <?= csrf_field() ?>
+                                <div class="col-12 fw-semibold"><?= e($a['nombre']) ?></div>
+                                <div class="col-sm-4">
+                                    <label class="form-label small mb-1" for="est_<?= (int) $a['id'] ?>">Estado</label>
+                                    <select class="form-select form-select-sm" id="est_<?= (int) $a['id'] ?>" name="estado">
+                                        <?php foreach (\App\Services\AsignadorService::ESTADOS as $k => $lbl): ?>
+                                            <option value="<?= e($k) ?>" <?= $k === $d['estado'] ? 'selected' : '' ?>><?= e($lbl) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-sm-3">
+                                    <label class="form-label small mb-1" for="has_<?= (int) $a['id'] ?>">Hasta</label>
+                                    <input type="date" class="form-control form-control-sm" id="has_<?= (int) $a['id'] ?>" name="hasta" min="<?= e(date('Y-m-d')) ?>" value="<?= e($d['hasta'] ?? '') ?>">
+                                </div>
+                                <div class="col-sm-5">
+                                    <span class="form-label small mb-1 d-block">Especialidades <span class="text-body-secondary">(ninguna = todas)</span></span>
+                                    <?php foreach ($departamentos as $dep): ?>
+                                        <div class="form-check form-check-inline small">
+                                            <input class="form-check-input" type="checkbox" name="especialidades[]" value="<?= (int) $dep['id'] ?>"
+                                                   id="esp_<?= (int) $a['id'] ?>_<?= (int) $dep['id'] ?>" <?= in_array((int) $dep['id'], $d['especialidades'], true) ? 'checked' : '' ?>>
+                                            <label class="form-check-label" for="esp_<?= (int) $a['id'] ?>_<?= (int) $dep['id'] ?>"><?= e($dep['nombre']) ?></label>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                <div class="col-12 text-end"><button class="btn btn-sm btn-primary" type="submit">Guardar</button></div>
+                            </form>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 <?php endif; ?>

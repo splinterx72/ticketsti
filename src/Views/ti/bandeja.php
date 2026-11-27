@@ -139,7 +139,19 @@ $vistas = [
                         <td><?= estado_badge($t['estado_nombre'], $t['estado_color']) ?></td>
                         <td><?= prioridad_badge($t['prioridad']) ?></td>
                         <td><?= sla_badge($t['sla'], (int) $t['es_cierre'] === 1) ?></td>
-                        <td class="small"><?= e($t['agente_nombre'] ?? '—') ?></td>
+                        <td class="small">
+                            <?= e($t['agente_nombre'] ?? '—') ?>
+                            <?php if ($t['agente_asignado_id'] === null && $t['sugerido_nombre'] !== null && (int) $t['es_cierre'] === 0): ?>
+                                <form method="post" action="<?= e(url('/tickets/' . (int) $t['id'] . '/asignar-sugerido')) ?>" class="m-0 mt-1">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="agente_id" value="<?= (int) $t['sugerido_agente_id'] ?>">
+                                    <input type="hidden" name="volver" value="bandeja">
+                                    <button class="btn btn-link btn-sm p-0 text-start" type="submit" title="Asignar al agente sugerido">
+                                        <i class="bi bi-stars"></i> Asignar a <?= e($t['sugerido_nombre']) ?>
+                                    </button>
+                                </form>
+                            <?php endif; ?>
+                        </td>
                         <td class="small text-body-secondary" title="<?= e(fecha_mx($t['actualizado_en'])) ?>"><?= e(hace($t['actualizado_en'])) ?></td>
                         <td class="text-end">
                             <?php if ($t['agente_asignado_id'] === null && (int) $t['es_cierre'] === 0): ?>

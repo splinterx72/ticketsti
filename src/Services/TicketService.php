@@ -258,6 +258,7 @@ final class TicketService
             }
 
             $this->guardarAdjuntos($id, null, $userId, false, $archivos);
+            $asignadoA = (new AsignadorService($this->pdo))->alCrear($id);
             $this->pdo->commit();
         } catch (Throwable $e) {
             if ($this->pdo->inTransaction()) {
@@ -266,7 +267,7 @@ final class TicketService
             throw $e;
         }
 
-        return ['id' => $id, 'folio' => $folio, 'discrepancia' => $discrepancia, 'vinculado' => $vinculado];
+        return ['id' => $id, 'folio' => $folio, 'discrepancia' => $discrepancia, 'vinculado' => $vinculado, 'asignado_a' => $asignadoA];
     }
 
     /**

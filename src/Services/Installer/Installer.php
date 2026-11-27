@@ -40,7 +40,7 @@ final class Installer
         // SLA, acuse de lectura y adjuntos
         'aviso_lecturas', 'sla_prioridades', 'ticket_archivos',
         // BitLocker y asignación
-        'equipo_bitlocker', 'bitlocker_consultas',
+        'equipo_bitlocker', 'bitlocker_consultas', 'agente_estado', 'agente_departamentos',
     ];
 
     public const TIMEZONES = [

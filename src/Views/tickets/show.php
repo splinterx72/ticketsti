@@ -128,6 +128,26 @@ $monitor = match ($t['componente_afectado']) {
                         </form>
                     <?php endif; ?>
                 </div>
+                <?php if (($candidatos ?? []) !== []): $sug = $candidatos[0]; ?>
+                    <div class="card-body border-bottom pb-3">
+                        <div class="small text-body-secondary mb-1"><i class="bi bi-stars me-1"></i>Agente sugerido</div>
+                        <div class="d-flex justify-content-between align-items-center gap-2">
+                            <div><strong><?= e($sug['nombre']) ?></strong><div class="small text-body-secondary"><?= e($sug['motivo']) ?></div></div>
+                            <form method="post" action="<?= e(url('/tickets/' . (int) $t['id'] . '/asignar-sugerido')) ?>" class="m-0">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="agente_id" value="<?= (int) $sug['id'] ?>">
+                                <button class="btn btn-sm btn-primary text-nowrap" type="submit">Asignar</button>
+                            </form>
+                        </div>
+                        <?php if (count($candidatos) > 1): ?>
+                            <div class="small text-body-secondary mt-2">Otras opciones:
+                                <?= e(implode(' · ', array_map(static fn (array $c): string => $c['nombre'] . ' (' . $c['puntos'] . ' pts)', array_slice($candidatos, 1)))) ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                <?php elseif ($esTi && $t['agente_asignado_id'] === null && (int) $t['es_cierre'] === 0): ?>
+                    <div class="card-body border-bottom small text-body-secondary"><i class="bi bi-info-circle me-1"></i>Sin agente disponible para sugerir en esta instalación.</div>
+                <?php endif; ?>
                 <form method="post" action="<?= e(url('/tickets/' . (int) $t['id'] . '/gestion')) ?>" class="card-body">
                     <?= csrf_field() ?>
                     <div class="mb-2">

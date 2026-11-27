@@ -43,6 +43,7 @@ CREATE TABLE instalaciones (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(150) NOT NULL UNIQUE,
     zona_id INT UNSIGNED NULL,
+    modo_asignacion ENUM('manual', 'sugerida', 'automatica') NOT NULL DEFAULT 'sugerida',
     activo TINYINT(1) NOT NULL DEFAULT 1,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_instalacion_zona FOREIGN KEY (zona_id) REFERENCES zonas(id) ON DELETE SET NULL
@@ -272,6 +273,7 @@ CREATE TABLE tickets (
     prioridad ENUM('baja', 'media', 'alta', 'critica') NOT NULL DEFAULT 'media',
     usuario_solicitante_id INT UNSIGNED NOT NULL,
     agente_asignado_id INT UNSIGNED NULL,
+    sugerido_agente_id INT UNSIGNED NULL,
     departamento_id INT UNSIGNED NOT NULL,
     estado_id TINYINT UNSIGNED NOT NULL,
     equipo_id INT UNSIGNED NULL,
@@ -294,6 +296,7 @@ CREATE TABLE tickets (
     INDEX idx_tickets_instalacion (instalacion_id),
     CONSTRAINT fk_ticket_solicitante FOREIGN KEY (usuario_solicitante_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
     CONSTRAINT fk_ticket_agente FOREIGN KEY (agente_asignado_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+    CONSTRAINT fk_ticket_sugerido FOREIGN KEY (sugerido_agente_id) REFERENCES usuarios(id) ON DELETE SET NULL,
     CONSTRAINT fk_ticket_depto FOREIGN KEY (departamento_id) REFERENCES departamentos(id) ON DELETE RESTRICT,
     CONSTRAINT fk_ticket_estado FOREIGN KEY (estado_id) REFERENCES estados(id) ON DELETE RESTRICT,
     CONSTRAINT fk_ticket_equipo FOREIGN KEY (equipo_id) REFERENCES equipos(id) ON DELETE SET NULL,
@@ -381,6 +384,28 @@ CREATE TABLE agente_instalaciones (
     CONSTRAINT fk_ai_agente FOREIGN KEY (agente_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     CONSTRAINT fk_ai_instalacion FOREIGN KEY (instalacion_id) REFERENCES instalaciones(id) ON DELETE CASCADE,
     CONSTRAINT fk_ai_creado_por FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Disponibilidad del agente para la asignación sugerida/automática.
+-- fuera/vacaciones no reciben tickets; ocupado recibe con menor prioridad.
+-- Al pasar la fecha "hasta" el agente vuelve a contar como disponible.
+CREATE TABLE agente_estado (
+    usuario_id INT UNSIGNED NOT NULL PRIMARY KEY,
+    estado ENUM('disponible', 'ocupado', 'fuera', 'vacaciones') NOT NULL DEFAULT 'disponible',
+    hasta DATE NULL,
+    actualizado_por INT UNSIGNED NULL,
+    actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_aest_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    CONSTRAINT fk_aest_actualizo FOREIGN KEY (actualizado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Especialidades: departamentos que atiende el agente (sin filas = atiende todos).
+CREATE TABLE agente_departamentos (
+    agente_id INT UNSIGNED NOT NULL,
+    departamento_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (agente_id, departamento_id),
+    CONSTRAINT fk_adep_agente FOREIGN KEY (agente_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    CONSTRAINT fk_adep_depto FOREIGN KEY (departamento_id) REFERENCES departamentos(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------

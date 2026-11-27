@@ -159,7 +159,31 @@ $rolLabel = \App\Core\Roles::LABELS;
                 <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
                 <span class="user-context-text text-truncate"><?= $ubicacionTxt !== null ? e($ubicacionTxt) : '<span class="text-warning-emphasis fw-semibold">Captura tu ubicación</span>' ?></span>
             </a>
-            <a href="<?= e(url('/cuenta')) ?>" class="d-inline-flex align-items-center gap-1 text-body-secondary ms-sm-auto">
+            <?php if ($esTi):
+                $miEstado = (new \App\Services\AsignadorService(\App\Config\Database::getInstance()))->estadoDe((int) $authUser['id']);
+                $icoEstado = ['disponible' => 'bi-circle-fill text-success', 'ocupado' => 'bi-circle-half text-warning', 'fuera' => 'bi-dash-circle text-secondary', 'vacaciones' => 'bi-airplane text-secondary'][$miEstado['estado']]; ?>
+                <div class="dropdown ms-sm-auto">
+                    <button class="btn btn-sm btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Mi disponibilidad para recibir tickets">
+                        <i class="bi <?= e($icoEstado) ?>" aria-hidden="true"></i>
+                        <span class="user-context-text"><?= e(\App\Services\AsignadorService::ESTADOS[$miEstado['estado']]) ?><?= $miEstado['hasta'] !== null ? ' hasta ' . e(date('d/m', (int) strtotime((string) $miEstado['hasta']))) : '' ?></span>
+                        <i class="bi bi-chevron-down small" aria-hidden="true"></i>
+                    </button>
+                    <form method="post" action="<?= e(url('/ti/mi-estado')) ?>" class="dropdown-menu p-3" style="min-width: 16rem;">
+                        <?= csrf_field() ?>
+                        <label class="form-label small fw-semibold" for="mi_estado">Mi disponibilidad</label>
+                        <select class="form-select form-select-sm mb-2" id="mi_estado" name="estado">
+                            <?php foreach (\App\Services\AsignadorService::ESTADOS as $k => $lbl): ?>
+                                <option value="<?= e($k) ?>" <?= $k === $miEstado['estado'] ? 'selected' : '' ?>><?= e($lbl) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <label class="form-label small fw-semibold" for="mi_hasta">Hasta (opcional)</label>
+                        <input type="date" class="form-control form-control-sm mb-2" id="mi_hasta" name="hasta" min="<?= e(date('Y-m-d')) ?>" value="<?= e($miEstado['hasta'] ?? '') ?>">
+                        <div class="form-text mb-2">Fuera o de vacaciones no recibes sugerencias de tickets.</div>
+                        <button class="btn btn-sm btn-primary w-100" type="submit">Guardar</button>
+                    </form>
+                </div>
+            <?php endif; ?>
+            <a href="<?= e(url('/cuenta')) ?>" class="d-inline-flex align-items-center gap-1 text-body-secondary<?= $esTi ? '' : ' ms-sm-auto' ?>">
                 <i class="bi bi-telephone" aria-hidden="true"></i>
                 <span class="user-context-text">Ext. <?= e($authUser['telefono_ext'] ?? '—') ?></span>
             </a>

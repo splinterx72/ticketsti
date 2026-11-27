@@ -14,6 +14,7 @@ use App\Services\AdminLocalService;
 use App\Services\Alcance;
 use App\Services\InventarioService;
 use App\Services\AsignacionService;
+use App\Services\AsignadorService;
 use App\Services\TareaService;
 use App\Services\UbicacionFisicaService;
 
@@ -124,6 +125,7 @@ final class SupervisorController extends Controller
         $mias = $this->misInstalaciones();
         $ids = array_column($mias, 'id');
         $asig = new AsignacionService($pdo);
+        $asignador = new AsignadorService($pdo);
 
         $candidatos = $pdo->query(
             "SELECT id, nombre, ficha, rol FROM usuarios
@@ -137,8 +139,65 @@ final class SupervisorController extends Controller
             'asignaciones'  => $asig->vigentes('agente_instalaciones', $ids),
             'salientes'     => $asig->prestamosSalientes($ids),
             'candidatos'    => $candidatos,
-            'misAgentes'    => (new Alcance($pdo))->agentesDe((int) Auth::id()),
+            'misAgentes'    => $misAgentes = (new Alcance($pdo))->agentesDe((int) Auth::id()),
+            'disponibilidad' => array_combine(
+                array_column($misAgentes, 'id'),
+                array_map(static fn (array $a): array => $asignador->estadoDe($a['id']) + ['especialidades' => $asignador->especialidadesDe($a['id'])], $misAgentes)
+            ),
+            'departamentos' => \App\Services\Catalog::departamentos(),
+            'modos'         => $this->modosAsignacion($ids),
         ]);
+    }
+
+    /** POST /supervisor/agentes/{id}/disponibilidad: estado, fecha y especialidades de un agente propio. */
+    public function saveDisponibilidad(int $id): void
+    {
+        $this->requireRole(Roles::SUPERVISION);
+        $this->verifyCsrf();
+        $asignador = new AsignadorService(Database::getInstance());
+        if (!$asignador->puedeGestionar(Auth::user(), $id)) {
+            throw new HttpException(404, 'El agente no existe.');
+        }
+        try {
+            $asignador->guardarEstado($id, $this->input('estado'), $this->input('hasta'), (int) Auth::id());
+            $deps = $_POST['especialidades'] ?? [];
+            $asignador->guardarEspecialidades($id, is_array($deps) ? array_values(array_filter($deps, 'is_string')) : []);
+            Session::flash('success', 'Disponibilidad y especialidades guardadas.');
+        } catch (ValidationException $e) {
+            $this->flashErrors($e);
+        }
+        redirect('/supervisor/agentes#disponibilidad');
+    }
+
+    /** POST /supervisor/instalaciones/{id}/asignacion: modo manual | sugerida | automatica. */
+    public function saveModoAsignacion(int $id): void
+    {
+        $this->requireRole(Roles::SUPERVISION);
+        $this->verifyCsrf();
+        if (!in_array($id, (new Alcance(Database::getInstance()))->instalacionesSupervisadas((int) Auth::id()), true)) {
+            throw new HttpException(404, 'La instalación no existe.');
+        }
+        try {
+            (new AsignadorService(Database::getInstance()))->guardarModo($id, $this->input('modo'));
+            Session::flash('success', 'Modo de asignación actualizado.');
+        } catch (ValidationException $e) {
+            $this->flashErrors($e);
+        }
+        redirect('/supervisor/agentes#disponibilidad');
+    }
+
+    /**
+     * @param list<int> $ids
+     * @return array<int, string>
+     */
+    private function modosAsignacion(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+        $stmt = Database::getInstance()->prepare('SELECT id, modo_asignacion FROM instalaciones WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')');
+        $stmt->execute($ids);
+        return array_map('strval', $stmt->fetchAll(\PDO::FETCH_KEY_PAIR));
     }
 
     public function storeAgente(): void

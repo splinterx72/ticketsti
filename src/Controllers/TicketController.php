@@ -140,6 +140,9 @@ final class TicketController extends Controller
         }
 
         Notifier::ticketCreado($result['id']);
+        if ($result['asignado_a'] !== null) {
+            Notifier::ticketActualizado($result['id'], 0, false, true);   // aviso al agente asignado automáticamente
+        }
         Session::flash('success', "Ticket {$result['folio']} creado. Te avisaremos por aquí cuando TI lo atienda.");
         if ($result['discrepancia']) {
             Session::flash('warning', "La ubicación que indicaste no coincide con la del resguardo GECA. Ya actualizamos la ubicación real del equipo y TI dará seguimiento al cambio de resguardo ({$result['vinculado']}).");
@@ -173,6 +176,10 @@ final class TicketController extends Controller
             'estados'      => $esTi ? Catalog::estados() : [],
             'departamentos' => $esTi ? Catalog::departamentos() : [],
             'agentes'      => $esTi ? Catalog::agentes() : [],
+            // Sugerencia en vivo (disponibilidad de hoy) mientras no haya agente.
+            'candidatos'   => $esTi && $ticket['agente_asignado_id'] === null && (int) $ticket['es_cierre'] === 0
+                ? array_slice((new \App\Services\AsignadorService(Database::getInstance()))->candidatos($id), 0, 3)
+                : [],
         ]);
     }
 

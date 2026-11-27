@@ -167,6 +167,8 @@ if (!$installMode) {
     $router->get('/ti/tickets', [TiController::class, 'inbox']);
     $router->post('/tickets/{id}/gestion', [TiController::class, 'manage']);
     $router->post('/tickets/{id}/tomar', [TiController::class, 'take']);
+    $router->post('/tickets/{id}/asignar-sugerido', [TiController::class, 'assignSuggested']);
+    $router->post('/ti/mi-estado', [TiController::class, 'myStatus']);
 
     // Mi cuenta.
     $router->get('/cuenta', [CuentaController::class, 'show']);
@@ -240,6 +242,8 @@ if (!$installMode) {
     $router->post('/supervisor/agentes', [SupervisorController::class, 'storeAgente']);
     $router->post('/supervisor/prestamos', [SupervisorController::class, 'storePrestamo']);
     $router->post('/supervisor/asignacion/{id}/quitar', [SupervisorController::class, 'removeAsignacion']);
+    $router->post('/supervisor/agentes/{id}/disponibilidad', [SupervisorController::class, 'saveDisponibilidad']);
+    $router->post('/supervisor/instalaciones/{id}/asignacion', [SupervisorController::class, 'saveModoAsignacion']);
     $router->get('/supervisor/supervisores', [SupervisorController::class, 'supervisores']);
     $router->post('/supervisor/supervisores', [SupervisorController::class, 'storeSupervisor']);
     $router->post('/supervisor/supervisores/{id}/quitar', [SupervisorController::class, 'removeSupervisor']);
