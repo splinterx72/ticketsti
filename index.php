@@ -25,6 +25,7 @@ use App\Controllers\PlantillaController;
 use App\Controllers\DelegacionController;
 use App\Controllers\FormatoController;
 use App\Controllers\FormatoAdminController;
+use App\Controllers\DiagnosticoController;
 use App\Controllers\GecaController;
 use App\Controllers\InstallController;
 use App\Controllers\InstalacionController;
@@ -237,6 +238,7 @@ if (!$installMode) {
     $router->post('/ti/plantillas/{id}/eliminar', [PlantillaController::class, 'destroy']);
     $router->get('/ti/correo', [CorreoController::class, 'index']);
     $router->post('/ti/correo', [CorreoController::class, 'save']);
+    $router->get('/ti/diagnostico', [DiagnosticoController::class, 'index']);
     $router->get('/ti/formatos', [FormatoAdminController::class, 'index']);
     $router->post('/ti/formatos/anio', [FormatoAdminController::class, 'nuevoAnio']);
     $router->get('/ti/formatos/{id}/editar', [FormatoAdminController::class, 'edit']);
@@ -320,7 +322,11 @@ try {
     renderError($e->status(), $e->getMessage());
 } catch (Throwable $e) {
     error_log(sprintf('[%s] %s en %s:%d', $e::class, $e->getMessage(), $e->getFile(), $e->getLine()));
-    renderError(500, $isProduction ? 'Ocurrió un error inesperado. Intenta de nuevo más tarde.' : $e->getMessage());
+    // Tabla o columna inexistente: casi siempre falta importar una migración.
+    $faltaMigracion = $e instanceof PDOException && in_array((string) $e->getCode(), ['42S02', '42S22'], true);
+    renderError(500, $faltaMigracion
+        ? 'La base de datos no está actualizada: falta importar una migración. El Admin TI puede ver cuál en Gestión › Diagnóstico.'
+        : ($isProduction ? 'Ocurrió un error inesperado. Intenta de nuevo más tarde.' : $e->getMessage()));
 }
 
 function renderError(int $status, string $message): void

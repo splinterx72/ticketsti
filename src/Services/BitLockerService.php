@@ -22,8 +22,31 @@ final class BitLockerService
 {
     public const UNIDADES = ['C:', 'D:', 'E:', 'F:', 'G:'];
 
-    public function __construct(private readonly PDO $pdo, private readonly Cifrado $cifrado)
+    /**
+     * El cifrado se prepara solo cuando hace falta (guardar o ver una llave):
+     * listar, buscar y guardar identificadores funcionan aunque el servidor no
+     * tenga la extensión sodium o permiso de escritura en storage/keys.
+     *
+     * @param Cifrado|\Closure(): Cifrado|null $cifrado null = Cifrado::delSistema()
+     */
+    public function __construct(private readonly PDO $pdo, private Cifrado|\Closure|null $cifrado = null)
     {
+    }
+
+    private function cifrado(): Cifrado
+    {
+        if (!$this->cifrado instanceof Cifrado) {
+            try {
+                $this->cifrado = $this->cifrado instanceof \Closure ? ($this->cifrado)() : Cifrado::delSistema();
+            } catch (\Throwable $e) {
+                error_log('[BitLocker] ' . $e->getMessage());
+                throw new ValidationException([
+                    'No se puede cifrar la llave en este servidor: ' . $e->getMessage()
+                    . ' Puedes guardar solo el identificador; el Admin TI lo revisa en Gestión › Diagnóstico.',
+                ]);
+            }
+        }
+        return $this->cifrado;
     }
 
     /** Identificador completo (GUID) o corto (primeros 8 caracteres). Mayúsculas, sin llaves. */
@@ -82,7 +105,7 @@ final class BitLockerService
         }
         $this->pdo->prepare(
             'INSERT INTO equipo_bitlocker (equipo_id, unidad, identificador, llave_cifrada, nota, capturado_por) VALUES (?, ?, ?, ?, ?, ?)'
-        )->execute([$equipoId, $unidad, $id, $llave !== null ? $this->cifrado->cifrar($llave) : null, $nota !== '' ? $nota : null, (int) $user['id']]);
+        )->execute([$equipoId, $unidad, $id, $llave !== null ? $this->cifrado()->cifrar($llave) : null, $nota !== '' ? $nota : null, (int) $user['id']]);
         return (int) $this->pdo->lastInsertId();
     }
 
@@ -128,7 +151,12 @@ final class BitLockerService
         if (mb_strlen($motivo) < 3) {
             throw new ValidationException(['Escribe para qué la necesitas (ej. folio del ticket).']);
         }
-        $llave = $this->cifrado->descifrar((string) $b['llave_cifrada']);
+        try {
+            $llave = $this->cifrado()->descifrar((string) $b['llave_cifrada']);
+        } catch (\RuntimeException $e) {
+            error_log('[BitLocker] ' . $e->getMessage());
+            throw new ValidationException(['No se pudo leer la llave: la clave de cifrado del servidor no coincide con la que se usó al guardarla (¿se cambió o se perdió storage/keys/cifrado.key?).']);
+        }
         $this->pdo->prepare('INSERT INTO bitlocker_consultas (bitlocker_id, usuario_id, motivo, ip) VALUES (?, ?, ?, ?)')
             ->execute([$bitlockerId, (int) $user['id'], mb_substr($motivo, 0, 255), mb_substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45) ?: null]);
         return $llave;

@@ -77,6 +77,7 @@ $rolLabel = \App\Core\Roles::LABELS;
                         if ($rol === 'admin_ti') {
                             $gestion[] = ['/ti/modulos', 'bi-toggles', 'Módulos'];
                             $gestion[] = ['/ti/formatos', 'bi-file-earmark-text', 'Formatos'];
+                            $gestion[] = ['/ti/diagnostico', 'bi-heart-pulse', 'Diagnóstico'];
                             $gestion[] = ['/ti/correo', 'bi-envelope-at', 'Correo y Remedy'];
                             $gestion[] = ['/ti/zonas', 'bi-map', 'Zonas'];
                             $gestion[] = ['/ti/sla', 'bi-stopwatch', 'Tiempos de atención'];

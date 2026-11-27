@@ -60,7 +60,7 @@ function test_mostrar_la_llave_pide_contrasena_y_queda_en_bitacora(): void
     assert_eq($svc->mostrar($id, $d['w'], 'Clave#Segura2026', 'Pantalla de recuperación'), LLAVE_OK, 'el dueño ve su llave');
     assert_eq(scalar('SELECT COUNT(*) FROM bitlocker_consultas WHERE bitlocker_id = ? AND usuario_id = ?', [$id, $d['w']['id']]), 1, 'la consulta quedó registrada (la fallida no)');
     $otra = new BitLockerService(test_pdo(), new Cifrado(str_repeat('z', 32)));
-    assert_throws(\RuntimeException::class, fn () => $otra->mostrar($id, $d['w'], 'Clave#Segura2026', 'x'), 'con otra clave de cifrado no se puede leer');
+    assert_throws(ValidationException::class, fn () => $otra->mostrar($id, $d['w'], 'Clave#Segura2026', 'Recuperar equipo'), 'con otra clave de cifrado no se puede leer (mensaje, no error 500)', 'clave de cifrado');
 }
 
 function test_buscador_por_identificador_serie_o_ficha_respeta_el_alcance(): void
@@ -95,4 +95,17 @@ function test_mis_equipos_con_sus_llaves(): void
     $mios = $svc->misEquipos((int) $d['w']['id']);
     assert_eq(array_column($mios, 'serie'), ['CPU-BL1', 'CPU-BL2'], 'todos sus equipos');
     assert_eq(array_map(static fn (array $e): int => (int) $e['registros'], $mios), [1, 0], 'cuántas llaves tiene cada uno');
+}
+
+function test_sin_cifrado_disponible_no_truena_y_explica(): void
+{
+    $d = equipo_con_dueno();
+    // Simula un servidor sin la extensión sodium o sin permiso en storage/keys.
+    $svc = new BitLockerService(test_pdo(), static fn () => throw new \RuntimeException('No se pudo crear la clave de cifrado en storage/keys.'));
+    assert_eq($svc->misEquipos((int) $d['w']['id'])[0]['serie'] ?? null, 'CPU-BL1', 'la lista abre sin cifrado');
+    $id = $svc->guardar($d['eq'], $d['w'], ['unidad' => 'C:', 'identificador' => ID_OK, 'llave' => '', 'nota' => '']);
+    assert_true($id > 0, 'el identificador se guarda sin cifrado');
+    assert_eq(count($svc->deEquipo($d['eq'], $d['w'])), 1, 'y se lista');
+    assert_throws(ValidationException::class, fn () => $svc->guardar($d['eq'], $d['w'], ['unidad' => 'D:', 'identificador' => ID_OK, 'llave' => LLAVE_OK, 'nota' => '']),
+        'guardar la llave explica qué falta en vez de un error 500', 'storage/keys');
 }

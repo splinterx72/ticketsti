@@ -6,7 +6,6 @@ namespace App\Controllers;
 
 use App\Config\Database;
 use App\Core\Auth;
-use App\Core\Cifrado;
 use App\Core\HttpException;
 use App\Core\Roles;
 use App\Core\Session;
@@ -24,7 +23,7 @@ final class BitLockerController extends Controller
     {
         $this->requireModulo('bitlocker');
         $user = Auth::user();
-        $svc = new BitLockerService(Database::getInstance(), Cifrado::delSistema());
+        $svc = new BitLockerService(Database::getInstance());
         $esTi = Roles::esTi($user['rol'] ?? null);
         $q = trim((string) ($_GET['q'] ?? ''));
         $this->view('bitlocker/index', [
@@ -112,6 +111,6 @@ final class BitLockerController extends Controller
 
     private static function servicio(): BitLockerService
     {
-        return new BitLockerService(Database::getInstance(), Cifrado::delSistema());
+        return new BitLockerService(Database::getInstance());
     }
 }

@@ -14,13 +14,24 @@ final class Cifrado
 {
     public function __construct(private readonly string $clave)
     {
+        if (!self::disponible()) {
+            throw new \RuntimeException('Falta la extensión sodium de PHP (actívala en cPanel › Select PHP Version › Extensions).');
+        }
         if (strlen($clave) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
             throw new \InvalidArgumentException('La clave de cifrado debe medir 32 bytes.');
         }
     }
 
+    public static function disponible(): bool
+    {
+        return function_exists('sodium_crypto_secretbox') && defined('SODIUM_CRYPTO_SECRETBOX_KEYBYTES');
+    }
+
     public static function delSistema(): self
     {
+        if (!self::disponible()) {
+            throw new \RuntimeException('Falta la extensión sodium de PHP (actívala en cPanel › Select PHP Version › Extensions).');
+        }
         $cfg = (string) config('security.clave_cifrado', '');
         if ($cfg !== '') {
             $clave = base64_decode($cfg, true);
@@ -36,7 +47,7 @@ final class Cifrado
             }
             $nueva = base64_encode(random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES));
             if (@file_put_contents($archivo, $nueva, LOCK_EX) === false) {
-                throw new \RuntimeException('No se pudo crear la clave de cifrado en storage/keys.');
+                throw new \RuntimeException('No se pudo crear la clave de cifrado en storage/keys (revisa que la carpeta exista y tenga permiso de escritura).');
             }
             @chmod($archivo, 0600);
         }
