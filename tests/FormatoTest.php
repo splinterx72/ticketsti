@@ -315,3 +315,55 @@ function test_ciudad_de_la_instalacion_para_lugar_y_fecha(): void
     $svc->guardarInstalacion($id, 'Zona Industrial Km 4.5', true, '');
     assert_eq(scalar('SELECT ciudad FROM instalaciones WHERE id = ?', [$id]), null, 'vacía = sin ciudad (usa la del formato)');
 }
+
+function test_texto_del_formato_vigente_y_etiquetas_editables(): void
+{
+    $svc = new FormatoService(test_pdo());
+    $p = $svc->plantillaVigente('formateo');
+    $c = $p['contenido'];
+    assert_eq($c['etiquetas']['organismo'], 'Dirección/Organización', 'redacción del formato vigente');
+    assert_eq($c['etiquetas']['inventario'], 'Inventario PEMEX o Compañía propietaria', 'columna de inventario');
+    assert_eq($c['etiquetas']['motivo'], 'Descripción del Motivo del Borrado', 'tabla de motivos');
+    assert_eq($c['titulo_motivos'], 'Motivo de Formateo Mencionado:', 'título de motivos');
+    assert_eq($c['notas'][2], '***Cuando el equipo se retira de la empresa por baja en garantía, baja por término de contrato o desincorporación de equipo PEMEX se aplica borrado seguro.', 'nota *** completa');
+    assert_eq([$c['leyenda_firma'], $c['formato_lugar']], ['', '{lugar}, a {fecha}'], 'sin "Nombre, ficha y firma" y fecha con coma');
+    assert_eq(FormatoService::lugarYFecha($c, 'Ciudad del Carmen, Campeche', '2026-07-06 10:00:00'), 'Ciudad del Carmen, Campeche, a 06 de julio de 2026', 'como en el formato oficial');
+
+    $in = textos_de($p, ['etiqueta_organismo' => 'Dirección / Organismo', 'leyenda_firma' => 'Nombre, ficha y firma']);
+    $svc->guardarPlantilla((int) $p['id'], $in, [], usuario('ADM', 'admin_ti'));
+    $c = $svc->plantilla((int) $p['id'])['contenido'];
+    assert_eq([$c['etiquetas']['organismo'], $c['etiquetas']['ficha'], $c['leyenda_firma']], ['Dirección / Organismo', 'Ficha', 'Nombre, ficha y firma'], 'el admin cambia etiquetas; las demás se conservan');
+}
+
+function test_versiones_anteriores_sin_etiquetas_se_ven_como_se_firmaron(): void
+{
+    $viejo = FormatoService::etiquetas([]);
+    assert_eq([$viejo['organismo'], $viejo['inventario']], ['Dirección /Organismo:', 'Inventario PEMEX (Cuando Aplique)'], 'redacción anterior');
+    assert_eq(FormatoService::lugarYFecha([], 'Ciudad del Carmen, Campeche', '2026-04-23'), 'Ciudad del Carmen, Campeche a 23 de abril de 2026', 'fecha como antes');
+    assert_eq(FormatoService::leyendaFirma([]), 'Nombre, ficha y firma', 'conserva su renglón');
+}
+
+function test_version_anterior_sin_documentos_se_actualiza_sola_al_texto_vigente(): void
+{
+    $viejo = FormatoService::DEFAULT['formateo']['contenido'];
+    unset($viejo['etiquetas'], $viejo['leyenda_firma'], $viejo['formato_lugar']);
+    $viejo['notas'][2] = '***Cuando el equipo se retira de la empresa por baja en garantía, baja por término de contrato o desincorporación de';
+    test_pdo()->prepare("INSERT INTO formato_plantillas (clave, anio, version, titulo, contenido, logo_izq) VALUES ('formateo', ?, 1, 'Formato de autorización de formateo de equipo', ?, 'formatos/logos/x.png')")
+        ->execute([(int) date('Y'), json_encode($viejo, JSON_UNESCAPED_UNICODE)]);
+    $p = (new FormatoService(test_pdo()))->plantillaVigente('formateo');
+    assert_eq($p['contenido']['etiquetas']['organismo'] ?? null, 'Dirección/Organización', 'sin documentos: toma el texto vigente');
+    assert_true(str_ends_with($p['contenido']['notas'][2], 'se aplica borrado seguro.'), 'con la nota completa');
+    assert_eq($p['logo_izq'], 'formatos/logos/x.png', 'conserva los logos ya subidos');
+}
+
+function test_version_anterior_con_documentos_no_se_toca(): void
+{
+    $s = escenario_formato();
+    $svc = new FormatoService(test_pdo());
+    $svc->emitir((int) $s['ticket'], $s['ag']);
+    $p = $svc->plantillaVigente('formateo');
+    $viejo = $p['contenido'];
+    unset($viejo['etiquetas']);
+    test_pdo()->prepare('UPDATE formato_plantillas SET contenido = ? WHERE id = ?')->execute([json_encode($viejo, JSON_UNESCAPED_UNICODE), $p['id']]);
+    assert_true(!isset($svc->plantillaVigente('formateo')['contenido']['etiquetas']), 'lo firmado conserva su texto');
+}

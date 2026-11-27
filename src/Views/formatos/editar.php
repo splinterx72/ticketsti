@@ -55,6 +55,22 @@ $campo = static function (string $name, string $label, string $valor): string {
                 <?= $campo('firma_usuario', 'Leyenda bajo la firma del usuario', (string) ($c['firmas']['usuario'] ?? '')) ?>
                 <?= $campo('firma_responsable', 'Leyenda bajo la firma del responsable', (string) ($c['firmas']['responsable'] ?? '')) ?>
                 <?= $campo('firma_ti', 'Leyenda bajo la firma de TI', (string) ($c['firmas']['ti'] ?? '')) ?>
+                <?= $campo('leyenda_firma', 'Renglón sobre los nombres (vacío = sin renglón; antes: "Nombre, ficha y firma")', \App\Services\FormatoService::leyendaFirma($c)) ?>
+                <?= $campo('formato_lugar', 'Lugar y fecha (usa {lugar} y {fecha})', (string) ($c['formato_lugar'] ?? '{lugar}, a {fecha}')) ?>
+            </div>
+            <div class="card-header bg-white fw-semibold border-top">Etiquetas de las tablas</div>
+            <div class="card-body row g-2">
+                <?php
+                $etq = isset($c['etiquetas']) ? \App\Services\FormatoService::etiquetas($c) : \App\Services\FormatoService::ETIQUETAS;
+                $nombres = ['usuario' => 'Usuario', 'ficha' => 'Ficha', 'organismo' => 'Dirección/Organización', 'ext' => 'Extensión', 'subdireccion' => 'Subdirección',
+                    'gerencia' => 'Gerencia', 'ubicacion' => 'Ubicación', 'remedy' => 'Ticket Remedy', 'tipo' => 'Tipo de equipo', 'marca' => 'Marca',
+                    'modelo' => 'Modelo', 'serie' => 'Serie', 'inventario' => 'Inventario', 'motivo' => 'Columna de motivos', 'aplica' => 'Columna "Aplica"'];
+                foreach ($nombres as $k => $label): ?>
+                    <div class="col-sm-6">
+                        <label class="form-label small mb-0 text-body-secondary" for="etiqueta_<?= e($k) ?>"><?= e($label) ?></label>
+                        <input class="form-control form-control-sm" id="etiqueta_<?= e($k) ?>" name="etiqueta_<?= e($k) ?>" maxlength="120" value="<?= e($etq[$k]) ?>">
+                    </div>
+                <?php endforeach; ?>
             </div>
             <div class="card-footer bg-white text-end"><button class="btn btn-primary" type="submit">Guardar</button></div>
         </form>

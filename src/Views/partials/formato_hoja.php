@@ -19,6 +19,8 @@ for ($i = 0; $i < $mitad; $i++) {
     $filas[] = [$i, $i + $mitad < count($motivos) ? $i + $mitad : null];
 }
 $x = static fn (int $i): string => in_array($i, $marcados, true) ? 'X' : '';
+$et = \App\Services\FormatoService::etiquetas($c);
+$leyenda = \App\Services\FormatoService::leyendaFirma($c);
 ?>
 <article class="hoja-carta" aria-label="<?= e($f['titulo']) ?>">
     <div class="hoja-cuerpo">
@@ -31,14 +33,14 @@ $x = static fn (int $i): string => in_array($i, $marcados, true) ? 'X' : '';
         </header>
         <hr class="hoja-linea">
         <h1 class="hoja-titulo"><?= e($f['titulo']) ?></h1>
-        <p class="hoja-lugar"><?= e($d['lugar']) ?> a <?= e(fecha_larga($d['fecha'])) ?></p>
+        <p class="hoja-lugar"><?= e(\App\Services\FormatoService::lugarYFecha($c, (string) $d['lugar'], (string) $d['fecha'])) ?></p>
 
         <div class="hoja-seccion"><?= e($c['seccion_usuario'] ?? '') ?></div>
         <table class="hoja-tabla hoja-usuario">
-            <tr><td class="lbl">Usuario Responsable:</td><td><?= e($d['usuario']) ?></td><td class="lbl">Ficha:</td><td><?= e($d['ficha']) ?></td></tr>
-            <tr><td class="lbl">Dirección /Organismo:</td><td><?= e($d['organismo']) ?></td><td class="lbl">Ext:</td><td><?= e($d['ext']) ?></td></tr>
-            <tr><td class="lbl">Subdirección:</td><td><?= e($d['subdireccion']) ?></td><td class="lbl">Gerencia:</td><td><?= e($d['gerencia']) ?></td></tr>
-            <tr><td class="lbl">Ubicación Oficina:</td><td><?= e($d['ubicacion']) ?></td><td class="lbl">Ticket Remedy:</td><td><?= e($d['remedy']) ?></td></tr>
+            <tr><td class="lbl"><?= e($et['usuario']) ?></td><td><?= e($d['usuario']) ?></td><td class="lbl"><?= e($et['ficha']) ?></td><td><?= e($d['ficha']) ?></td></tr>
+            <tr><td class="lbl"><?= e($et['organismo']) ?></td><td><?= e($d['organismo']) ?></td><td class="lbl"><?= e($et['ext']) ?></td><td><?= e($d['ext']) ?></td></tr>
+            <tr><td class="lbl"><?= e($et['subdireccion']) ?></td><td><?= e($d['subdireccion']) ?></td><td class="lbl"><?= e($et['gerencia']) ?></td><td><?= e($d['gerencia']) ?></td></tr>
+            <tr><td class="lbl"><?= e($et['ubicacion']) ?></td><td><?= e($d['ubicacion']) ?></td><td class="lbl"><?= e($et['remedy']) ?></td><td><?= e($d['remedy']) ?></td></tr>
         </table>
         <p class="hoja-nota"><?= e($c['nota_resguardo'] ?? '') ?></p>
 
@@ -51,13 +53,13 @@ $x = static fn (int $i): string => in_array($i, $marcados, true) ? 'X' : '';
         </div>
 
         <table class="hoja-tabla hoja-equipo">
-            <thead><tr><th>Tipo de Equipo</th><th>Marca</th><th>Modelo</th><th>N° de Serie</th><th>Inventario PEMEX<br><span class="fw-normal">(Cuando Aplique)</span></th></tr></thead>
+            <thead><tr><th><?= e($et['tipo']) ?></th><th><?= e($et['marca']) ?></th><th><?= e($et['modelo']) ?></th><th><?= e($et['serie']) ?></th><th class="inv"><?= e($et['inventario']) ?></th></tr></thead>
             <tbody><tr><td><?= e($d['tipo']) ?></td><td><?= e($d['marca']) ?></td><td><?= e($d['modelo']) ?></td><td class="serie"><?= e($d['serie']) ?></td><td class="serie"><?= e($d['inventario']) ?></td></tr></tbody>
         </table>
 
         <div class="hoja-seccion"><?= e($c['titulo_motivos'] ?? 'Motivo de formateo mencionado:') ?></div>
         <table class="hoja-tabla hoja-motivos">
-            <thead><tr><th>Descripción del motivo del formateo</th><th class="aplica">Aplica</th><th>Descripción del motivo del formateo</th><th class="aplica">Aplica</th></tr></thead>
+            <thead><tr><th><?= e($et['motivo']) ?></th><th class="aplica"><?= e($et['aplica']) ?></th><th><?= e($et['motivo']) ?></th><th class="aplica"><?= e($et['aplica']) ?></th></tr></thead>
             <tbody>
             <?php foreach ($filas as [$a, $b]): ?>
                 <tr>
@@ -78,11 +80,14 @@ $x = static fn (int $i): string => in_array($i, $marcados, true) ? 'X' : '';
                         <?php elseif ($fi && $fi['modo'] === 'autografa'): ?><span class="autografa">Firma autógrafa en el original escaneado</span><?php endif; ?></td>
                 <?php endforeach; ?>
             </tr>
-            <tr class="leyenda"><td>Nombre, ficha y firma</td><td>Nombre, ficha y firma</td><td>Nombre, ficha y firma</td></tr>
+            <?php if ($leyenda !== ''): ?>
+                <tr class="leyenda"><td><?= e($leyenda) ?></td><td><?= e($leyenda) ?></td><td><?= e($leyenda) ?></td></tr>
+            <?php endif; ?>
             <tr class="nombre">
                 <?php foreach (['usuario', 'responsable', 'ti'] as $rol): $fi = $firmas[$rol] ?? null; ?>
                     <td><?= $fi ? e(mb_strtoupper((string) $fi['nombre']) . ' F-' . $fi['ficha']) : '&nbsp;' ?>
-                        <div class="rol"><?= e($c['firmas'][$rol] ?? '') ?><?php if ($rol === 'ti' && !empty($f['metodo'])): ?> · Método: <?= e($f['metodo']) ?><?php endif; ?></div></td>
+                        <div class="rol"><?= e($c['firmas'][$rol] ?? '') ?></div>
+                        <?php if ($rol === 'ti' && !empty($f['metodo'])): ?><div class="metodo">Método: <?= e($f['metodo']) ?></div><?php endif; ?></td>
                 <?php endforeach; ?>
             </tr>
             <tr class="fecha">
@@ -100,7 +105,6 @@ $x = static fn (int $i): string => in_array($i, $marcados, true) ? 'X' : '';
         </div>
         <div class="hoja-pie-datos">
             <span>Folio <?= e($f['folio']) ?><?= !empty($f['ticket_folio']) ? ' · Ticket ' . e($f['ticket_folio']) : '' ?> · Verificación <?= e($f['codigo']) ?></span>
-            <span>Página 1 | 1</span>
         </div>
     </footer>
 </article>

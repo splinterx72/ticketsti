@@ -34,6 +34,22 @@ final class FormatoService
     public const MODOS = ['sesion' => 'en su sesión', 'presencial' => 'en persona', 'autografa' => 'en papel'];
     private const MAX_FIRMA = 300 * 1024;
 
+    /** Etiquetas del formato vigente (editables en Gestión › Formatos). */
+    public const ETIQUETAS = [
+        'usuario' => 'Usuario Responsable', 'ficha' => 'Ficha', 'organismo' => 'Dirección/Organización', 'ext' => 'Ext.',
+        'subdireccion' => 'Subdirección:', 'gerencia' => 'Gerencia', 'ubicacion' => 'Ubicación Oficina', 'remedy' => 'Ticket Remedy',
+        'tipo' => 'Tipo de Equipo', 'marca' => 'Marca', 'modelo' => 'Modelo', 'serie' => 'N° de Serie',
+        'inventario' => 'Inventario PEMEX o Compañía propietaria', 'motivo' => 'Descripción del Motivo del Borrado', 'aplica' => 'Aplica',
+    ];
+
+    /** Etiquetas con que se firmaron las versiones anteriores (sin "etiquetas" guardadas). */
+    public const ETIQUETAS_ANTERIORES = [
+        'usuario' => 'Usuario Responsable:', 'ficha' => 'Ficha:', 'organismo' => 'Dirección /Organismo:', 'ext' => 'Ext:',
+        'subdireccion' => 'Subdirección:', 'gerencia' => 'Gerencia:', 'ubicacion' => 'Ubicación Oficina:', 'remedy' => 'Ticket Remedy:',
+        'tipo' => 'Tipo de Equipo', 'marca' => 'Marca', 'modelo' => 'Modelo', 'serie' => 'N° de Serie',
+        'inventario' => 'Inventario PEMEX (Cuando Aplique)', 'motivo' => 'Descripción del motivo del formateo', 'aplica' => 'Aplica',
+    ];
+
     /** Texto oficial de cada formato (base de la primera versión). */
     public const DEFAULT = [
         'formateo' => [
@@ -54,7 +70,7 @@ final class FormatoService
                     'II.1.27. Los usuarios Finales son responsables de resguardar y respaldar la Información de PEMEX, EPS y, en su caso, EF, que generen o que esté bajo su custodia; para tal efecto, deben utilizar únicamente las herramientas OneDrive, Teams o SharePoint, u otros servicios o aplicaciones de almacenamiento o respaldo de información y datos que sean proporcionados y/o autorizados por la STI. Para lo anterior, se puede consultar la Guía de resguardo de información del equipo de cómputo personal, disponible mediante vínculo señalado en el Anexo único de las presentes Políticas.',
                 ],
                 'manifiesto' => 'El Usuario Final manifiesta haber respaldado la información del equipo de cómputo que se detalla a continuación y autoriza el formateo del mismo.',
-                'titulo_motivos' => 'Motivo de formateo mencionado:',
+                'titulo_motivos' => 'Motivo de Formateo Mencionado:',
                 'motivos' => [
                     'Software potencialmente indeseable (PUA) / Malware *',
                     'Falla del Sistema operativo o reasignación.',
@@ -64,8 +80,11 @@ final class FormatoService
                 'notas' => [
                     '*Equipo comprometido por PUA/Malware.',
                     '**Equipo Comprometido por detección de información cifrada originada por malware. Así mismo, está enterado(a) que, al autorizar el formateo del equipo, se procede con la eliminación de la información almacenada en el equipo de cómputo descrito y no será posible recuperarla.',
-                    '***Cuando el equipo se retira de la empresa por baja en garantía, baja por término de contrato o desincorporación de',
+                    '***Cuando el equipo se retira de la empresa por baja en garantía, baja por término de contrato o desincorporación de equipo PEMEX se aplica borrado seguro.',
                 ],
+                'etiquetas' => self::ETIQUETAS,
+                'leyenda_firma' => '',
+                'formato_lugar' => '{lugar}, a {fecha}',
                 'firmas' => [
                     'usuario' => 'Usuario del equipo que autoriza el formateo',
                     'responsable' => 'Responsable que autoriza el formateo',
@@ -84,6 +103,27 @@ final class FormatoService
     //  Plantillas
     // ------------------------------------------------------------------
 
+    /** @param array<string, mixed> $c contenido de la plantilla @return array<string, string> */
+    public static function etiquetas(array $c): array
+    {
+        if (!isset($c['etiquetas']) || !is_array($c['etiquetas'])) {
+            return self::ETIQUETAS_ANTERIORES;
+        }
+        return array_map('strval', array_intersect_key($c['etiquetas'], self::ETIQUETAS) + self::ETIQUETAS);
+    }
+
+    /** Renglón bajo las firmas ("" = sin renglón). @param array<string, mixed> $c */
+    public static function leyendaFirma(array $c): string
+    {
+        return array_key_exists('leyenda_firma', $c) ? (string) $c['leyenda_firma'] : 'Nombre, ficha y firma';
+    }
+
+    /** "Ciudad del Carmen, Campeche, a 06 de julio de 2026" según la versión. @param array<string, mixed> $c */
+    public static function lugarYFecha(array $c, string $lugar, string $fecha): string
+    {
+        return strtr((string) ($c['formato_lugar'] ?? '{lugar} a {fecha}'), ['{lugar}' => $lugar, '{fecha}' => fecha_larga($fecha)]);
+    }
+
     /** @return array<string, mixed> versión vigente (la del año o la más reciente) con contenido decodificado */
     public function plantillaVigente(string $clave): array
     {
@@ -98,7 +138,19 @@ final class FormatoService
                 ->execute([$clave, (int) date('Y'), self::DEFAULT[$clave]['titulo'], json_encode(self::DEFAULT[$clave]['contenido'], JSON_UNESCAPED_UNICODE)]);
             return $this->plantilla((int) $this->pdo->lastInsertId());
         }
-        return self::decodificar($p);
+        $p = self::decodificar($p);
+        // Versión creada con el texto anterior y aún sin documentos: se actualiza
+        // al texto vigente conservando los logos (lo firmado nunca se toca).
+        if (!isset($p['contenido']['etiquetas']) && isset(self::DEFAULT[$clave])) {
+            $usados = $this->pdo->prepare('SELECT COUNT(*) FROM formatos WHERE plantilla_id = ?');
+            $usados->execute([(int) $p['id']]);
+            if ((int) $usados->fetchColumn() === 0) {
+                $this->pdo->prepare('UPDATE formato_plantillas SET titulo = ?, contenido = ? WHERE id = ?')
+                    ->execute([self::DEFAULT[$clave]['titulo'], json_encode(self::DEFAULT[$clave]['contenido'], JSON_UNESCAPED_UNICODE), (int) $p['id']]);
+                return $this->plantilla((int) $p['id']);
+            }
+        }
+        return $p;
     }
 
     /** @return array<string, mixed> */
@@ -151,7 +203,16 @@ final class FormatoService
             'motivos' => $lineas('motivos'), 'notas' => $lineas('notas'),
             'firmas' => ['usuario' => $texto('firma_usuario', 120), 'responsable' => $texto('firma_responsable', 120), 'ti' => $texto('firma_ti', 120)],
             'metodos' => $lineas('metodos'),
+            'etiquetas' => [],
+            'leyenda_firma' => array_key_exists('leyenda_firma', $in) ? $texto('leyenda_firma', 120) : self::leyendaFirma($p['contenido']),
+            'formato_lugar' => array_key_exists('formato_lugar', $in) && str_contains((string) $in['formato_lugar'], '{fecha}')
+                ? $texto('formato_lugar', 120) : (string) ($p['contenido']['formato_lugar'] ?? '{lugar}, a {fecha}'),
         ];
+        $previas = isset($p['contenido']['etiquetas']) ? self::etiquetas($p['contenido']) : self::ETIQUETAS;
+        foreach (self::ETIQUETAS as $k => $omision) {
+            $valor = array_key_exists('etiqueta_' . $k, $in) ? $texto('etiqueta_' . $k, 120) : $previas[$k];
+            $contenido['etiquetas'][$k] = $valor !== '' ? $valor : $omision;
+        }
         $errors = [];
         if (mb_strlen($titulo) < 5) {
             $errors[] = 'Escribe el título del formato.';

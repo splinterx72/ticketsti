@@ -20,7 +20,10 @@ final class FormatoAdminController extends Controller
     private const CAMPOS = [
         'titulo', 'encabezado', 'lugar_omision', 'organismo_omision', 'seccion_usuario', 'nota_resguardo', 'intro',
         'parrafos', 'subtitulo', 'parrafos2', 'manifiesto', 'titulo_motivos', 'motivos', 'notas', 'metodos',
-        'firma_usuario', 'firma_responsable', 'firma_ti',
+        'firma_usuario', 'firma_responsable', 'firma_ti', 'leyenda_firma', 'formato_lugar',
+        'etiqueta_usuario', 'etiqueta_ficha', 'etiqueta_organismo', 'etiqueta_ext', 'etiqueta_subdireccion', 'etiqueta_gerencia',
+        'etiqueta_ubicacion', 'etiqueta_remedy', 'etiqueta_tipo', 'etiqueta_marca', 'etiqueta_modelo', 'etiqueta_serie',
+        'etiqueta_inventario', 'etiqueta_motivo', 'etiqueta_aplica',
     ];
 
     public function index(): void

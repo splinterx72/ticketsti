@@ -266,7 +266,7 @@ if (!function_exists('sla_badge')) {
             && (new \App\Services\ModuloService(\App\Config\Database::getInstance()))->permite($clave, $user['rol'] ?? null);
     }
 
-    /** "23 de abril de 2026" (para documentos oficiales). */
+    /** "06 de julio de 2026" (para documentos oficiales). */
     function fecha_larga(?string $fecha): string
     {
         if ($fecha === null || $fecha === '') {
@@ -274,6 +274,6 @@ if (!function_exists('sla_badge')) {
         }
         $t = (int) strtotime($fecha);
         $meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-        return (int) date('j', $t) . ' de ' . $meses[(int) date('n', $t) - 1] . ' de ' . date('Y', $t);
+        return date('d', $t) . ' de ' . $meses[(int) date('n', $t) - 1] . ' de ' . date('Y', $t);
     }
 }
