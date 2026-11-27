@@ -13,6 +13,7 @@ completo.
 | `2026-11-27_sla_avisos_adjuntos.sql` | Coordinadores y cuentas | SLA, lectura y adjuntos | Tiempos de atención por prioridad, primera atención de tickets, acuse de lectura de avisos y adjuntos en tickets |
 | `2026-11-28_bitlocker_asignacion.sql` | SLA, lectura y adjuntos | BitLocker y asignación | Llaves de BitLocker por equipo (cifradas) y su bitácora, celular del usuario, disponibilidad y especialidades de agentes, modo de asignación por instalación y agente sugerido |
 | `2026-11-29_modulos_correo.sql` | BitLocker y asignación | Módulos y correo | Módulos con control del Admin TI, correo de Remedy y copias desde la aplicación, Remedy por instalación, plantillas de correo y quién registra/modifica las garantías |
+| `2026-11-30_delegaciones.sql` | Módulos y correo | Delegación | Personas autorizadas por un jefe para levantar tickets a su nombre y quién levantó cada ticket |
 
 ## Cómo aplicar una migración (phpMyAdmin en cPanel)
 

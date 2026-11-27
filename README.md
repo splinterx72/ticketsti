@@ -33,6 +33,7 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 * **Tableros con gráficas** para supervisores y coordinadores, y **"Mi día"** del agente con su ruta por edificio y nivel.
 * **BitLocker por equipo**: identificador y llave de recuperación (cifrada, se muestra solo con contraseña y queda en bitácora); celular opcional del trabajador para la doble autenticación.
 * **Módulos** que el Admin TI enciende o apaga por perfil; **correo de Remedy** y copias desde *Gestión › Correo y Remedy* (cada instalación decide si envía a Remedy); **plantillas de correo** para avisos comunes; el trabajador ve el **historial de garantías** de sus equipos.
+* **Delegación**: el jefe autoriza a su secretaria (u otras personas) para levantar tickets a su nombre; a los dos les llegan los avisos. **BitLocker** en el menú con buscador por identificador para TI.
 * **Asignación sugerida**: el sistema propone al agente disponible con menos carga y la especialidad del ticket (o lo asigna solo, según la instalación); cada agente marca su disponibilidad.
 * **Carga semanal del GECA** (`/geca`): `.xlsx` o `.csv` (coma o punto y coma, UTF-8 o ANSI de Excel), reporte "Equipos entregados con estatus" (una fila por componente, monitores casados con su computadora), **UPSERT** por `ficha` y `serie` en una sola transacción, historial de cargas, detalle con advertencias y plantilla descargable.
 
@@ -102,6 +103,7 @@ Importa en phpMyAdmin, **en este orden y una sola vez cada uno**, los que aún n
 4. `2026-11-27_sla_avisos_adjuntos.sql` — tiempos de atención (SLA), acuse de lectura de avisos y adjuntos en tickets.
 5. `2026-11-28_bitlocker_asignacion.sql` — BitLocker por equipo, celular, disponibilidad/especialidades de agentes y asignación sugerida.
 6. `2026-11-29_modulos_correo.sql` — módulos, correo de Remedy y plantillas, historial de garantías.
+7. `2026-11-30_delegaciones.sql` — delegación de tickets (secretarias que levantan tickets por su jefe).
 
 Para BitLocker agrega en `config/config.php`, dentro de `'security'`, la línea
 `'clave_cifrado' => '…',` con una clave propia (base64 de 32 bytes). Si no la agregas, el sistema crea

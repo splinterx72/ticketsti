@@ -90,6 +90,10 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
   * Plantillas de correo (`PlantillaService`, `plantillas_correo`, `correos_enviados`, *Gestión › Plantillas de correo*): las gestionan supervisión y admin; todo TI las envía desde el ticket (al solicitante; queda "[Correo enviado]" en el seguimiento) o desde la ficha del trabajador. Variables `{nombre} {ficha} {folio} {titulo} {instalacion} {agente} {fecha}`.
   * Garantías: el trabajador ve su historial de solo lectura (`/garantias`, `GarantiaService::deUsuario`); agentes y supervisores registran y modifican (`garantias.capturado_por`, `actualizado_por`).
   * Migración `2026-11-29_modulos_correo.sql`.
+* **Fase 10 (hecha):**
+  * Delegación (`DelegacionService`, `delegaciones`): el jefe autoriza en *Mi cuenta* a una o varias personas (ficha, fecha "hasta" opcional, `ver_todos`); si el jefe no ha activado su cuenta, lo registra supervisión de TI desde su ficha (Admin TI siempre). La persona autorizada elige "¿Para quién es?" en *Nuevo ticket* (`?para=ID`): equipos y ubicación del jefe; el ticket queda a nombre del jefe con `tickets.creado_por_id`. Ve y comenta esos tickets (`DelegacionService::puedeVerTicket` en `TicketController::acceso`, `filtroSql` en *Mis tickets*); avisos al jefe con copia a ella; TI ve "Levantado por" con extensión y celular. No da acceso a BitLocker.
+  * BitLocker en el menú (`/bitlocker`): mis equipos con sus llaves y, para TI, buscador por identificador (basta el inicio que dicta el usuario), serie o ficha dentro del alcance (`BitLockerService::buscar`, `misEquipos`).
+  * Migración `2026-11-30_delegaciones.sql`.
 * **Fase 4 (hecha):**
   * Garantías (`GarantiaService`, `/ti/garantias`): alta por serie de CPU o de monitor y validación del monitor casado. Las vigentes con fecha pasada se marcan como vencidas al consultarlas (sin cron). "Por vencer" = 60 días.
   * Inventario TI (`/ti/equipos`, `/ti/equipos/{id}`): ficha GECA, ubicaciones, garantías e historial de tickets. El detalle del ticket muestra la garantía que cubre el componente reportado.
@@ -162,4 +166,4 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 
 ## 4. Esquema de base de datos
 
-La fuente de verdad es **`database/schema.sql`** (39 tablas; lista completa en `Installer::TABLES`) con semillas de `estados`, `departamentos`, `niveles`, `ubicacion_tipos`, `sla_prioridades`, `modulos` y `plantillas_correo`. Cualquier cambio de esquema se hace ahí **y** como script incremental en `database/migraciones/` importable desde phpMyAdmin (ver `database/migraciones/LEEME.md`); `tests/SchemaTest.php` verifica que ambos coincidan.
+La fuente de verdad es **`database/schema.sql`** (40 tablas; lista completa en `Installer::TABLES`) con semillas de `estados`, `departamentos`, `niveles`, `ubicacion_tipos`, `sla_prioridades`, `modulos` y `plantillas_correo`. Cualquier cambio de esquema se hace ahí **y** como script incremental en `database/migraciones/` importable desde phpMyAdmin (ver `database/migraciones/LEEME.md`); `tests/SchemaTest.php` verifica que ambos coincidan.
