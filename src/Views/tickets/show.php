@@ -114,6 +114,12 @@ $monitor = match ($t['componente_afectado']) {
                 </div>
             </form>
         <?php endif; ?>
+        <?php if ($esTi && ($plantillas ?? null) !== null): ?>
+            <div class="mt-4"><?= partial('enviar_correo', [
+                'plantillas' => $plantillas, 'destinatarioId' => (int) $t['usuario_solicitante_id'], 'ticketId' => (int) $t['id'],
+                'destinatario' => $t['solicitante_nombre'] . ' <' . ($t['solicitante_email'] ?? 'sin correo') . '>',
+            ]) ?></div>
+        <?php endif; ?>
     </div>
 
     <div class="col-lg-4">

@@ -161,6 +161,26 @@ $vigentes = array_values(array_filter($f['equipos'], static fn (array $e): bool 
             </div>
         <?php endif; ?>
 
+        <?php if (($plantillas ?? null) !== null): $uu = $f['usuario']; ?>
+            <?= partial('enviar_correo', [
+                'plantillas' => $plantillas, 'destinatarioId' => (int) $uu['id'], 'ticketId' => null,
+                'destinatario' => $uu['nombre'] . ' <' . ($uu['email'] ?? 'sin correo') . '>',
+            ]) ?>
+            <?php if (($enviados ?? []) !== []): ?>
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white fw-semibold"><i class="bi bi-envelope-check me-1"></i>Correos enviados</div>
+                    <ul class="list-group list-group-flush small">
+                        <?php foreach ($enviados as $c): ?>
+                            <li class="list-group-item d-flex justify-content-between gap-2">
+                                <span class="text-truncate"><?= e($c['asunto']) ?><?php if ($c['folio']): ?> <span class="font-monospace text-body-secondary">· <?= e($c['folio']) ?></span><?php endif; ?></span>
+                                <span class="text-nowrap text-body-secondary"><?= e($c['enviado_por_nombre'] ?? '') ?> · <?= e(fecha_mx($c['enviado_en'])) ?></span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
+
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white fw-semibold"><i class="bi bi-ticket-detailed me-1"></i>Tickets (<?= e(count($f['tickets'])) ?>)</div>
             <?php if ($f['tickets'] === []): ?>

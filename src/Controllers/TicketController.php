@@ -176,6 +176,7 @@ final class TicketController extends Controller
             'estados'      => $esTi ? Catalog::estados() : [],
             'departamentos' => $esTi ? Catalog::departamentos() : [],
             'agentes'      => $esTi ? Catalog::agentes() : [],
+            'plantillas'   => $esTi && modulo('plantillas') ? (new \App\Services\PlantillaService(Database::getInstance()))->todas(true) : null,
             // Sugerencia en vivo (disponibilidad de hoy) mientras no haya agente.
             'candidatos'   => $esTi && $ticket['agente_asignado_id'] === null && (int) $ticket['es_cierre'] === 0
                 ? array_slice((new \App\Services\AsignadorService(Database::getInstance()))->candidatos($id), 0, 3)

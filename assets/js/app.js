@@ -261,6 +261,20 @@
         }
     });
 
+    // --- Enviar correo con plantilla: copia asunto y mensaje de la plantilla elegida ---
+    document.querySelectorAll('select[data-plantilla-destino]').forEach(function (sel) {
+        var id = sel.getAttribute('data-plantilla-destino');
+        var asunto = document.getElementById(id + '_asunto');
+        var cuerpo = document.getElementById(id + '_cuerpo');
+        sel.addEventListener('change', function () {
+            var op = sel.options[sel.selectedIndex];
+            if (op && op.value !== '' && asunto && cuerpo) {
+                asunto.value = op.getAttribute('data-asunto') || '';
+                cuerpo.value = op.getAttribute('data-cuerpo') || '';
+            }
+        });
+    });
+
     // --- Aviso nuevo: "Pedir confirmación de lectura" según la importancia elegida ---
     var conf = document.querySelector('input[name="requiere_confirmacion"][data-por-importancia]');
     if (conf) {

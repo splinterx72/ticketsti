@@ -452,6 +452,20 @@ final class Notifier
      * @param array<string, string> $datos
      * @return array{0: string, 1: string}
      */
+    /** Correo escrito por TI (plantillas): asunto y cuerpo tal cual, con enlace al ticket o al sistema. */
+    public static function libre(string $to, string $asunto, string $cuerpo, ?int $ticketId = null): void
+    {
+        self::queue(
+            $to,
+            $asunto,
+            $asunto,
+            $cuerpo,
+            [],
+            $ticketId !== null ? self::ticketUrl($ticketId) : self::baseUrl(),
+            $ticketId !== null ? 'Ver ticket' : 'Abrir Mesa de Ayuda'
+        );
+    }
+
     private static function render(string $title, string $intro, array $datos, string $url, string $cta): array
     {
         $app = (string) config('app.name', 'Mesa de Ayuda TI');
@@ -474,7 +488,7 @@ final class Notifier
             . '<tr><td style="background:#0d6efd;color:#ffffff;padding:16px 24px;font-size:16px;font-weight:600">' . $h($app) . '</td></tr>'
             . '<tr><td style="padding:24px">'
             . '<h1 style="margin:0 0 12px;font-size:20px;color:#212529">' . $h($title) . '</h1>'
-            . '<p style="margin:0 0 16px;color:#495057;line-height:1.5">' . $h($intro) . '</p>'
+            . '<p style="margin:0 0 16px;color:#495057;line-height:1.5">' . nl2br($h($intro)) . '</p>'
             . ($rows !== '' ? '<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px;margin-bottom:20px">' . $rows . '</table>' : '')
             . '<a href="' . $h($url) . '" style="display:inline-block;background:#0d6efd;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600">' . $h($cta) . '</a>'
             . '</td></tr>'
