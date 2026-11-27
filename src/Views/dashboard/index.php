@@ -111,7 +111,10 @@ $n = static fn (array $src, string $k): string => number_format((int) ($src[$k] 
 
     <div class="col-lg-6">
         <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white fw-semibold"><i class="bi bi-laptop me-1"></i>Mis equipos en resguardo</div>
+            <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-laptop me-1"></i>Mis equipos en resguardo</span>
+                <?php if (modulo('garantias')): ?><a class="small fw-normal" href="<?= e(url('/garantias')) ?>"><i class="bi bi-shield-check me-1"></i>Mis garantías</a><?php endif; ?>
+            </div>
             <?php if ($misEquipos === []): ?>
                 <div class="card-body text-body-secondary">No tienes equipos asignados en el GECA.</div>
             <?php else: ?>

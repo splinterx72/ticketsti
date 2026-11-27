@@ -181,6 +181,7 @@ if (!$installMode) {
     // Inventario y garantías (TI).
     $router->get('/ti/equipos', [InventarioController::class, 'index']);
     $router->get('/ti/equipos/{id}', [InventarioController::class, 'show']);
+    $router->get('/garantias', [GarantiaController::class, 'mine']);
     $router->get('/ti/garantias', [GarantiaController::class, 'index']);
     $router->get('/ti/garantias/nueva', [GarantiaController::class, 'create']);
     $router->post('/ti/garantias', [GarantiaController::class, 'store']);

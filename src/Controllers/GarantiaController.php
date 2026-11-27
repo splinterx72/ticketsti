@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Roles;
 use App\Config\Database;
+use App\Core\Auth;
 use App\Core\HttpException;
 use App\Core\Session;
 use App\Core\ValidationException;
@@ -19,6 +20,16 @@ final class GarantiaController extends Controller
     private const ROLES = Roles::TI;
     private const PER_PAGE = 25;
     private const FIELDS = ['serie', 'elemento_cubierto', 'proveedor', 'numero_poliza_contrato', 'fecha_inicio', 'fecha_vencimiento', 'estado', 'notas'];
+
+    /** GET /garantias: historial de solo lectura de las garantías de mis equipos. */
+    public function mine(): void
+    {
+        $this->requireModulo('garantias');
+        $this->view('garantias/mias', [
+            'title'     => 'Mis garantías',
+            'garantias' => (new GarantiaService(Database::getInstance()))->deUsuario((int) Auth::id()),
+        ]);
+    }
 
     public function index(): void
     {
@@ -107,7 +118,7 @@ final class GarantiaController extends Controller
         $this->requireModulo('garantias', self::ROLES);
         $this->verifyCsrf();
         try {
-            $id = (new GarantiaService(Database::getInstance()))->save(null, $this->collect());
+            $id = (new GarantiaService(Database::getInstance()))->save(null, $this->collect(), (int) Auth::id());
         } catch (ValidationException $e) {
             $this->fail($e, '/ti/garantias/nueva');
         }
@@ -135,7 +146,7 @@ final class GarantiaController extends Controller
             throw new HttpException(404, 'La garantía no existe.');
         }
         try {
-            $service->save($id, $this->collect());
+            $service->save($id, $this->collect(), (int) Auth::id());
         } catch (ValidationException $e) {
             $this->fail($e, '/ti/garantias/' . $id . '/editar');
         }

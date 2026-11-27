@@ -144,6 +144,9 @@ $rolLabel = \App\Core\Roles::LABELS;
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><span class="dropdown-item-text small text-body-secondary">Ficha <?= e($authUser['ficha']) ?></span></li>
                             <li><a class="dropdown-item" href="<?= e(url('/cuenta')) ?>"><i class="bi bi-person-gear me-2"></i>Mi cuenta</a></li>
+                            <?php if (modulo('garantias')): ?>
+                                <li><a class="dropdown-item" href="<?= e(url('/garantias')) ?>"><i class="bi bi-shield-check me-2"></i>Mis garantías</a></li>
+                            <?php endif; ?>
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <form method="post" action="<?= e(url('/logout')) ?>" class="m-0">

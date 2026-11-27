@@ -62,8 +62,11 @@ final class GarantiaService
     public function find(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT g.*, e.serie, e.marca, e.modelo, e.serie_monitor1, e.serie_monitor2
+            'SELECT g.*, e.serie, e.marca, e.modelo, e.serie_monitor1, e.serie_monitor2,
+                    uc.nombre AS capturado_por_nombre, ua.nombre AS actualizado_por_nombre
                FROM garantias g JOIN equipos e ON e.id = g.equipo_id
+               LEFT JOIN usuarios uc ON uc.id = g.capturado_por
+               LEFT JOIN usuarios ua ON ua.id = g.actualizado_por
               WHERE g.id = ?'
         );
         $stmt->execute([$id]);
@@ -79,6 +82,26 @@ final class GarantiaService
               ORDER BY FIELD(estado, 'en_reclamacion', 'vigente', 'vencida'), fecha_vencimiento DESC"
         );
         $stmt->execute([$equipoId]);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Historial (solo lectura) de las garantías de los equipos que hoy tiene
+     * a su cargo el trabajador: vigentes y en reclamación primero, luego vencidas.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function deUsuario(int $usuarioId): array
+    {
+        $this->refreshVencidas();
+        $stmt = $this->pdo->prepare(
+            "SELECT g.id, g.elemento_cubierto, g.proveedor, g.numero_poliza_contrato, g.fecha_inicio, g.fecha_vencimiento, g.estado,
+                    e.id AS equipo_id, e.serie, e.marca, e.modelo, e.tipo_componente, e.serie_monitor1, e.serie_monitor2
+               FROM garantias g JOIN equipos e ON e.id = g.equipo_id
+              WHERE e.usuario_id = ?
+              ORDER BY FIELD(g.estado, 'en_reclamacion', 'vigente', 'vencida'), g.fecha_vencimiento DESC"
+        );
+        $stmt->execute([$usuarioId]);
         return $stmt->fetchAll();
     }
 
@@ -133,7 +156,7 @@ final class GarantiaService
      *
      * @param array<string, string> $in
      */
-    public function save(?int $id, array $in): int
+    public function save(?int $id, array $in, ?int $actorId = null): int
     {
         $errors = [];
 
@@ -202,20 +225,20 @@ final class GarantiaService
         if ($id === null) {
             $stmt = $this->pdo->prepare(
                 'INSERT INTO garantias (equipo_id, elemento_cubierto, proveedor, numero_poliza_contrato,
-                                        fecha_inicio, fecha_vencimiento, estado, notas)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                                        fecha_inicio, fecha_vencimiento, estado, notas, capturado_por)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
-            $stmt->execute($params);
+            $stmt->execute([...$params, $actorId]);
             return (int) $this->pdo->lastInsertId();
         }
 
         $stmt = $this->pdo->prepare(
             'UPDATE garantias
                 SET equipo_id = ?, elemento_cubierto = ?, proveedor = ?, numero_poliza_contrato = ?,
-                    fecha_inicio = ?, fecha_vencimiento = ?, estado = ?, notas = ?
+                    fecha_inicio = ?, fecha_vencimiento = ?, estado = ?, notas = ?, actualizado_por = ?
               WHERE id = ?'
         );
-        $stmt->execute([...$params, $id]);
+        $stmt->execute([...$params, $actorId, $id]);
         return $id;
     }
 

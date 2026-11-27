@@ -67,7 +67,13 @@ $action = $isEdit ? '/ti/garantias/' . (int) $g['id'] : '/ti/garantias';
                     </div>
                 </div>
             </div>
-            <div class="card-footer bg-white d-flex justify-content-end gap-2 py-3">
+            <div class="card-footer bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+                <span class="small text-body-secondary">
+                    <?php if ($isEdit): ?>
+                        Registró: <?= e($garantia['capturado_por_nombre'] ?? '—') ?>
+                        <?php if (!empty($garantia['actualizado_por_nombre'])): ?> · Última modificación: <?= e($garantia['actualizado_por_nombre']) ?><?= !empty($garantia['actualizado_en']) ? ' (' . e(fecha_mx((string) $garantia['actualizado_en'])) . ')' : '' ?><?php endif; ?>
+                    <?php endif; ?>
+                </span>
                 <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Guardar</button>
             </div>
         </form>
