@@ -261,6 +261,11 @@
         }
     });
 
+    // --- Selects que envían su formulario al cambiar (p. ej. "¿Para quién es el ticket?") ---
+    document.querySelectorAll('select[data-autoenviar]').forEach(function (sel) {
+        sel.addEventListener('change', function () { if (sel.form) { sel.form.submit(); } });
+    });
+
     // --- Enviar correo con plantilla: copia asunto y mensaje de la plantilla elegida ---
     document.querySelectorAll('select[data-plantilla-destino]').forEach(function (sel) {
         var id = sel.getAttribute('data-plantilla-destino');

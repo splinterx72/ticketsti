@@ -43,6 +43,8 @@ final class Installer
         'equipo_bitlocker', 'bitlocker_consultas', 'agente_estado', 'agente_departamentos',
         // Módulos, correo y plantillas
         'modulos', 'ajustes', 'plantillas_correo', 'correos_enviados',
+        // Delegación de tickets
+        'delegaciones',
     ];
 
     public const TIMEZONES = [

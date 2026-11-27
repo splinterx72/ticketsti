@@ -278,6 +278,7 @@ CREATE TABLE tickets (
     descripcion TEXT NOT NULL,
     prioridad ENUM('baja', 'media', 'alta', 'critica') NOT NULL DEFAULT 'media',
     usuario_solicitante_id INT UNSIGNED NOT NULL,
+    creado_por_id INT UNSIGNED NULL,
     agente_asignado_id INT UNSIGNED NULL,
     sugerido_agente_id INT UNSIGNED NULL,
     departamento_id INT UNSIGNED NOT NULL,
@@ -301,6 +302,7 @@ CREATE TABLE tickets (
     CONSTRAINT fk_ticket_rep_nivel FOREIGN KEY (reportada_nivel_id) REFERENCES niveles(id) ON DELETE SET NULL,
     INDEX idx_tickets_instalacion (instalacion_id),
     CONSTRAINT fk_ticket_solicitante FOREIGN KEY (usuario_solicitante_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_ticket_creado_por FOREIGN KEY (creado_por_id) REFERENCES usuarios(id) ON DELETE SET NULL,
     CONSTRAINT fk_ticket_agente FOREIGN KEY (agente_asignado_id) REFERENCES usuarios(id) ON DELETE SET NULL,
     CONSTRAINT fk_ticket_sugerido FOREIGN KEY (sugerido_agente_id) REFERENCES usuarios(id) ON DELETE SET NULL,
     CONSTRAINT fk_ticket_depto FOREIGN KEY (departamento_id) REFERENCES departamentos(id) ON DELETE RESTRICT,
@@ -576,6 +578,24 @@ CREATE TABLE correos_enviados (
     CONSTRAINT fk_ce_destinatario FOREIGN KEY (destinatario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
     CONSTRAINT fk_ce_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
     CONSTRAINT fk_ce_enviado FOREIGN KEY (enviado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Delegación: el jefe autoriza a una o varias personas (p. ej. su secretaria)
+-- para levantar tickets a su nombre. ver_todos = también ve y comenta los demás
+-- tickets del jefe. Si el jefe no ha activado su cuenta, la registra TI.
+CREATE TABLE delegaciones (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    jefe_id INT UNSIGNED NOT NULL,
+    delegado_id INT UNSIGNED NOT NULL,
+    ver_todos TINYINT(1) NOT NULL DEFAULT 1,
+    hasta DATE NULL,
+    creado_por INT UNSIGNED NULL,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_delegacion (jefe_id, delegado_id),
+    INDEX idx_deleg_delegado (delegado_id),
+    CONSTRAINT fk_deleg_jefe FOREIGN KEY (jefe_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    CONSTRAINT fk_deleg_delegado FOREIGN KEY (delegado_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    CONSTRAINT fk_deleg_creado FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

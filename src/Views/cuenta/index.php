@@ -94,3 +94,28 @@ $sel = $old !== [] ? [
         </form>
     </div>
 </div>
+
+<div class="row g-4 mt-1">
+    <div class="col-lg-7">
+        <?= partial('delegaciones', [
+            'delegaciones' => $delegaciones, 'puede' => true, 'accion' => '/cuenta/delegaciones', 'volver' => '/cuenta',
+            'quien' => 'ti', 'old' => $old,
+        ]) ?>
+    </div>
+    <?php if ($misJefes !== []): ?>
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white fw-semibold"><i class="bi bi-person-badge me-1"></i>Puedes levantar tickets a nombre de</div>
+                <ul class="list-group list-group-flush">
+                    <?php foreach ($misJefes as $j): ?>
+                        <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                            <span><?= e($j['nombre']) ?> <span class="font-monospace small text-body-secondary"><?= e($j['ficha']) ?></span>
+                                <?php if ($j['hasta']): ?><span class="small text-body-secondary">· hasta <?= e(fecha_mx((string) $j['hasta'], false)) ?></span><?php endif; ?></span>
+                            <a class="btn btn-sm btn-outline-primary" href="<?= e(url('/tickets/nuevo?para=' . $j['id'])) ?>"><i class="bi bi-plus-circle me-1"></i>Ticket</a>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        </div>
+    <?php endif; ?>
+</div>

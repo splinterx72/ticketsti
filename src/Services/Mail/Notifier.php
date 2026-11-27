@@ -48,17 +48,31 @@ final class Notifier
             $url,
             'Ver mi ticket'
         );
+        if (!empty($t['creado_por_email'])) {
+            // Copia breve a quien lo levantó a nombre del jefe.
+            self::queue(
+                (string) $t['creado_por_email'],
+                "[{$t['folio']}] Levantaste un ticket a nombre de {$t['solicitante_nombre']}",
+                'Ticket registrado',
+                "Registramos el ticket que levantaste a nombre de {$t['solicitante_nombre']}. Te avisaremos también a ti de su avance.",
+                self::resumen($t),
+                $url,
+                'Ver ticket'
+            );
+        }
 
         $detalle = self::fichaCompleta($t);
         foreach (self::avisoTicketNuevo($t['instalacion_id'] !== null ? (int) $t['instalacion_id'] : null) as $email) {
-            if (strcasecmp($email, (string) $t['solicitante_email']) === 0) {
+            if (in_array(mb_strtolower($email), self::interesados($t), true)) {
                 continue;
             }
             self::queue(
                 $email,
                 "[{$t['folio']}] Nuevo ticket ({$t['prioridad']}): {$t['titulo']}",
                 'Nuevo ticket en la bandeja',
-                "{$t['solicitante_nombre']} (ficha {$t['solicitante_ficha']}) levantó un ticket.",
+                !empty($t['creado_por_nombre'])
+                    ? "{$t['creado_por_nombre']} levantó un ticket a nombre de {$t['solicitante_nombre']} (ficha {$t['solicitante_ficha']})."
+                    : "{$t['solicitante_nombre']} (ficha {$t['solicitante_ficha']}) levantó un ticket.",
                 $detalle,
                 $url,
                 'Atender ticket'
@@ -78,17 +92,21 @@ final class Notifier
         $url = self::ticketUrl($ticketId);
         $extracto = mb_strlen($mensaje) > 600 ? mb_substr($mensaje, 0, 600) . '…' : $mensaje;
 
-        if ($autorId === (int) $t['usuario_solicitante_id']) {
-            // El usuario respondió: avisar al agente asignado o al equipo TI.
+        if (self::esDelLadoDelUsuario($t, $autorId)) {
+            // El usuario (o quien levantó por él) respondió: avisar al agente asignado o al equipo TI.
             $destinos = $t['agente_email'] !== null
                 ? [(string) $t['agente_email']]
                 : self::responsables($t['instalacion_id'] !== null ? (int) $t['instalacion_id'] : null);
+            $stmt = Database::getInstance()->prepare('SELECT nombre FROM usuarios WHERE id = ?');
+            $stmt->execute([$autorId]);
+            $autor = (string) ($stmt->fetchColumn() ?: $t['solicitante_nombre']);
+            $quien = $autorId === (int) $t['usuario_solicitante_id'] ? $autor : "{$autor} (a nombre de {$t['solicitante_nombre']})";
             foreach ($destinos as $email) {
                 self::queue(
                     $email,
                     "[{$t['folio']}] Respuesta del usuario: {$t['titulo']}",
                     'El usuario respondió',
-                    "{$t['solicitante_nombre']} escribió:",
+                    "{$quien} escribió:",
                     ['Mensaje' => $extracto],
                     $url,
                     'Ver ticket'
@@ -97,15 +115,43 @@ final class Notifier
             return;
         }
 
-        self::queue(
-            (string) $t['solicitante_email'],
-            "[{$t['folio']}] TI respondió a tu ticket",
-            'Tienes una respuesta de TI',
-            "Sobre tu ticket \"{$t['titulo']}\":",
-            ['Mensaje' => $extracto, 'Estado' => (string) $t['estado_nombre']],
-            $url,
-            'Responder'
-        );
+        foreach (self::interesados($t) as $email) {
+            self::queue(
+                $email,
+                "[{$t['folio']}] TI respondió a tu ticket",
+                'Tienes una respuesta de TI',
+                "Sobre el ticket \"{$t['titulo']}\" de {$t['solicitante_nombre']}:",
+                ['Mensaje' => $extracto, 'Estado' => (string) $t['estado_nombre']],
+                $url,
+                'Responder'
+            );
+        }
+    }
+
+    /**
+     * Correos del lado del usuario: el solicitante y, si lo levantó otra
+     * persona a su nombre, también ella.
+     *
+     * @param array<string, mixed> $t
+     * @return list<string>
+     */
+    private static function interesados(array $t): array
+    {
+        return self::unicos([
+            mb_strtolower(Mailer::cleanAddress((string) ($t['solicitante_email'] ?? ''))),
+            mb_strtolower(Mailer::cleanAddress((string) ($t['creado_por_email'] ?? ''))),
+        ]);
+    }
+
+    /** @param array<string, mixed> $t */
+    private static function esDelLadoDelUsuario(array $t, int $autorId): bool
+    {
+        if ($autorId === (int) $t['usuario_solicitante_id'] || $autorId === (int) ($t['creado_por_id'] ?? 0)) {
+            return true;
+        }
+        $stmt = Database::getInstance()->prepare('SELECT rol FROM usuarios WHERE id = ?');
+        $stmt->execute([$autorId]);
+        return !\App\Core\Roles::esTi((string) $stmt->fetchColumn());
     }
 
     public static function ticketActualizado(int $ticketId, int $actorId, bool $cambioEstado, bool $cambioAgente): void
@@ -116,10 +162,10 @@ final class Notifier
         }
         $url = self::ticketUrl($ticketId);
 
-        if ($cambioEstado) {
+        foreach ($cambioEstado ? self::interesados($t) : [] as $destino) {
             $cerrado = (int) $t['es_cierre'] === 1;
             self::queue(
-                (string) $t['solicitante_email'],
+                $destino,
                 "[{$t['folio']}] " . ($cerrado ? 'Ticket ' . mb_strtolower((string) $t['estado_nombre']) : 'Tu ticket cambió a: ' . $t['estado_nombre']),
                 $cerrado ? 'Tu ticket fue ' . mb_strtolower((string) $t['estado_nombre']) : 'Tu ticket cambió de estado',
                 "\"{$t['titulo']}\" ahora está en: {$t['estado_nombre']}."
@@ -544,6 +590,13 @@ final class Notifier
         ];
         if (!empty($t['solicitante_celular'])) {
             $d['Celular'] = (string) $t['solicitante_celular'];
+        }
+        if (!empty($t['creado_por_nombre'])) {
+            $contacto = array_filter([
+                !empty($t['creado_por_ext']) ? 'ext. ' . $t['creado_por_ext'] : null,
+                !empty($t['creado_por_celular']) ? 'cel. ' . $t['creado_por_celular'] : null,
+            ]);
+            $d['Levantado por'] = $t['creado_por_nombre'] . ($contacto !== [] ? ' (' . implode(', ', $contacto) . ')' : '');
         }
         $d['Jefe'] = !empty($t['solicitante_jefe'])
             ? $t['solicitante_jefe'] . (!empty($t['solicitante_jefe_ficha']) ? ' (ficha ' . $t['solicitante_jefe_ficha'] . ')' : '')

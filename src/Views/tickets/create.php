@@ -8,6 +8,8 @@
  * @var array<string, string> $tipos
  * @var array<string, string> $prioridades
  * @var array<string, string> $old
+ * @var list<array{id: int, nombre: string, ficha: string, ver_todos: bool, hasta: ?string}> $jefes  quienes me autorizaron
+ * @var array{id: int, nombre: string, ficha: string}|null $para  a nombre de quién (null = yo)
  */
 $hasOld = $old !== [];
 // Regla 3.C: se preselecciona el equipo principal (el primero, ordenado por es_principal DESC).
@@ -33,8 +35,27 @@ if ($hasOld) {
     <a href="<?= e(url('/tickets')) ?>" class="btn btn-link"><i class="bi bi-arrow-left me-1"></i>Mis tickets</a>
 </div>
 
+<?php if ($jefes !== []): ?>
+    <form method="get" action="<?= e(url('/tickets/nuevo')) ?>" class="card border-0 shadow-sm mb-4 para-quien<?= $para !== null ? ' is-delegado' : '' ?>">
+        <div class="card-body d-flex flex-wrap align-items-center gap-3">
+            <label class="fw-semibold mb-0" for="para"><i class="bi bi-people me-1"></i>¿Para quién es el ticket?</label>
+            <select class="form-select w-auto flex-grow-1" id="para" name="para" data-autoenviar style="max-width: 28rem;">
+                <option value="0">Para mí</option>
+                <?php foreach ($jefes as $j): ?>
+                    <option value="<?= (int) $j['id'] ?>" <?= $para !== null && $para['id'] === $j['id'] ? 'selected' : '' ?>>A nombre de <?= e($j['nombre']) ?> (<?= e($j['ficha']) ?>)</option>
+                <?php endforeach; ?>
+            </select>
+            <noscript><button class="btn btn-outline-primary btn-sm" type="submit">Cambiar</button></noscript>
+            <?php if ($para !== null): ?>
+                <div class="w-100 small text-body-secondary"><i class="bi bi-info-circle me-1"></i>Se muestran los equipos y la ubicación de <strong><?= e($para['nombre']) ?></strong>. El ticket quedará a su nombre, indicando que tú lo levantaste, y a los dos les llegarán los avisos.</div>
+            <?php endif; ?>
+        </div>
+    </form>
+<?php endif; ?>
+
 <form method="post" action="<?= e(url('/tickets')) ?>" id="ticketForm" class="needs-loading" enctype="multipart/form-data" novalidate>
     <?= csrf_field() ?>
+    <input type="hidden" name="para_usuario_id" value="<?= (int) ($para['id'] ?? 0) ?>">
     <div class="row g-4">
         <div class="col-lg-7">
             <div class="card border-0 shadow-sm">
@@ -102,7 +123,7 @@ if ($hasOld) {
                         <option value="0" <?= $equipoSel === 0 ? 'selected' : '' ?>>Sin equipo / Incidencia general</option>
                     </select>
                     <?php if ($equipos === []): ?>
-                        <div class="form-text">No tienes equipos en resguardo; el ticket se registrará como incidencia general.</div>
+                        <div class="form-text"><?= $para !== null ? e($para['nombre']) . ' no tiene equipos en resguardo' : 'No tienes equipos en resguardo' ?>; el ticket se registrará como incidencia general.</div>
                     <?php endif; ?>
 
                     <div class="mt-3 equipo-only">

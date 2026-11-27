@@ -39,6 +39,8 @@ final class CuentaController extends Controller
             'hayCatalogo' => $fisicas->hayCatalogo(),
             'dominios'    => VerificacionEmailService::dominios(),
             'minPassword' => Roles::esTi(Auth::user()['rol'] ?? null) ? PasswordPolicy::MIN_ADMIN : PasswordPolicy::MIN_USER,
+            'delegaciones' => (new \App\Services\DelegacionService(Database::getInstance()))->deJefe((int) Auth::id()),
+            'misJefes'     => (new \App\Services\DelegacionService(Database::getInstance()))->jefesDe((int) Auth::id()),
         ]);
     }
 

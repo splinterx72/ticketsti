@@ -84,6 +84,7 @@ final class TicketService
                     s.nombre AS solicitante_nombre, s.ficha AS solicitante_ficha, s.email AS solicitante_email,
                     s.telefono_ext AS solicitante_ext, s.celular AS solicitante_celular,
                     s.jefe_nombre AS solicitante_jefe, s.jefe_ficha AS solicitante_jefe_ficha,
+                    cp.nombre AS creado_por_nombre, cp.email AS creado_por_email, cp.telefono_ext AS creado_por_ext, cp.celular AS creado_por_celular,
                     e.tipo_componente, e.ubicacion_referencia AS geca_referencia,
                     a.nombre AS agente_nombre,
                     d.nombre AS departamento_nombre,
@@ -99,6 +100,7 @@ final class TicketService
                LEFT JOIN instalaciones inst ON inst.id = t.instalacion_id
                LEFT JOIN ubicaciones_fisicas ubf ON ubf.id = t.reportada_ubicacion_fisica_id
                JOIN usuarios s       ON s.id = t.usuario_solicitante_id
+               LEFT JOIN usuarios cp ON cp.id = t.creado_por_id
                LEFT JOIN usuarios a  ON a.id = t.agente_asignado_id
                JOIN departamentos d  ON d.id = t.departamento_id
                JOIN estados es       ON es.id = t.estado_id
@@ -150,9 +152,20 @@ final class TicketService
      */
     public function create(array $user, array $in, array $archivos = []): array
     {
-        $userId = (int) $user['id'];
         $esTi = Roles::esTi($user['rol']);
         $errors = [];
+
+        // A nombre de otra persona (delegación: la secretaria levanta por su jefe).
+        $userId = (int) $user['id'];
+        $creadoPor = null;
+        $para = (int) ($in['para_usuario_id'] ?? 0);
+        if ($para > 0 && $para !== $userId) {
+            if (!(new DelegacionService($this->pdo))->puedeLevantarPor($userId, $para)) {
+                throw new ValidationException(['No estás autorizado para levantar tickets a nombre de esa persona.']);
+            }
+            $creadoPor = $userId;
+            $userId = $para;
+        }
 
         $tipo = $in['tipo_ticket'] ?? '';
         if (!in_array($tipo, Catalog::TIPOS_USUARIO, true)) {
@@ -184,7 +197,9 @@ final class TicketService
                 }
             }
             if ($equipo === null) {
-                $errors[] = 'El equipo seleccionado no está asignado a tu ficha.';
+                $errors[] = $creadoPor === null
+                    ? 'El equipo seleccionado no está asignado a tu ficha.'
+                    : 'El equipo seleccionado no está asignado a la ficha de esa persona.';
             }
         }
 
@@ -239,6 +254,7 @@ final class TicketService
                 'descripcion'            => $descripcion,
                 'prioridad'              => $prioridad,
                 'usuario_solicitante_id' => $userId,
+                'creado_por_id'          => $creadoPor,
                 'departamento_id'        => Catalog::departamentoParaTipo($tipo),
                 'estado_id'              => Catalog::estadoIdPorNombre(Catalog::ESTADO_INICIAL),
                 'equipo_id'              => $equipo !== null ? (int) $equipo['id'] : null,
@@ -332,15 +348,15 @@ final class TicketService
     {
         // Folio temporal único; se reemplaza por TK-AAAA-NNNNNN aleatorio.
         $stmt = $this->pdo->prepare(
-            'INSERT INTO tickets (folio, tipo_ticket, titulo, descripcion, prioridad, usuario_solicitante_id,
+            'INSERT INTO tickets (folio, tipo_ticket, titulo, descripcion, prioridad, usuario_solicitante_id, creado_por_id,
                                   departamento_id, estado_id, equipo_id, componente_afectado, hostname_reportado,
                                   discrepancia_ubicacion, instalacion_id, reportada_ubicacion_fisica_id,
                                   reportada_nivel_id, reportada_ala, referencia)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             'TMP-' . bin2hex(random_bytes(8)),
-            $d['tipo_ticket'], $d['titulo'], $d['descripcion'], $d['prioridad'], $d['usuario_solicitante_id'],
+            $d['tipo_ticket'], $d['titulo'], $d['descripcion'], $d['prioridad'], $d['usuario_solicitante_id'], $d['creado_por_id'] ?? null,
             $d['departamento_id'], $d['estado_id'], $d['equipo_id'], $d['componente_afectado'], $d['hostname_reportado'],
             $d['discrepancia_ubicacion'], $d['instalacion_id'], $d['reportada_ubicacion_fisica_id'],
             $d['reportada_nivel_id'], $d['reportada_ala'], $d['referencia'],

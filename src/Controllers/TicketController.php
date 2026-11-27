@@ -30,6 +30,7 @@ final class TicketController extends Controller
         'tipo_ticket', 'prioridad', 'titulo', 'descripcion', 'equipo_id',
         'componente_afectado', 'hostname_reportado',
         'reportada_instalacion_id', 'reportada_ubicacion_fisica_id', 'reportada_nivel_id', 'reportada_ala', 'reportada_referencia',
+        'para_usuario_id',
     ];
 
     public function index(): void
@@ -43,8 +44,10 @@ final class TicketController extends Controller
             $filtro = 'abiertos';
         }
 
-        $where = 't.usuario_solicitante_id = ?';
-        $params = [(int) $user['id']];
+        // Los míos y los de quienes me autorizaron a levantar tickets por ellos.
+        [$deleg, $pDeleg] = \App\Services\DelegacionService::filtroSql((int) $user['id']);
+        $where = "(t.usuario_solicitante_id = ? OR {$deleg})";
+        $params = [(int) $user['id'], ...$pDeleg];
         if ($filtro !== 'todos') {
             $where .= ' AND es.es_cierre = ' . ($filtro === 'cerrados' ? '1' : '0');
         }
@@ -58,8 +61,9 @@ final class TicketController extends Controller
             "SELECT t.id, t.folio, t.titulo, t.tipo_ticket, t.prioridad, t.creado_en, t.actualizado_en,
                     t.discrepancia_ubicacion, t.componente_afectado,
                     es.nombre AS estado_nombre, es.color_hex AS estado_color,
-                    e.serie, a.nombre AS agente_nombre
+                    e.serie, a.nombre AS agente_nombre, t.usuario_solicitante_id, s.nombre AS solicitante_nombre
                FROM tickets t
+               JOIN usuarios s ON s.id = t.usuario_solicitante_id
                JOIN estados es ON es.id = t.estado_id
                LEFT JOIN equipos e ON e.id = t.equipo_id
                LEFT JOIN usuarios a ON a.id = t.agente_asignado_id
@@ -83,16 +87,26 @@ final class TicketController extends Controller
     {
         $this->requireLogin();
         $user = Auth::user();
-        $service = new TicketService(Database::getInstance());
-        $equipos = $service->equiposDeUsuario((int) $user['id']);
-
         $pdo = Database::getInstance();
+        $service = new TicketService($pdo);
+
+        // ¿Para quién? Yo, o un jefe que me autorizó (delegación).
+        $jefes = (new \App\Services\DelegacionService($pdo))->jefesDe((int) $user['id']);
+        $para = null;
+        $paraId = (int) ($_GET['para'] ?? 0);
+        foreach ($jefes as $j) {
+            if ($j['id'] === $paraId) {
+                $para = $j;
+            }
+        }
+        $solicitanteId = $para['id'] ?? (int) $user['id'];
+        $equipos = $service->equiposDeUsuario($solicitanteId);
         $fisicas = new UbicacionFisicaService($pdo);
         $stmt = $pdo->prepare(
             'SELECT habitual_ubicacion_fisica_id AS ubicacion_fisica_id, habitual_nivel_id AS nivel_id, habitual_ala AS ala
                FROM usuarios WHERE id = ?'
         );
-        $stmt->execute([(int) $user['id']]);
+        $stmt->execute([$solicitanteId]);
         $habitual = ($stmt->fetch() ?: []) + ['referencia' => ''];
 
         $instalacionGeca = [];
@@ -107,6 +121,8 @@ final class TicketController extends Controller
             'hayCatalogo' => $fisicas->hayCatalogo(),
             'habitual'    => $habitual,
             'instalacionGeca' => $instalacionGeca,
+            'jefes'       => $jefes,
+            'para'        => $para,
             'tipos'       => array_intersect_key(Catalog::TIPOS, array_flip(Catalog::TIPOS_USUARIO)),
             'prioridades' => Auth::hasRole(Roles::TI)
                 ? Catalog::PRIORIDADES
@@ -136,10 +152,14 @@ final class TicketController extends Controller
                 Session::flash('danger', $error);
             }
             $this->rememberInput(self::FORM_FIELDS);
-            redirect('/tickets/nuevo');
+            $para = (int) $input['para_usuario_id'];
+            redirect('/tickets/nuevo' . ($para > 0 ? '?para=' . $para : ''));
         }
 
         Notifier::ticketCreado($result['id']);
+        if ((int) $input['para_usuario_id'] > 0 && (int) $input['para_usuario_id'] !== (int) Auth::id()) {
+            Session::flash('info', 'El ticket quedó a nombre de la persona que te autorizó; a los dos les llegarán los avisos.');
+        }
         if ($result['asignado_a'] !== null) {
             Notifier::ticketActualizado($result['id'], 0, false, true);   // aviso al agente asignado automáticamente
         }
@@ -252,7 +272,11 @@ final class TicketController extends Controller
         $alcance = new Alcance(Database::getInstance());
         $comoTi = Roles::esTi($user['rol'] ?? null)
             && $alcance->puedeVerTicket($user, ['usuario_solicitante_id' => 0] + $ticket);
-        return [$comoTi || $alcance->puedeVerTicket($user, $ticket), $comoTi];
+        return [
+            $comoTi || $alcance->puedeVerTicket($user, $ticket)
+                || (new \App\Services\DelegacionService(Database::getInstance()))->puedeVerTicket($user, $ticket),
+            $comoTi,
+        ];
     }
 
     /** @return array{0: int, 1: int, 2: int} página, total de páginas, offset */

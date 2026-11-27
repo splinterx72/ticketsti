@@ -40,6 +40,9 @@ $tabs = ['abiertos' => 'Abiertos', 'cerrados' => 'Cerrados', 'todos' => 'Todos']
                     <div class="me-auto">
                         <div class="small text-body-secondary font-monospace"><?= e($t['folio']) ?> · <?= e(tipo_label($t['tipo_ticket'])) ?></div>
                         <div class="fw-semibold"><?= e($t['titulo']) ?></div>
+                        <?php if ((int) $t['usuario_solicitante_id'] !== (int) $authUser['id']): ?>
+                            <span class="badge rounded-pill text-bg-light border"><i class="bi bi-person-badge me-1"></i>A nombre de <?= e($t['solicitante_nombre']) ?></span>
+                        <?php endif; ?>
                         <div class="small text-body-secondary">
                             <?php if ($t['serie'] !== null): ?>
                                 <i class="bi bi-pc-display me-1"></i><?= e($t['serie']) ?> · <?= e(componente_label($t['componente_afectado'])) ?> ·

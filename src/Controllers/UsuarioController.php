@@ -193,6 +193,8 @@ final class UsuarioController extends Controller
             'roles'    => self::ROLES,
             'tipos'    => ['geca' => 'GECA (trabajador)'] + CuentaService::TIPOS,
             'esAdmin'  => (Auth::user()['rol'] ?? '') === 'admin_ti',
+            'delegaciones' => (new \App\Services\DelegacionService(Database::getInstance()))->deJefe($id),
+            'puedeDelegar' => (new \App\Services\DelegacionService(Database::getInstance()))->puedeAdministrar(Auth::user(), $ficha['usuario']),
             'plantillas' => modulo('plantillas') ? (new \App\Services\PlantillaService(Database::getInstance()))->todas(true) : null,
             'enviados'   => modulo('plantillas') ? (new \App\Services\PlantillaService(Database::getInstance()))->enviadosA($id) : [],
         ]);

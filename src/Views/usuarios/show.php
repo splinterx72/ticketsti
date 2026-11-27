@@ -161,6 +161,13 @@ $vigentes = array_values(array_filter($f['equipos'], static fn (array $e): bool 
             </div>
         <?php endif; ?>
 
+        <?php if (($delegaciones ?? []) !== [] || ($puedeDelegar ?? false)): ?>
+            <?= partial('delegaciones', [
+                'delegaciones' => $delegaciones, 'puede' => $puedeDelegar, 'accion' => '/ti/usuarios/' . (int) $f['usuario']['id'] . '/delegaciones',
+                'volver' => '/ti/usuarios/' . (int) $f['usuario']['id'], 'quien' => $f['usuario']['nombre'], 'old' => $old,
+            ]) ?>
+        <?php endif; ?>
+
         <?php if (($plantillas ?? null) !== null): $uu = $f['usuario']; ?>
             <?= partial('enviar_correo', [
                 'plantillas' => $plantillas, 'destinatarioId' => (int) $uu['id'], 'ticketId' => null,

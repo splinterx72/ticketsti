@@ -300,3 +300,6 @@ html:has(.installer-bg) { background: #0a4f62; }
 
 .bitlocker-llave { letter-spacing: .04em; background: var(--msg-adv-t); border: 1.5px solid var(--msg-adv-b); border-radius: .5rem; padding: .3rem .6rem; }
 
+
+/* Nuevo ticket a nombre de otra persona (delegación) */
+.para-quien.is-delegado { border-left: 4px solid var(--mesa-accent) !important; background: #f2fbfa; }

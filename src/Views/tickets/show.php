@@ -38,7 +38,11 @@ $monitor = match ($t['componente_afectado']) {
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body">
                 <div class="small text-body-secondary mb-2">
-                    <strong class="text-body"><?= e($t['solicitante_nombre']) ?></strong> abrió este ticket <?= e(hace($t['creado_en'])) ?>
+                    <?php if (!empty($t['creado_por_nombre'])): ?>
+                        <strong class="text-body"><?= e($t['creado_por_nombre']) ?></strong> levantó este ticket a nombre de <strong class="text-body"><?= e($t['solicitante_nombre']) ?></strong> <?= e(hace($t['creado_en'])) ?>
+                    <?php else: ?>
+                        <strong class="text-body"><?= e($t['solicitante_nombre']) ?></strong> abrió este ticket <?= e(hace($t['creado_en'])) ?>
+                    <?php endif; ?>
                     <span title="<?= e(fecha_mx($t['creado_en'])) ?>">(<?= e(fecha_mx($t['creado_en'])) ?>)</span>
                 </div>
                 <div class="ticket-description"><?= texto_multilinea($t['descripcion']) ?></div>
@@ -285,6 +289,13 @@ $monitor = match ($t['componente_afectado']) {
                     <dt>Teléfono / ext.</dt><dd><?= e($t['solicitante_ext'] ?? '—') ?></dd>
                     <?php if (!empty($t['solicitante_celular'])): ?>
                         <dt>Celular</dt><dd><a href="tel:<?= e(preg_replace('/[^0-9+]/', '', (string) $t['solicitante_celular'])) ?>"><?= e($t['solicitante_celular']) ?></a></dd>
+                    <?php endif; ?>
+                    <?php if (!empty($t['creado_por_nombre'])): ?>
+                        <dt>Levantado por</dt><dd><a href="<?= e(url('/ti/usuarios/' . (int) $t['creado_por_id'])) ?>"><?= e($t['creado_por_nombre']) ?></a>
+                            <div class="small text-body-secondary"><?= e(implode(' · ', array_filter([
+                                !empty($t['creado_por_ext']) ? 'Ext. ' . $t['creado_por_ext'] : null,
+                                !empty($t['creado_por_celular']) ? 'Cel. ' . $t['creado_por_celular'] : null,
+                            ]))) ?></div></dd>
                     <?php endif; ?>
                     <dt>Jefe</dt><dd><?= e($t['solicitante_jefe'] ?? '—') ?><?= !empty($t['solicitante_jefe_ficha']) ? ' <span class="font-monospace text-body-secondary">(' . e($t['solicitante_jefe_ficha']) . ')</span>' : '' ?></dd>
                 </dl>

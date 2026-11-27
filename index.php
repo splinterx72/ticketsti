@@ -22,6 +22,7 @@ use App\Controllers\GarantiaController;
 use App\Controllers\ModuloController;
 use App\Controllers\CorreoController;
 use App\Controllers\PlantillaController;
+use App\Controllers\DelegacionController;
 use App\Controllers\GecaController;
 use App\Controllers\InstallController;
 use App\Controllers\InstalacionController;
@@ -175,6 +176,9 @@ if (!$installMode) {
 
     // Mi cuenta.
     $router->get('/cuenta', [CuentaController::class, 'show']);
+    $router->post('/cuenta/delegaciones', [DelegacionController::class, 'storeMine']);
+    $router->post('/delegaciones/{id}/quitar', [DelegacionController::class, 'destroy']);
+    $router->post('/ti/usuarios/{id}/delegaciones', [DelegacionController::class, 'storeFor']);
     $router->post('/cuenta', [CuentaController::class, 'update']);
     $router->post('/cuenta/password', [CuentaController::class, 'password']);
 
