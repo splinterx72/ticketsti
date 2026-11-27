@@ -255,3 +255,9 @@ html:has(.installer-bg) { background: #0a4f62; }
 .sla-riesgo { --b: var(--msg-adv-b); --a: var(--msg-adv-a); }
 .sla-vencido { --b: var(--msg-error-b); --a: var(--msg-error-a); background: var(--msg-error-t); }
 
+/* Ruta del día (agente) */
+.ruta-inst + .ruta-inst { border-top: 1px solid var(--mesa-border); padding-top: .6rem; margin-top: .4rem; }
+.ruta-lugares { margin: .35rem 0 0 1.5rem; }
+.ruta-lugares li { padding: .3rem 0; border-left: 2px solid #d5e5ea; padding-left: .75rem; }
+.ruta-lugares li:hover { border-left-color: var(--mesa-accent); }
+

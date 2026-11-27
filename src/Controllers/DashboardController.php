@@ -11,6 +11,9 @@ use App\Services\Alcance;
 use App\Services\AvisoService;
 use App\Services\Catalog;
 use App\Services\TicketService;
+use App\Services\TareaService;
+use App\Services\TableroService;
+use App\Services\SlaService;
 
 /**
  * Página de inicio: tickets recientes y equipos del usuario; para TI,
@@ -82,12 +85,23 @@ final class DashboardController extends Controller
                     COALESCE(SUM(es.es_cierre = 0 AND t.agente_asignado_id IS NULL), 0) AS sin_asignar,
                     COALESCE(SUM(es.es_cierre = 0 AND t.agente_asignado_id = ?), 0) AS mios,
                     COALESCE(SUM(es.es_cierre = 0 AND t.prioridad IN ('alta', 'critica')), 0) AS urgentes,
-                    COALESCE(SUM(es.es_cierre = 1 AND DATE(t.cerrado_en) = CURDATE()), 0) AS cerrados_hoy
+                    COALESCE(SUM(es.es_cierre = 1 AND DATE(t.cerrado_en) = CURDATE()), 0) AS cerrados_hoy,
+                    COALESCE(SUM(" . SlaService::sqlVencido() . "), 0) AS sla
                    FROM tickets t JOIN estados es ON es.id = t.estado_id
                   WHERE {$scope}"
             );
             $ts->execute([$userId, ...$scopeParams]);
             $data['ticketStats'] = array_map('intval', $ts->fetch() ?: []);
+
+            // "Mi día": asignados, ruta por edificio y nivel, tareas pendientes.
+            $tablero = new TableroService($pdo);
+            $sla = new SlaService($pdo);
+            $data['asignados'] = array_map(static fn (array $t): array => $t + ['sla' => $sla->estado($t)], $tablero->misAsignados($userId));
+            $data['ruta'] = $tablero->rutaAgente($user);
+            $data['misTareas'] = array_values(array_filter(
+                (new TareaService($pdo))->deAgente($userId),
+                static fn (array $t): bool => !in_array($t['estado'], ['entregada', 'aceptada'], true)
+            ));
 
             $data['ultimaCarga'] = $pdo->query(
                 'SELECT c.*, u.nombre AS agente

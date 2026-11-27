@@ -47,13 +47,14 @@ $n = static fn (array $src, string $k): string => number_format((int) ($src[$k] 
 </div>
 
 <?php if ($esTi): ?>
+    <?= partial('mi_dia', ['asignados' => $asignados ?? [], 'ruta' => $ruta ?? [], 'misTareas' => $misTareas ?? []]) ?>
     <div class="row g-3 mb-4">
         <?php
         $tiles = [
-            ['abiertos', 'Tickets abiertos', 'bi-inbox', 'primary', '/ti/tickets?vista=abiertos'],
-            ['sin_asignar', 'Sin asignar', 'bi-person-dash', 'danger', '/ti/tickets?vista=sin_asignar'],
-            ['mios', 'Asignados a mí', 'bi-person-check', 'info', '/ti/tickets?vista=mios'],
-            ['urgentes', 'Alta / crítica', 'bi-exclamation-triangle', 'warning', '/ti/tickets?vista=abiertos&prioridad=alta'],
+            ['mios', 'Asignados a mí', 'bi-person-check', 'primary', '/ti/tickets?vista=mios'],
+            ['sin_asignar', 'Por tomar', 'bi-person-dash', 'danger', '/ti/tickets?vista=sin_asignar'],
+            ['sla', 'Fuera de tiempo', 'bi-alarm', 'danger', '/ti/tickets?vista=sla'],
+            ['abiertos', 'Abiertos en mis instalaciones', 'bi-inbox', 'info', '/ti/tickets?vista=abiertos'],
             ['cerrados_hoy', 'Cerrados hoy', 'bi-check2-circle', 'success', '/ti/tickets?vista=cerrados'],
         ];
         foreach ($tiles as [$key, $label, $icon, $color, $link]): ?>
