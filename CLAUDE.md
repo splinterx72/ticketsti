@@ -14,7 +14,8 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 * **Archivos GECA:** `.csv` nativo con `fgetcsv` (delimitador `,`/`;`, UTF-8 o ANSI de Excel) y `.xlsx` con `src/Libs/SimpleXLSX.php` (lector en streaming con `ZipArchive` + `XMLReader`). **No usar PhpSpreadsheet** (consumo de RAM excesivo en hosting compartido).
 * **Autoload:** `src/Core/Autoloader.php` (PSR-4 nativo, `App\` → `src/`).
 * **Tipografía y tema:** Roboto (texto) y Roboto Condensed (títulos, navegación, tablas, botones) desde Google Fonts; paleta en `assets/css/theme.css` (primario `#0b5d73`, acento decorativo `#14a39a`, texto verde azulado `#0e7f78`). Sin identidad gráfica de Pemex.
-* **Tareas programadas:** `bin/cron.php` (Tarea Cron diaria de cPanel); respaldo automático en la primera petición del día (`Recordatorios::ejecutarSiPendiente`).
+* **Tareas programadas:** `bin/cron.php` (Tarea Cron de cPanel **cada hora**: recordatorios diarios sin duplicar + escalamiento SLA); respaldo desde las peticiones web (`Recordatorios::ejecutarSiPendiente` una vez al día, `SlaService::escalarSiPendiente` cada 15 min).
+* **Gráficas:** `Core/Grafica` genera SVG/HTML en el servidor (sin librerías). Paleta validada con la guía de visualización: serie 1 `#257de0`, serie 2 `#f47230`; estados `#0aac23`/`#fbb315`/`#dc3c3d` siempre con ícono y texto; cada gráfica trae "Ver como tabla".
 * **Pruebas:** `php tests/run.php [Filtro]` (arnés propio sin Composer; requiere MySQL/MariaDB local con la base `usr_mesa_test`). `tests/` y `docs/` no se empaquetan (`.gitattributes export-ignore`).
 
 ### Estructura
@@ -70,6 +71,13 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
   * Inventario por instalación (`InventarioService`): instalación del equipo = la de su ubicación física real; si no tiene, la equivalencia del inmueble GECA. Filtro "Mis instalaciones" por omisión; tarjetas de equipos y técnicos en el panel. El supervisor relaciona inmuebles GECA libres con sus instalaciones.
   * Rol **Coordinador** por zonas (`zonas`, `instalaciones.zona_id`, `coordinador_zonas` titular/suplencia): ve y supervisa las instalaciones de sus zonas, asigna supervisores en ellas, recibe los avisos de admin local de esos supervisores y los tickets/registros de instalaciones sin supervisor. Lo asigna el Admin TI en *Gestión › Zonas*.
   * Migraciones `2026-11-23_geca_componentes.sql`, `2026-11-24_avisos_imagen.sql`, `2026-11-24_coordinadores_cuentas.sql`.
+* **Fase 7 (hecha):**
+  * Mensajes (`partials/flash`): fondo blanco, borde pastel por tipo, ícono, animación; éxito se cierra a los 6 s. Avisos con acuse de lectura (`aviso_lecturas`, `avisos.requiere_confirmacion`): laten hasta "Enterado"; campana con pendientes; reporte "Leído por X de N" (`/supervisor/avisos/{id}/lectura`).
+  * Tiempos de atención (SLA) configurables por prioridad (`sla_prioridades`, *Gestión › Tiempos de atención*, `SlaService`); `tickets.atendido_en` = primera acción de TI; semáforo en bandeja y ticket; vista "Fuera de tiempo"; escalamiento una vez por ticket (respuesta → supervisores; resolución → coordinadores; si no hay, Admin TI).
+  * Adjuntos en tickets y comentarios (`ticket_archivos`, `storage/tickets`, máx. 5 × 10 MB); los de notas internas solo TI; descarga `/tickets/archivo/{id}`.
+  * "Mi día" del agente (`TableroService::rutaAgente`, `misAsignados`): asignados por urgencia, ruta instalación › edificio › nivel con indicaciones; bandeja filtra por `ubic`/`nivel`.
+  * Tableros de supervisor y coordinador (`TableroService::panel`): indicadores, tendencia 30 días, semáforo SLA, por tipo, por instalación, por edificio, equipos por tipo y tabla por zona › instalación.
+  * Migración `2026-11-27_sla_avisos_adjuntos.sql`.
 * **Fase 4 (hecha):**
   * Garantías (`GarantiaService`, `/ti/garantias`): alta por serie de CPU o de monitor y validación del monitor casado. Las vigentes con fecha pasada se marcan como vencidas al consultarlas (sin cron). "Por vencer" = 60 días.
   * Inventario TI (`/ti/equipos`, `/ti/equipos/{id}`): ficha GECA, ubicaciones, garantías e historial de tickets. El detalle del ticket muestra la garantía que cubre el componente reportado.
@@ -120,7 +128,7 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 * `supervisor_instalaciones` (titular o suplencia con fechas) y `agente_instalaciones` (base o préstamo con fecha fin obligatoria). Vigente = `(desde IS NULL OR desde <= hoy) AND (hasta IS NULL OR hasta >= hoy)`. El admin asigna supervisores; el supervisor asigna agentes a sus instalaciones y presta a los suyos.
 * Ticket nuevo → correo a los supervisores vigentes de su instalación (si no hay: coordinadores de su zona; si tampoco: admin TI) + `mail.mesa_institucional` (Remedy) + `notify_new_tickets_to`.
 * Coordinadores: `coordinador_zonas` con la misma regla de vigencia; el coordinador cuenta como supervisor de todas las instalaciones de sus zonas (`Alcance::instalacionesSupervisadas`).
-* **Avisos** (`avisos`): solo supervisores/admin; vigencia inicio–fin; alcance "todos" (también en el login) o instalaciones propias.
+* **Avisos** (`avisos`): supervisores, coordinadores y admin; vigencia inicio–fin; alcance "todos" (también en el carrusel de la entrada) o instalaciones propias; con confirmación de lectura opcional (por omisión en urgente e importante).
 * **Tareas** (`tareas`, `tarea_asignaciones`, `tarea_archivos`): una tarea, una entrega por agente con sus evidencias; estados asignada → en_proceso → entregada → aceptada | devuelta.
 
 ### E. Gestión de Garantías
@@ -142,4 +150,4 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 
 ## 4. Esquema de base de datos
 
-La fuente de verdad es **`database/schema.sql`** (28 tablas; lista completa en `Installer::TABLES`) con semillas de `estados`, `departamentos`, `niveles` y `ubicacion_tipos`. Cualquier cambio de esquema se hace ahí **y** como script incremental en `database/migraciones/` importable desde phpMyAdmin (ver `database/migraciones/LEEME.md`); `tests/SchemaTest.php` verifica que ambos coincidan.
+La fuente de verdad es **`database/schema.sql`** (31 tablas; lista completa en `Installer::TABLES`) con semillas de `estados`, `departamentos`, `niveles` y `ubicacion_tipos`. Cualquier cambio de esquema se hace ahí **y** como script incremental en `database/migraciones/` importable desde phpMyAdmin (ver `database/migraciones/LEEME.md`); `tests/SchemaTest.php` verifica que ambos coincidan.

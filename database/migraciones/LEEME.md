@@ -10,6 +10,7 @@ completo.
 | `2026-11-23_geca_componentes.sql` | Fase 5 | GECA por componente | Columnas del reporte "Equipos entregados con estatus": tipo de componente, orden, lote, referencia, entidad, municipio, tipo de asignación, resguardo anterior y ficha del jefe |
 | `2026-11-24_avisos_imagen.sql` | GECA por componente | Noticias con imagen | Imagen opcional en los avisos (carrusel de la pantalla de entrada) |
 | `2026-11-24_coordinadores_cuentas.sql` | Noticias con imagen | Coordinadores y cuentas | Tipo de cuenta (administración/prueba), rol Coordinador, zonas y coordinadores por zona |
+| `2026-11-27_sla_avisos_adjuntos.sql` | Coordinadores y cuentas | SLA, lectura y adjuntos | Tiempos de atención por prioridad, primera atención de tickets, acuse de lectura de avisos y adjuntos en tickets |
 
 ## Cómo aplicar una migración (phpMyAdmin en cPanel)
 
