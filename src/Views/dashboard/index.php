@@ -28,26 +28,7 @@ $n = static fn (array $src, string $k): string => number_format((int) ($src[$k] 
 
 <?= partial('avisos', ['avisos' => $avisos]) ?>
 
-<div class="row g-3 mb-4">
-    <?php foreach ([
-        ['abiertos', 'Mis tickets abiertos', 'bi-ticket-detailed', 'primary', '/tickets?estado=abiertos'],
-        ['en_espera', 'Esperan mi respuesta', 'bi-chat-dots', 'warning', '/tickets?estado=abiertos'],
-        ['resueltos_30', 'Resueltos (30 días)', 'bi-check2-circle', 'success', '/tickets?estado=cerrados'],
-    ] as [$key, $label, $icon, $color, $link]): ?>
-        <div class="col-4">
-            <a href="<?= e(url($link)) ?>" class="card h-100 border-0 shadow-sm stat-card text-decoration-none text-body">
-                <div class="card-body">
-                    <i class="bi <?= e($icon) ?> text-<?= e($color) ?> fs-4"></i>
-                    <div class="fs-3 fw-semibold mt-1 stat-value"><?= e($misStats[$key] ?? 0) ?></div>
-                    <div class="small text-body-secondary"><?= e($label) ?></div>
-                </div>
-            </a>
-        </div>
-    <?php endforeach; ?>
-</div>
-
 <?php if ($esTi): ?>
-    <?= partial('mi_dia', ['asignados' => $asignados ?? [], 'ruta' => $ruta ?? [], 'misTareas' => $misTareas ?? []]) ?>
     <div class="row g-3 mb-4">
         <?php
         $tiles = [
@@ -69,7 +50,28 @@ $n = static fn (array $src, string $k): string => number_format((int) ($src[$k] 
             </div>
         <?php endforeach; ?>
     </div>
+    <?= partial('mi_dia', ['asignados' => $asignados ?? [], 'ruta' => $ruta ?? [], 'misTareas' => $misTareas ?? []]) ?>
 <?php endif; ?>
+
+<div class="row g-3 mb-4">
+    <?php foreach ([
+        ['abiertos', 'Mis tickets abiertos', 'bi-ticket-detailed', 'primary', '/tickets?estado=abiertos'],
+        ['en_espera', 'Esperan mi respuesta', 'bi-chat-dots', 'warning', '/tickets?estado=abiertos'],
+        ['resueltos_30', 'Resueltos (30 días)', 'bi-check2-circle', 'success', '/tickets?estado=cerrados'],
+    ] as [$key, $label, $icon, $color, $link]): ?>
+        <div class="col-4">
+            <a href="<?= e(url($link)) ?>" class="card h-100 border-0 shadow-sm stat-card text-decoration-none text-body">
+                <div class="card-body">
+                    <i class="bi <?= e($icon) ?> text-<?= e($color) ?> fs-4"></i>
+                    <div class="fs-3 fw-semibold mt-1 stat-value"><?= e($misStats[$key] ?? 0) ?></div>
+                    <div class="small text-body-secondary"><?= e($label) ?></div>
+                </div>
+            </a>
+        </div>
+    <?php endforeach; ?>
+</div>
+
+
 
 <div class="row g-4 mb-4">
     <div class="col-lg-6">

@@ -4,6 +4,8 @@
  * @var list<array<string, mixed>> $semaforo
  * @var list<array<string, mixed>> $porInstalacion
  * @var list<array<string, mixed>> $tareas
+ * @var array<string, mixed> $panel
+ * @var bool $esCoordinador
  * @var array<int, array{equipos: int, con_garantia: int, discrepancias: int, sin_trabajador: int}> $equipos
  * @var array<int, list<array<string, mixed>>> $tecnicos
  */
@@ -18,55 +20,152 @@ foreach ($semaforo as $s) {
 }
 ?>
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <h1 class="h4 mb-0"><i class="bi bi-person-badge me-1"></i>Supervisión</h1>
+    <h1 class="h4 mb-0"><i class="bi bi-person-badge me-1"></i><?= $esCoordinador ? 'Mi zona' : 'Supervisión' ?></h1>
     <div class="d-flex flex-wrap gap-2">
         <a class="btn btn-primary btn-sm" href="<?= e(url('/tareas/nueva')) ?>"><i class="bi bi-plus-lg me-1"></i>Nueva tarea</a>
         <a class="btn btn-outline-primary btn-sm" href="<?= e(url('/supervisor/avisos/nuevo')) ?>"><i class="bi bi-megaphone me-1"></i>Publicar aviso</a>
         <a class="btn btn-outline-primary btn-sm" href="<?= e(url('/supervisor/ubicaciones')) ?>"><i class="bi bi-geo-alt me-1"></i>Ubicaciones</a>
         <a class="btn btn-outline-primary btn-sm" href="<?= e(url('/supervisor/agentes')) ?>"><i class="bi bi-people me-1"></i>Agentes</a>
+        <?php if ($esCoordinador): ?><a class="btn btn-outline-primary btn-sm" href="<?= e(url('/supervisor/supervisores')) ?>"><i class="bi bi-diagram-3 me-1"></i>Supervisores</a><?php endif; ?>
     </div>
 </div>
 
 <?php if ($instalaciones === []): ?>
-    <div class="alert alert-info">Aún no tienes instalaciones a tu cargo. El Admin TI te las asigna en Gestión › Instalaciones.</div>
-<?php else: ?>
+    <div class="alert alert-info">Aún no tienes instalaciones a tu cargo. <?= $esCoordinador ? 'El Admin TI te asigna zonas en Gestión › Zonas.' : 'El Admin TI o tu coordinador te las asignan.' ?></div>
+<?php else:
+    $k = $panel['kpi'];
+    $tipos = \App\Services\Catalog::TIPOS;
+    $kpis1 = [
+        ['abiertos', 'Tickets abiertos', '/ti/tickets?vista=abiertos', false],
+        ['sin_asignar', 'Sin asignar', '/ti/tickets?vista=sin_asignar', $k['sin_asignar'] > 0],
+        ['vencidos', 'Fuera de tiempo', '/ti/tickets?vista=sla', $k['vencidos'] > 0],
+        ['cerrados_7d', 'Cerrados (7 días)', '/ti/tickets?vista=cerrados', false],
+    ];
+    $kpis2 = [
+        ['equipos', 'Equipos', '/ti/equipos?inst=mias'],
+        ['con_garantia', 'Con garantía', '/ti/equipos?inst=mias'],
+        ['discrepancias', 'Fuera de su ubicación GECA', '/ti/equipos?inst=mias&filtro=discrepancia'],
+        ['sin_trabajador', 'Sin trabajador (baja)', '/ti/equipos?inst=mias'],
+        ['tecnicos', 'Técnicos', '/supervisor/agentes'],
+    ];
+    ?>
+<div class="row g-3 mb-3">
+    <?php foreach ($kpis1 as [$key, $label, $link, $alerta]): ?>
+        <div class="col-6 col-md-4 col-xl-2"><a class="kpi <?= $alerta ? 'kpi-alerta' : '' ?>" href="<?= e(url($link)) ?>"><div class="kpi-valor"><?= e(number_format($k[$key])) ?></div><div class="kpi-etq"><?= e($label) ?></div></a></div>
+    <?php endforeach; ?>
+    <div class="col-6 col-md-4 col-xl-2"><div class="kpi"><div class="kpi-valor"><?= $k['horas_promedio'] === null ? '—' : e($k['horas_promedio']) . ' h' ?></div><div class="kpi-etq">Resolución promedio (30 días)</div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="kpi <?= $k['cumplimiento'] !== null && $k['cumplimiento'] < 80 ? 'kpi-alerta' : '' ?>"><div class="kpi-valor"><?= $k['cumplimiento'] === null ? '—' : e($k['cumplimiento']) . ' %' ?></div><div class="kpi-etq">Resueltos a tiempo (30 días)</div></div></div>
+</div>
 <div class="row g-3 mb-4">
-    <?php foreach ($porInstalacion as $i): $iid = (int) $i['id']; $eq = $equipos[$iid] ?? ['equipos' => 0, 'con_garantia' => 0, 'discrepancias' => 0, 'sin_trabajador' => 0]; $inv = '/ti/equipos?inst=' . $iid; ?>
-        <div class="col-md-6 col-xxl-4">
-            <div class="card h-100 border-0 shadow-sm stat-card">
-                <div class="card-body">
-                    <div class="fw-semibold text-truncate"><i class="bi bi-buildings me-1"></i><?= e($i['nombre']) ?></div>
-                    <div class="row g-2 mt-1 text-center">
-                        <a class="col-4 text-decoration-none text-body" href="<?= e(url('/ti/tickets?inst=' . $iid)) ?>">
-                            <div class="fs-4 fw-semibold stat-value"><?= e($i['abiertos']) ?></div><div class="small text-body-secondary">tickets abiertos</div>
-                        </a>
-                        <a class="col-4 text-decoration-none text-body" href="<?= e(url($inv)) ?>">
-                            <div class="fs-4 fw-semibold stat-value"><?= e(number_format($eq['equipos'])) ?></div><div class="small text-body-secondary">equipos</div>
-                        </a>
-                        <a class="col-4 text-decoration-none text-body" href="<?= e(url('/supervisor/agentes')) ?>">
-                            <div class="fs-4 fw-semibold stat-value"><?= e(count($tecnicos[$iid] ?? [])) ?></div><div class="small text-body-secondary">técnicos</div>
-                        </a>
-                    </div>
-                    <div class="small mt-2 d-flex flex-wrap gap-x-3 column-gap-3 row-gap-1">
-                        <?php if ((int) $i['sin_asignar'] > 0): ?><span class="text-danger-emphasis"><i class="bi bi-person-dash me-1"></i><?= e($i['sin_asignar']) ?> tickets sin asignar</span><?php endif; ?>
-                        <a class="text-success-emphasis text-decoration-none" href="<?= e(url($inv)) ?>"><i class="bi bi-shield-check me-1"></i><?= e(number_format($eq['con_garantia'])) ?> con garantía</a>
-                        <?php if ($eq['discrepancias'] > 0): ?><a class="text-warning-emphasis text-decoration-none" href="<?= e(url($inv . '&filtro=discrepancia')) ?>"><i class="bi bi-geo-alt me-1"></i><?= e(number_format($eq['discrepancias'])) ?> fuera de su ubicación GECA</a><?php endif; ?>
-                        <?php if ($eq['sin_trabajador'] > 0): ?><span class="text-body-secondary"><i class="bi bi-box-seam me-1"></i><?= e(number_format($eq['sin_trabajador'])) ?> sin trabajador (baja)</span><?php endif; ?>
-                    </div>
-                    <?php if (!empty($tecnicos[$iid])): ?>
-                        <ul class="list-unstyled small mt-2 mb-0 border-top pt-2">
-                            <?php foreach ($tecnicos[$iid] as $tc): ?>
-                                <li class="d-flex justify-content-between gap-2">
-                                    <span class="text-truncate"><?= e($tc['nombre']) ?><?= $tc['tipo'] === 'prestamo' ? ' <span class="badge text-bg-info">Préstamo hasta ' . e(fecha_mx((string) $tc['hasta'], false)) . '</span>' : '' ?></span>
-                                    <span class="text-body-secondary text-nowrap"><?= e($tc['abiertos']) ?> abiertos</span>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php endif; ?>
-                </div>
+    <?php foreach ($kpis2 as [$key, $label, $link]): ?>
+        <div class="col-6 col-md-4 col-xl"><a class="kpi" href="<?= e(url($link)) ?>"><div class="kpi-valor"><?= e(number_format($k[$key])) ?></div><div class="kpi-etq"><?= e($label) ?></div></a></div>
+    <?php endforeach; ?>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-graph-up me-1"></i>Tickets creados y cerrados por día (30 días)</div>
+            <div class="card-body">
+                <?= \App\Core\Grafica::lineas($panel['serie']['dias'], [
+                    ['Creados', \App\Core\Grafica::SERIE_1, $panel['serie']['creados']],
+                    ['Cerrados', \App\Core\Grafica::SERIE_2, $panel['serie']['cerrados']],
+                ], 'Tickets creados y cerrados por día en los últimos 30 días') ?>
             </div>
         </div>
-    <?php endforeach; ?>
+    </div>
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-stopwatch me-1"></i>Tiempos de atención de los abiertos</div>
+            <div class="card-body">
+                <?= \App\Core\Grafica::segmentada([
+                    ['En tiempo', $panel['sla']['en_tiempo'], \App\Core\Grafica::BUENO, 'bi-clock'],
+                    ['Por vencer', $panel['sla']['por_vencer'], \App\Core\Grafica::ALERTA, 'bi-hourglass-split'],
+                    ['Vencidos', $panel['sla']['vencido'], \App\Core\Grafica::CRITICO, 'bi-alarm'],
+                ]) ?>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-tags me-1"></i>Abiertos por tipo</div>
+            <div class="card-body">
+                <?= \App\Core\Grafica::barras(array_map(
+                    static fn (string $t, int $n): array => [$tipos[$t] ?? $t, $n, url('/ti/tickets?vista=abiertos&tipo=' . rawurlencode($t))],
+                    array_keys($panel['por_tipo']), array_values($panel['por_tipo'])
+                ), 'tickets') ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-buildings me-1"></i>Tickets abiertos por instalación</div>
+            <div class="card-body">
+                <?= \App\Core\Grafica::barras(array_map(
+                    static fn (array $i): array => [$i['nombre'], $i['abiertos'], url('/ti/tickets?vista=abiertos&inst=' . (int) $i['id'])],
+                    $panel['por_instalacion']
+                ), 'tickets abiertos') ?>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-geo-alt me-1"></i>Tickets abiertos por edificio o área</div>
+            <div class="card-body">
+                <?= \App\Core\Grafica::barras(array_map(
+                    static fn (array $l): array => [$l['ubicacion'] . ' · ' . $l['instalacion'], $l['abiertos'],
+                        url('/ti/tickets?vista=abiertos&inst=' . (int) $l['instalacion_id'] . ($l['ubicacion_id'] !== null ? '&ubic=' . (int) $l['ubicacion_id'] : ''))],
+                    $panel['por_lugar']
+                ), 'tickets abiertos') ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-12 order-2">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-pc-display me-1"></i>Equipos por tipo</div>
+            <div class="card-body">
+                <?= \App\Core\Grafica::barras(array_map(
+                    static fn (string $t, int $n): array => [$t === 'SIN TIPO' ? 'Sin tipo' : tipo_equipo($t), $n],
+                    array_keys($panel['equipos_tipo']), array_values($panel['equipos_tipo'])
+                ), 'equipos') ?>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 order-1">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-table me-1"></i><?= $esCoordinador ? 'Por zona e instalación' : 'Por instalación' ?></div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0 small">
+                    <thead class="table-light"><tr>
+                        <th>Instalación</th><th class="text-end">Abiertos</th><th class="text-end">Sin asignar</th><th class="text-end">Fuera de tiempo</th>
+                        <th class="text-end">Cerrados 7 d</th><th class="text-end">Prom. (h)</th><th class="text-end">Equipos</th><th class="text-end">Técnicos</th><th>Supervisor</th>
+                    </tr></thead>
+                    <tbody>
+                    <?php $zonaActual = false; foreach ($panel['por_instalacion'] as $i): ?>
+                        <?php if ($esCoordinador && $zonaActual !== $i['zona']): $zonaActual = $i['zona']; ?>
+                            <tr class="table-light"><td colspan="9" class="fw-semibold"><i class="bi bi-map me-1"></i><?= e($i['zona'] ?? 'Sin zona') ?></td></tr>
+                        <?php endif; ?>
+                        <tr>
+                            <td><a href="<?= e(url('/ti/tickets?vista=abiertos&inst=' . (int) $i['id'])) ?>"><?= e($i['nombre']) ?></a></td>
+                            <td class="text-end"><?= e($i['abiertos']) ?></td>
+                            <td class="text-end <?= $i['sin_asignar'] > 0 ? 'text-danger-emphasis fw-semibold' : '' ?>"><?= e($i['sin_asignar']) ?></td>
+                            <td class="text-end"><?= $i['vencidos'] > 0 ? '<span class="sla-badge sla-vencido"><i class="bi bi-alarm"></i> ' . e($i['vencidos']) . '</span>' : '0' ?></td>
+                            <td class="text-end"><?= e($i['cerrados_7d']) ?></td>
+                            <td class="text-end"><?= e($i['horas'] ?? '—') ?></td>
+                            <td class="text-end"><a href="<?= e(url('/ti/equipos?inst=' . (int) $i['id'])) ?>"><?= e(number_format($i['equipos'])) ?></a></td>
+                            <td class="text-end"><?= e($i['tecnicos']) ?></td>
+                            <td><?= $i['supervisores'] ? e($i['supervisores']) : '<span class="text-danger-emphasis"><i class="bi bi-exclamation-triangle me-1"></i>Sin supervisor</span>' ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-4">

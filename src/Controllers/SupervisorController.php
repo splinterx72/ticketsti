@@ -312,6 +312,8 @@ final class SupervisorController extends Controller
             'agentes'        => $agentes,
             'semaforo'       => $semaforo,
             'porInstalacion' => $porInstalacion,
+            'panel'          => (new \App\Services\TableroService($pdo))->panel($ids),
+            'esCoordinador'  => ($user['rol'] ?? '') === 'coordinador',
             'equipos'        => $equipos,
             'tecnicos'       => $tecnicos,
             'tareas'         => array_slice($tareas, 0, 8),
