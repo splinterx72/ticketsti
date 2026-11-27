@@ -20,6 +20,7 @@ use App\Controllers\DashboardController;
 use App\Controllers\EquipoController;
 use App\Controllers\GarantiaController;
 use App\Controllers\ModuloController;
+use App\Controllers\CorreoController;
 use App\Controllers\GecaController;
 use App\Controllers\InstallController;
 use App\Controllers\InstalacionController;
@@ -210,6 +211,8 @@ if (!$installMode) {
     $router->post('/ti/instalaciones/{id}', [InstalacionController::class, 'update']);
     $router->post('/ti/instalaciones/{id}/supervisores', [InstalacionController::class, 'addSupervisor']);
     $router->post('/ti/instalaciones/asignacion/{id}/quitar', [InstalacionController::class, 'removeSupervisor']);
+    $router->get('/ti/correo', [CorreoController::class, 'index']);
+    $router->post('/ti/correo', [CorreoController::class, 'save']);
     $router->get('/ti/modulos', [ModuloController::class, 'index']);
     $router->post('/ti/modulos', [ModuloController::class, 'save']);
     $router->get('/ti/sla', [SlaController::class, 'index']);
@@ -247,6 +250,7 @@ if (!$installMode) {
     $router->post('/supervisor/asignacion/{id}/quitar', [SupervisorController::class, 'removeAsignacion']);
     $router->post('/supervisor/agentes/{id}/disponibilidad', [SupervisorController::class, 'saveDisponibilidad']);
     $router->post('/supervisor/instalaciones/{id}/asignacion', [SupervisorController::class, 'saveModoAsignacion']);
+    $router->post('/supervisor/instalaciones/{id}/remedy', [SupervisorController::class, 'saveRemedy']);
     $router->get('/supervisor/supervisores', [SupervisorController::class, 'supervisores']);
     $router->post('/supervisor/supervisores', [SupervisorController::class, 'storeSupervisor']);
     $router->post('/supervisor/supervisores/{id}/quitar', [SupervisorController::class, 'removeSupervisor']);

@@ -8,7 +8,7 @@
  * @var list<array{id: int, nombre: string, email: ?string, prestado: bool}> $misAgentes
  * @var array<int, array{estado: string, hasta: ?string, especialidades: list<int>}> $disponibilidad
  * @var list<array{id: int, nombre: string}> $departamentos
- * @var array<int, string> $modos
+ * @var array<int, array{modo: string, remedy: bool}> $modos
  */
 $mias = array_column($instalaciones, 'id');
 $base = array_values(array_filter($misAgentes, static fn (array $a): bool => !$a['prestado']));
@@ -125,9 +125,9 @@ $hasta = static fn (?string $h): string => $h ? 'hasta ' . fecha_mx($h, false) :
 <div class="row g-4">
     <div class="col-lg-4">
         <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white fw-semibold">Modo por instalación</div>
+            <div class="card-header bg-white fw-semibold">Mis instalaciones</div>
             <ul class="list-group list-group-flush">
-                <?php foreach ($instalaciones as $i): $modo = $modos[$i['id']] ?? 'sugerida'; ?>
+                <?php foreach ($instalaciones as $i): $modo = $modos[$i['id']]['modo'] ?? 'sugerida'; $remedy = $modos[$i['id']]['remedy'] ?? true; ?>
                     <li class="list-group-item">
                         <form method="post" action="<?= e(url('/supervisor/instalaciones/' . (int) $i['id'] . '/asignacion')) ?>" class="d-flex flex-wrap align-items-center gap-2 m-0">
                             <?= csrf_field() ?>
@@ -139,11 +139,18 @@ $hasta = static fn (?string $h): string => $h ? 'hasta ' . fecha_mx($h, false) :
                             </select>
                             <button class="btn btn-sm btn-outline-primary" type="submit">Guardar</button>
                         </form>
+                        <form method="post" action="<?= e(url('/supervisor/instalaciones/' . (int) $i['id'] . '/remedy')) ?>" class="d-flex align-items-center gap-2 mt-2 m-0">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="remedy_activo" value="<?= $remedy ? '0' : '1' ?>">
+                            <span class="small flex-grow-1"><i class="bi bi-envelope-arrow-up me-1"></i>Enviar tickets nuevos a Remedy:
+                                <strong class="<?= $remedy ? 'text-success' : 'text-body-secondary' ?>"><?= $remedy ? 'Sí' : 'No' ?></strong></span>
+                            <button class="btn btn-sm btn-outline-secondary" type="submit"><?= $remedy ? 'Apagar' : 'Encender' ?></button>
+                        </form>
                     </li>
                 <?php endforeach; ?>
             </ul>
             <div class="card-body small text-body-secondary">
-                <strong>Sugerida:</strong> el sistema propone al agente con menos carga (pondera la prioridad), disponible, con la especialidad y, si puede, que ya atienda ese edificio; TI lo acepta con un clic.
+                <strong>Asignación — Sugerida:</strong> el sistema propone al agente con menos carga (pondera la prioridad), disponible, con la especialidad y, si puede, que ya atienda ese edificio; TI lo acepta con un clic.
                 <strong>Automática:</strong> lo asigna solo y avisa al agente. <strong>Manual:</strong> sin sugerencia.
             </div>
         </div>

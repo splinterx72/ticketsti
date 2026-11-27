@@ -596,7 +596,8 @@ final class Notifier
 
     /**
      * Ticket nuevo (spec 7.7): supervisores vigentes de la instalación +
-     * mesa de ayuda institucional (Remedy) + lista fija notify_new_tickets_to.
+     * mesa institucional (Remedy, si la instalación lo tiene encendido) +
+     * copias fijas (CorreoAjustes; respaldo en config.php).
      * Sin instalación (catálogo aún vacío): todo el personal de TI.
      *
      * @return list<string>
@@ -604,9 +605,12 @@ final class Notifier
     private static function avisoTicketNuevo(?int $instalacionId): array
     {
         $destinos = self::responsables($instalacionId);
-        $destinos[] = Mailer::cleanAddress((string) config('mail.mesa_institucional', ''));
-        foreach ((array) config('mail.notify_new_tickets_to', []) as $e) {
-            $destinos[] = Mailer::cleanAddress((string) $e);
+        $ajustes = new CorreoAjustes(Database::getInstance());
+        if ($ajustes->remedyActivo($instalacionId)) {
+            $destinos[] = $ajustes->remedy();
+        }
+        foreach ($ajustes->copias() as $e) {
+            $destinos[] = $e;
         }
         return self::unicos($destinos);
     }

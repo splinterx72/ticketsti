@@ -28,7 +28,7 @@ final class AuthController extends Controller
             'title'      => 'Iniciar sesión',
             'authUser'   => null,
             'avisos'     => $avisos,
-            'mesaCorreo' => (string) config('mail.mesa_institucional', ''),
+            'mesaCorreo' => (new \App\Services\Mail\CorreoAjustes(\App\Config\Database::getInstance()))->remedy(),
         ], 200, 'layouts/login');
     }
 

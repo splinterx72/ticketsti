@@ -186,18 +186,36 @@ final class SupervisorController extends Controller
         redirect('/supervisor/agentes#disponibilidad');
     }
 
+    /** POST /supervisor/instalaciones/{id}/remedy: la instalación envía (o no) sus tickets nuevos a Remedy. */
+    public function saveRemedy(int $id): void
+    {
+        $this->requireRole(Roles::SUPERVISION);
+        $this->verifyCsrf();
+        if (!in_array($id, (new Alcance(Database::getInstance()))->instalacionesSupervisadas((int) Auth::id()), true)) {
+            throw new HttpException(404, 'La instalación no existe.');
+        }
+        $activo = $this->input('remedy_activo') === '1';
+        (new \App\Services\Mail\CorreoAjustes(Database::getInstance()))->cambiarRemedyInstalacion($id, $activo);
+        Session::flash('success', $activo ? 'Los tickets nuevos de la instalación se enviarán a Remedy.' : 'Los tickets nuevos de la instalación ya no se enviarán a Remedy.');
+        redirect($this->input('volver') === 'correo' && Auth::hasRole(['admin_ti']) ? '/ti/correo' : '/supervisor/agentes#disponibilidad');
+    }
+
     /**
      * @param list<int> $ids
-     * @return array<int, string>
+     * @return array<int, array{modo: string, remedy: bool}>
      */
     private function modosAsignacion(array $ids): array
     {
         if ($ids === []) {
             return [];
         }
-        $stmt = Database::getInstance()->prepare('SELECT id, modo_asignacion FROM instalaciones WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')');
+        $stmt = Database::getInstance()->prepare('SELECT id, modo_asignacion, remedy_activo FROM instalaciones WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')');
         $stmt->execute($ids);
-        return array_map('strval', $stmt->fetchAll(\PDO::FETCH_KEY_PAIR));
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $out[(int) $r['id']] = ['modo' => (string) $r['modo_asignacion'], 'remedy' => (int) $r['remedy_activo'] === 1];
+        }
+        return $out;
     }
 
     public function storeAgente(): void
