@@ -14,6 +14,7 @@ completo.
 | `2026-11-28_bitlocker_asignacion.sql` | SLA, lectura y adjuntos | BitLocker y asignación | Llaves de BitLocker por equipo (cifradas) y su bitácora, celular del usuario, disponibilidad y especialidades de agentes, modo de asignación por instalación y agente sugerido |
 | `2026-11-29_modulos_correo.sql` | BitLocker y asignación | Módulos y correo | Módulos con control del Admin TI, correo de Remedy y copias desde la aplicación, Remedy por instalación, plantillas de correo y quién registra/modifica las garantías |
 | `2026-11-30_delegaciones.sql` | Módulos y correo | Delegación | Personas autorizadas por un jefe para levantar tickets a su nombre y quién levantó cada ticket |
+| `2026-12-01_formatos.sql` | Delegación | Formatos con firma | Formatos oficiales por año (logos y textos), documentos con folio y código de verificación, firmas del usuario, su jefe y TI, tipo de ticket "Solicitud de formateo", folio Remedy en el ticket, inventario del equipo y ciudad por instalación |
 
 ## Cómo aplicar una migración (phpMyAdmin en cPanel)
 

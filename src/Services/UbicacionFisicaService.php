@@ -275,9 +275,11 @@ final class UbicacionFisicaService
     //  Altas y ediciones
     // ------------------------------------------------------------------
 
-    public function guardarInstalacion(?int $id, string $nombre, bool $activo = true): int
+    /** @param string|null $ciudad para "Lugar y fecha" de los formatos; null = no cambiarla */
+    public function guardarInstalacion(?int $id, string $nombre, bool $activo = true, ?string $ciudad = null): int
     {
         $nombre = trim((string) preg_replace('/\s+/u', ' ', $nombre));
+        $ciudad = $ciudad !== null ? mb_substr(trim((string) preg_replace('/\s+/u', ' ', $ciudad)), 0, 120) : null;
         if (mb_strlen($nombre) < 2 || mb_strlen($nombre) > 150) {
             throw new ValidationException(['El nombre de la instalación debe tener entre 2 y 150 caracteres.']);
         }
@@ -287,10 +289,13 @@ final class UbicacionFisicaService
             throw new ValidationException(["Ya existe la instalación \"{$nombre}\"."]);
         }
         if ($id === null) {
-            $this->pdo->prepare('INSERT INTO instalaciones (nombre, activo) VALUES (?, ?)')->execute([$nombre, $activo ? 1 : 0]);
+            $this->pdo->prepare('INSERT INTO instalaciones (nombre, activo, ciudad) VALUES (?, ?, ?)')->execute([$nombre, $activo ? 1 : 0, $ciudad ?: null]);
             return (int) $this->pdo->lastInsertId();
         }
         $this->pdo->prepare('UPDATE instalaciones SET nombre = ?, activo = ? WHERE id = ?')->execute([$nombre, $activo ? 1 : 0, $id]);
+        if ($ciudad !== null) {
+            $this->pdo->prepare('UPDATE instalaciones SET ciudad = ? WHERE id = ?')->execute([$ciudad !== '' ? $ciudad : null, $id]);
+        }
         return $id;
     }
 

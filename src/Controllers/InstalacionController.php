@@ -83,7 +83,7 @@ final class InstalacionController extends Controller
         $this->instalacion($id);
         try {
             (new UbicacionFisicaService(Database::getInstance()))
-                ->guardarInstalacion($id, $this->input('nombre'), $this->input('activo') === '1');
+                ->guardarInstalacion($id, $this->input('nombre'), $this->input('activo') === '1', $this->input('ciudad'));
             Session::flash('success', 'Instalación actualizada.');
         } catch (ValidationException $e) {
             $this->flashErrors($e);

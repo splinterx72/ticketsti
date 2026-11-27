@@ -113,6 +113,154 @@ final class FormatoService
         return self::decodificar($p);
     }
 
+    /** @return list<array<string, mixed>> todas las versiones con cuántos documentos usan cada una */
+    public function listado(): array
+    {
+        return $this->pdo->query(
+            'SELECT p.id, p.clave, p.anio, p.version, p.titulo, p.creado_en, p.logo_izq, p.logo_der, p.logo_pie, u.nombre AS creado_por_nombre,
+                    (SELECT COUNT(*) FROM formatos f WHERE f.plantilla_id = p.id) AS usados
+               FROM formato_plantillas p LEFT JOIN usuarios u ON u.id = p.creado_por
+              ORDER BY p.clave, p.anio DESC, p.version DESC'
+        )->fetchAll();
+    }
+
+    /**
+     * Guarda textos y logos. Si la versión ya tiene documentos emitidos, crea
+     * una versión nueva del mismo año (lo firmado nunca cambia).
+     *
+     * @param array<string, mixed> $in textos (listas: una línea por elemento)
+     * @param array{izq?: string|null, der?: string|null, pie?: string|null} $logos rutas nuevas
+     * @param array<string, mixed> $actor
+     * @return int id de la versión guardada
+     */
+    public function guardarPlantilla(int $id, array $in, array $logos, array $actor): int
+    {
+        if (($actor['rol'] ?? '') !== 'admin_ti') {
+            throw new ValidationException(['Solo el Admin TI edita los formatos.']);
+        }
+        $p = $this->plantilla($id);
+        $lineas = static fn (string $k): array => array_values(array_filter(array_map('trim', preg_split('/\R/', (string) ($in[$k] ?? '')) ?: []), static fn (string $l): bool => $l !== ''));
+        $texto = static fn (string $k, int $max = 2000): string => mb_substr(trim((string) ($in[$k] ?? '')), 0, $max);
+        $titulo = $texto('titulo', 150);
+        $contenido = [
+            'encabezado' => array_slice($lineas('encabezado'), 0, 4),
+            'lugar_omision' => $texto('lugar_omision', 120), 'organismo_omision' => $texto('organismo_omision', 150),
+            'seccion_usuario' => $texto('seccion_usuario', 200), 'nota_resguardo' => $texto('nota_resguardo', 400),
+            'intro' => $texto('intro'), 'parrafos' => $lineas('parrafos'), 'subtitulo' => $texto('subtitulo', 200),
+            'parrafos2' => $lineas('parrafos2'), 'manifiesto' => $texto('manifiesto'), 'titulo_motivos' => $texto('titulo_motivos', 200),
+            'motivos' => $lineas('motivos'), 'notas' => $lineas('notas'),
+            'firmas' => ['usuario' => $texto('firma_usuario', 120), 'responsable' => $texto('firma_responsable', 120), 'ti' => $texto('firma_ti', 120)],
+            'metodos' => $lineas('metodos'),
+        ];
+        $errors = [];
+        if (mb_strlen($titulo) < 5) {
+            $errors[] = 'Escribe el título del formato.';
+        }
+        if ($contenido['motivos'] === [] || count($contenido['motivos']) > 8) {
+            $errors[] = 'Escribe entre 1 y 8 motivos (uno por línea).';
+        }
+        if ($contenido['metodos'] === []) {
+            $errors[] = 'Escribe al menos un método de formateo (uno por línea).';
+        }
+        if ($contenido['parrafos'] === [] || $contenido['manifiesto'] === '') {
+            $errors[] = 'El texto de las políticas y el manifiesto del usuario son obligatorios.';
+        }
+        if ($errors !== []) {
+            throw new ValidationException($errors);
+        }
+        $json = json_encode($contenido, JSON_UNESCAPED_UNICODE);
+        $izq = $logos['izq'] ?? $p['logo_izq'];
+        $der = $logos['der'] ?? $p['logo_der'];
+        $pie = $logos['pie'] ?? $p['logo_pie'];
+        $usados = $this->pdo->prepare('SELECT COUNT(*) FROM formatos WHERE plantilla_id = ?');
+        $usados->execute([$id]);
+        if ((int) $usados->fetchColumn() === 0) {
+            $this->pdo->prepare('UPDATE formato_plantillas SET titulo = ?, contenido = ?, logo_izq = ?, logo_der = ?, logo_pie = ? WHERE id = ?')
+                ->execute([$titulo, $json, $izq, $der, $pie, $id]);
+            return $id;
+        }
+        $v = $this->pdo->prepare('SELECT COALESCE(MAX(version), 0) + 1 FROM formato_plantillas WHERE clave = ? AND anio = ?');
+        $v->execute([$p['clave'], (int) $p['anio']]);
+        $this->pdo->prepare(
+            'INSERT INTO formato_plantillas (clave, anio, version, titulo, contenido, logo_izq, logo_der, logo_pie, creado_por) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        )->execute([$p['clave'], (int) $p['anio'], (int) $v->fetchColumn(), $titulo, $json, $izq, $der, $pie, (int) $actor['id']]);
+        return (int) $this->pdo->lastInsertId();
+    }
+
+    /**
+     * Prepara la versión de otro año copiando la más reciente (textos y logos)
+     * para que el Admin cambie lo que corresponda; se usa al llegar ese año.
+     *
+     * @param array<string, mixed> $actor
+     */
+    public function nuevoAnio(string $clave, int $anio, array $actor): int
+    {
+        if (($actor['rol'] ?? '') !== 'admin_ti') {
+            throw new ValidationException(['Solo el Admin TI crea versiones de los formatos.']);
+        }
+        $actual = (int) date('Y');
+        if ($anio < $actual || $anio > $actual + 1) {
+            throw new ValidationException(["Solo se prepara la versión de {$actual} o de " . ($actual + 1) . '.']);
+        }
+        $existe = $this->pdo->prepare('SELECT COUNT(*) FROM formato_plantillas WHERE clave = ? AND anio = ?');
+        $existe->execute([$clave, $anio]);
+        if ((int) $existe->fetchColumn() > 0) {
+            throw new ValidationException(["Ya existe la versión {$anio} de ese formato; edítala."]);
+        }
+        $this->plantillaVigente($clave);
+        $base = $this->pdo->prepare('SELECT * FROM formato_plantillas WHERE clave = ? ORDER BY anio DESC, version DESC LIMIT 1');
+        $base->execute([$clave]);
+        $b = $base->fetch();
+        $this->pdo->prepare(
+            'INSERT INTO formato_plantillas (clave, anio, version, titulo, contenido, logo_izq, logo_der, logo_pie, creado_por) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?)'
+        )->execute([$clave, $anio, $b['titulo'], $b['contenido'], $b['logo_izq'], $b['logo_der'], $b['logo_pie'], (int) $actor['id']]);
+        return (int) $this->pdo->lastInsertId();
+    }
+
+    /**
+     * Logo para el formato: PNG, JPG o WEBP hasta 2 MB; se vuelve a generar
+     * como PNG (conserva transparencia) y se reduce a 1600 px de ancho.
+     *
+     * @param array<string, mixed> $upload elemento de $_FILES
+     * @return string ruta relativa a storage
+     */
+    public function guardarLogo(array $upload, bool $soloSubidas = true): string
+    {
+        $error = new ValidationException(['El logo debe ser una imagen PNG, JPG o WEBP de hasta 2 MB.']);
+        $tmp = (string) ($upload['tmp_name'] ?? '');
+        if ((int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || $tmp === '' || !is_file($tmp)
+            || ($soloSubidas && !is_uploaded_file($tmp)) || filesize($tmp) > 2 * 1024 * 1024) {
+            throw $error;
+        }
+        $info = @getimagesize($tmp);
+        if ($info === false || !in_array($info[2], [IMAGETYPE_PNG, IMAGETYPE_JPEG, IMAGETYPE_WEBP], true) || $info[0] > 6000 || $info[1] > 6000) {
+            throw $error;
+        }
+        $im = @imagecreatefromstring((string) file_get_contents($tmp));
+        if ($im === false) {
+            throw $error;
+        }
+        $w = imagesx($im);
+        $h = imagesy($im);
+        if ($w > 1600) {
+            $nuevo = imagecreatetruecolor(1600, (int) round($h * 1600 / $w));
+            imagealphablending($nuevo, false);
+            imagesavealpha($nuevo, true);
+            imagecopyresampled($nuevo, $im, 0, 0, 0, 0, 1600, (int) round($h * 1600 / $w), $w, $h);
+            $im = $nuevo;
+        }
+        imagesavealpha($im, true);
+        $dir = STORAGE_PATH . '/formatos/logos';
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            throw new \RuntimeException('No se pudo crear la carpeta de logos.');
+        }
+        $ruta = 'formatos/logos/' . bin2hex(random_bytes(12)) . '.png';
+        if (!imagepng($im, STORAGE_PATH . '/' . $ruta, 6)) {
+            throw new \RuntimeException('No se pudo guardar el logo.');
+        }
+        return $ruta;
+    }
+
     // ------------------------------------------------------------------
     //  Emisión y consulta
     // ------------------------------------------------------------------

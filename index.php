@@ -24,6 +24,7 @@ use App\Controllers\CorreoController;
 use App\Controllers\PlantillaController;
 use App\Controllers\DelegacionController;
 use App\Controllers\FormatoController;
+use App\Controllers\FormatoAdminController;
 use App\Controllers\GecaController;
 use App\Controllers\InstallController;
 use App\Controllers\InstalacionController;
@@ -236,6 +237,10 @@ if (!$installMode) {
     $router->post('/ti/plantillas/{id}/eliminar', [PlantillaController::class, 'destroy']);
     $router->get('/ti/correo', [CorreoController::class, 'index']);
     $router->post('/ti/correo', [CorreoController::class, 'save']);
+    $router->get('/ti/formatos', [FormatoAdminController::class, 'index']);
+    $router->post('/ti/formatos/anio', [FormatoAdminController::class, 'nuevoAnio']);
+    $router->get('/ti/formatos/{id}/editar', [FormatoAdminController::class, 'edit']);
+    $router->post('/ti/formatos/{id}', [FormatoAdminController::class, 'update']);
     $router->get('/ti/modulos', [ModuloController::class, 'index']);
     $router->post('/ti/modulos', [ModuloController::class, 'save']);
     $router->get('/ti/sla', [SlaController::class, 'index']);

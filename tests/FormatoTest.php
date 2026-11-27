@@ -235,3 +235,83 @@ function test_el_folio_remedy_que_llega_despues_aparece_aunque_ya_este_firmado()
     test_pdo()->prepare("UPDATE tickets SET folio_remedy = 'WO0000014931785' WHERE id = ?")->execute([$s['ticket']]);
     assert_eq($svc->datos($svc->find($id))['remedy'], 'WO0000014931785', 'el folio de Remedy se toma del ticket aun después de firmado');
 }
+
+function textos_de(array $p, array $cambios = []): array
+{
+    $c = $p['contenido'];
+    $lineas = static fn (array $l): string => implode("\n", $l);
+    return $cambios + [
+        'titulo' => $p['titulo'], 'encabezado' => $lineas($c['encabezado']), 'lugar_omision' => $c['lugar_omision'],
+        'organismo_omision' => $c['organismo_omision'], 'seccion_usuario' => $c['seccion_usuario'], 'nota_resguardo' => $c['nota_resguardo'],
+        'intro' => $c['intro'], 'parrafos' => $lineas($c['parrafos']), 'subtitulo' => $c['subtitulo'], 'parrafos2' => $lineas($c['parrafos2']),
+        'manifiesto' => $c['manifiesto'], 'titulo_motivos' => $c['titulo_motivos'], 'motivos' => $lineas($c['motivos']),
+        'notas' => $lineas($c['notas']), 'metodos' => $lineas($c['metodos']),
+        'firma_usuario' => $c['firmas']['usuario'], 'firma_responsable' => $c['firmas']['responsable'], 'firma_ti' => $c['firmas']['ti'],
+    ];
+}
+
+function test_editar_la_plantilla_no_cambia_lo_ya_firmado(): void
+{
+    $s = escenario_formato();
+    $svc = new FormatoService(test_pdo());
+    $admin = usuario('ADM', 'admin_ti');
+    $p = $svc->plantillaVigente('formateo');
+
+    // Sin documentos: se corrige en la misma versión.
+    $mismo = $svc->guardarPlantilla((int) $p['id'], textos_de($p, ['notas' => "*Nota uno\n**Nota dos\n***Texto completo de la nota tres."]), [], $admin);
+    assert_eq($mismo, (int) $p['id'], 'sin formatos emitidos se edita en su lugar');
+
+    $id = $svc->emitir((int) $s['ticket'], $s['ag']);
+    $nueva = $svc->guardarPlantilla((int) $p['id'], textos_de($svc->plantilla((int) $p['id']), ['titulo' => 'Formato de autorización de formateo de equipo (rev. 2)']), [], $admin);
+    assert_true($nueva !== (int) $p['id'], 'con documentos emitidos se crea otra versión');
+    assert_eq((int) $svc->plantilla($nueva)['version'], 2, 'versión 2 del mismo año');
+    assert_eq($svc->find($id)['titulo'], 'Formato de autorización de formateo de equipo', 'el formato ya emitido conserva su versión');
+    assert_eq((int) $svc->plantillaVigente('formateo')['id'], $nueva, 'los nuevos usan la versión más reciente');
+    assert_eq($svc->plantilla($nueva)['contenido']['notas'][2], '***Texto completo de la nota tres.', 'conserva la corrección anterior');
+
+    assert_throws(ValidationException::class, fn () => $svc->guardarPlantilla($nueva, textos_de($svc->plantilla($nueva), ['motivos' => '']), [], $admin), 'sin motivos no', 'motivo');
+    assert_throws(ValidationException::class, fn () => $svc->guardarPlantilla($nueva, textos_de($svc->plantilla($nueva)), [], $s['ag']), 'solo el Admin TI', 'Admin');
+}
+
+function test_version_del_anio_siguiente(): void
+{
+    $svc = new FormatoService(test_pdo());
+    $admin = usuario('ADM', 'admin_ti');
+    $p = $svc->plantillaVigente('formateo');
+    test_pdo()->prepare("UPDATE formato_plantillas SET logo_izq = 'formatos/logos/a.png' WHERE id = ?")->execute([$p['id']]);
+    $siguiente = (int) date('Y') + 1;
+    $id = $svc->nuevoAnio('formateo', $siguiente, $admin);
+    $n = $svc->plantilla($id);
+    assert_eq([(int) $n['anio'], (int) $n['version'], $n['logo_izq']], [$siguiente, 1, 'formatos/logos/a.png'], 'copia textos y logos para cambiarlos');
+    assert_eq((int) $svc->plantillaVigente('formateo')['id'], (int) $p['id'], 'no se usa hasta que llegue ese año');
+    assert_throws(ValidationException::class, fn () => $svc->nuevoAnio('formateo', $siguiente, $admin), 'no se duplica el año', 'Ya existe');
+    assert_eq(count($svc->listado()), 2, 'el listado muestra ambas versiones');
+}
+
+function test_logos_solo_imagenes_validas(): void
+{
+    $svc = new FormatoService(test_pdo());
+    $png = tempnam(sys_get_temp_dir(), 'logo');
+    $im = imagecreatetruecolor(400, 80);
+    imagefill($im, 0, 0, imagecolorallocate($im, 255, 255, 255));
+    imagestring($im, 5, 10, 30, 'LOGO', imagecolorallocate($im, 120, 20, 40));
+    imagepng($im, $png);
+    $ruta = $svc->guardarLogo(['name' => 'logo.png', 'tmp_name' => $png, 'error' => UPLOAD_ERR_OK, 'size' => filesize($png)], false);
+    assert_true(str_starts_with($ruta, 'formatos/logos/') && is_file(STORAGE_PATH . '/' . $ruta), 'se guarda en storage/formatos/logos');
+    @unlink(STORAGE_PATH . '/' . $ruta);
+
+    $txt = tempnam(sys_get_temp_dir(), 'logo');
+    file_put_contents($txt, '<?php echo 1;');
+    assert_throws(ValidationException::class, fn () => $svc->guardarLogo(['name' => 'logo.png', 'tmp_name' => $txt, 'error' => UPLOAD_ERR_OK, 'size' => 13], false), 'no es imagen', 'imagen');
+}
+
+function test_ciudad_de_la_instalacion_para_lugar_y_fecha(): void
+{
+    $svc = new \App\Services\UbicacionFisicaService(test_pdo());
+    $id = $svc->guardarInstalacion(null, 'Zona Industrial Km 4.5', true, '  Ciudad del Carmen,  Campeche ');
+    assert_eq(scalar('SELECT ciudad FROM instalaciones WHERE id = ?', [$id]), 'Ciudad del Carmen, Campeche', 'se guarda limpia');
+    $svc->guardarInstalacion($id, 'Zona Industrial Km 4.5', true);
+    assert_eq(scalar('SELECT ciudad FROM instalaciones WHERE id = ?', [$id]), 'Ciudad del Carmen, Campeche', 'si no se manda, no se borra');
+    $svc->guardarInstalacion($id, 'Zona Industrial Km 4.5', true, '');
+    assert_eq(scalar('SELECT ciudad FROM instalaciones WHERE id = ?', [$id]), null, 'vacía = sin ciudad (usa la del formato)');
+}

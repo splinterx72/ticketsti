@@ -97,6 +97,10 @@ $vigencia = static function (array $a): string {
                         <option value="0" <?= (int) $i['activo'] === 0 ? 'selected' : '' ?>>Inactiva</option>
                     </select>
                 </div>
+                <div class="col-12">
+                    <label class="form-label small fw-semibold mb-1" for="ciudad">Ciudad (para "lugar y fecha" de los formatos)</label>
+                    <input type="text" id="ciudad" name="ciudad" class="form-control" value="<?= e($i['ciudad'] ?? '') ?>" maxlength="120" placeholder="Ej. Ciudad del Carmen, Campeche">
+                </div>
                 <div class="col-12 text-end"><button class="btn btn-sm btn-primary" type="submit">Guardar</button></div>
             </form>
         </div>
