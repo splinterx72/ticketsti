@@ -41,6 +41,7 @@ $vigentes = array_values(array_filter($f['equipos'], static fn (array $e): bool 
                 <dt>Jefe</dt><dd><?= e($u['jefe_nombre'] ?? '—') ?><?= $u['jefe_ficha'] ? ' <span class="font-monospace text-body-secondary">(' . e($u['jefe_ficha']) . ')</span>' : '' ?></dd>
                 <dt>Correo</dt><dd class="text-break"><?= e($u['email'] ?? '—') ?></dd>
                 <dt>Teléfono / ext.</dt><dd><?= e($u['telefono_ext'] ?? '—') ?></dd>
+                <dt>Celular</dt><dd><?= !empty($u['celular']) ? '<a href="tel:' . e(preg_replace('/[^0-9+]/', '', (string) $u['celular'])) . '">' . e($u['celular']) . '</a>' : '—' ?></dd>
             </dl>
         </div>
 

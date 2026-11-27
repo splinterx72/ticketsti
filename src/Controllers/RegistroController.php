@@ -116,6 +116,10 @@ final class RegistroController extends Controller
         if ($ext === '' || preg_match('/^[0-9 +()\/-]{2,30}$/', $ext) !== 1) {
             $errors[] = 'Captura tu teléfono o extensión (solo números, espacios, +, -, /).';
         }
+        $celular = VerificacionEmailService::celular($this->input('celular'));
+        if ($celular === null) {
+            $errors[] = 'El celular debe tener al menos 10 dígitos (solo números, espacios, +, -, paréntesis).';
+        }
         $fisica = null;
         if ($fisicas->hayCatalogo() || (int) $this->input('habitual_ubicacion_fisica_id') > 0) {
             try {
@@ -136,13 +140,13 @@ final class RegistroController extends Controller
             foreach ($errors as $error) {
                 Session::flash('danger', $error);
             }
-            $this->rememberInput(['email', 'telefono_ext', 'habitual_instalacion_id', 'habitual_ubicacion_fisica_id', 'habitual_nivel_id', 'habitual_ala', 'habitual_referencia']);
+            $this->rememberInput(['email', 'telefono_ext', 'celular', 'habitual_instalacion_id', 'habitual_ubicacion_fisica_id', 'habitual_nivel_id', 'habitual_ala', 'habitual_referencia']);
             redirect('/registro/completar');
         }
 
         // La cuenta queda pendiente (registrado = 0) y el correo solo viaja en el
         // enlace: se guarda en la cuenta hasta que su dueño lo verifica.
-        $token = $verificacion->prepararRegistro((int) $user['id'], $email, $ext, $password, $fisica);
+        $token = $verificacion->prepararRegistro((int) $user['id'], $email, $ext, $password, $fisica, (string) $celular);
 
         Session::remove(self::SESSION_KEY);
         if ($token === null) {

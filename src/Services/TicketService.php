@@ -82,7 +82,9 @@ final class TicketService
         $stmt = $this->pdo->prepare(
             'SELECT t.*,
                     s.nombre AS solicitante_nombre, s.ficha AS solicitante_ficha, s.email AS solicitante_email,
-                    s.telefono_ext AS solicitante_ext, s.jefe_nombre AS solicitante_jefe,
+                    s.telefono_ext AS solicitante_ext, s.celular AS solicitante_celular,
+                    s.jefe_nombre AS solicitante_jefe, s.jefe_ficha AS solicitante_jefe_ficha,
+                    e.tipo_componente, e.ubicacion_referencia AS geca_referencia,
                     a.nombre AS agente_nombre,
                     d.nombre AS departamento_nombre,
                     es.nombre AS estado_nombre, es.color_hex AS estado_color, es.es_cierre,

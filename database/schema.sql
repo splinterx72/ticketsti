@@ -115,6 +115,7 @@ CREATE TABLE usuarios (
     email VARCHAR(150) NULL UNIQUE,
     password_hash VARCHAR(255) NULL,
     telefono_ext VARCHAR(30) NULL,
+    celular VARCHAR(20) NULL,
     ubicacion_habitual_id INT UNSIGNED NULL,
     rol ENUM('usuario', 'agente_ti', 'supervisor', 'coordinador', 'admin_ti') NOT NULL DEFAULT 'usuario',
     tipo_cuenta ENUM('geca', 'administracion', 'prueba') NOT NULL DEFAULT 'geca',

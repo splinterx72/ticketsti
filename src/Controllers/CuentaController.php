@@ -24,7 +24,7 @@ final class CuentaController extends Controller
     {
         $this->requireLogin();
         $stmt = Database::getInstance()->prepare(
-            'SELECT ficha, nombre, jefe_nombre, email, telefono_ext, rol,
+            'SELECT ficha, nombre, jefe_nombre, email, telefono_ext, celular, rol,
                     habitual_ubicacion_fisica_id AS ubicacion_fisica_id, habitual_nivel_id AS nivel_id,
                     habitual_ala AS ala, habitual_referencia AS referencia
                FROM usuarios WHERE id = ?'
@@ -62,6 +62,10 @@ final class CuentaController extends Controller
         if ($ext === '' || preg_match('/^[0-9 +()\/-]{2,30}$/', $ext) !== 1) {
             $errors[] = 'Captura tu teléfono o extensión (solo números, espacios, +, -, /).';
         }
+        $celular = VerificacionEmailService::celular($this->input('celular'));
+        if ($celular === null) {
+            $errors[] = 'El celular debe tener al menos 10 dígitos (solo números, espacios, +, -, paréntesis).';
+        }
         $fisica = null;
         if ($fisicas->hayCatalogo() || (int) $this->input('habitual_ubicacion_fisica_id') > 0) {
             try {
@@ -83,14 +87,14 @@ final class CuentaController extends Controller
             foreach ($errors as $error) {
                 Session::flash('danger', $error);
             }
-            $this->rememberInput(['email', 'telefono_ext', 'habitual_instalacion_id', 'habitual_ubicacion_fisica_id', 'habitual_nivel_id', 'habitual_ala', 'habitual_referencia']);
+            $this->rememberInput(['email', 'telefono_ext', 'celular', 'habitual_instalacion_id', 'habitual_ubicacion_fisica_id', 'habitual_nivel_id', 'habitual_ala', 'habitual_referencia']);
             redirect('/cuenta');
         }
 
         $pdo->prepare(
-            'UPDATE usuarios SET telefono_ext = ?, habitual_ubicacion_fisica_id = ?, habitual_nivel_id = ?, habitual_ala = ?, habitual_referencia = ?
+            'UPDATE usuarios SET telefono_ext = ?, celular = ?, habitual_ubicacion_fisica_id = ?, habitual_nivel_id = ?, habitual_ala = ?, habitual_referencia = ?
               WHERE id = ?'
-        )->execute([$ext, $fisica['ubicacion_fisica_id'] ?? null, $fisica['nivel_id'] ?? null, $fisica['ala'] ?? null, $fisica['referencia'] ?? null, $id]);
+        )->execute([$ext, $celular !== '' ? $celular : null, $fisica['ubicacion_fisica_id'] ?? null, $fisica['nivel_id'] ?? null, $fisica['ala'] ?? null, $fisica['referencia'] ?? null, $id]);
 
         if ($cambiaCorreo) {
             // El correo nuevo se aplica solo cuando se confirma desde el buzón.

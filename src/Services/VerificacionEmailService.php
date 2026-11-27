@@ -83,16 +83,16 @@ final class VerificacionEmailService
      * @param array{ubicacion_fisica_id?: int|null, nivel_id?: int|null, ala?: string|null, referencia?: string|null}|null $fisica
      * @return string|null token del enlace, o null si la ficha ya no está pendiente
      */
-    public function prepararRegistro(int $usuarioId, string $email, string $ext, string $password, ?array $fisica): ?string
+    public function prepararRegistro(int $usuarioId, string $email, string $ext, string $password, ?array $fisica, string $celular = ''): ?string
     {
         $stmt = $this->pdo->prepare(
             'UPDATE usuarios
-                SET telefono_ext = ?, password_hash = ?,
+                SET telefono_ext = ?, celular = ?, password_hash = ?,
                     habitual_ubicacion_fisica_id = ?, habitual_nivel_id = ?, habitual_ala = ?, habitual_referencia = ?
               WHERE id = ? AND registrado = 0 AND activo = 1'
         );
         $stmt->execute([
-            $ext, password_hash($password, PASSWORD_DEFAULT),
+            $ext, $celular !== '' ? $celular : null, password_hash($password, PASSWORD_DEFAULT),
             $fisica['ubicacion_fisica_id'] ?? null, $fisica['nivel_id'] ?? null, $fisica['ala'] ?? null, $fisica['referencia'] ?? null,
             $usuarioId,
         ]);
@@ -100,6 +100,20 @@ final class VerificacionEmailService
             return null;
         }
         return $this->emitir($usuarioId, $email);
+    }
+
+    /**
+     * Celular opcional (TI lo usa para pedir los códigos de doble autenticación).
+     * '' = no capturó; null = formato inválido; si no, el valor tal como lo escribió.
+     */
+    public static function celular(string $v): ?string
+    {
+        $v = trim($v);
+        if ($v === '') {
+            return '';
+        }
+        $digitos = strlen((string) preg_replace('/\D/', '', $v));
+        return mb_strlen($v) <= 20 && $digitos >= 10 && preg_match('/^\+?[0-9 ()-]+$/', $v) === 1 ? $v : null;
     }
 
     /** true si otra cuenta ya activada o verificada usa ese correo (los registros pendientes no lo apartan). */

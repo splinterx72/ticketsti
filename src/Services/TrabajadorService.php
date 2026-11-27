@@ -36,7 +36,7 @@ final class TrabajadorService
     public function ficha(int $usuarioId, array $viewer): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, ficha, nombre, jefe_ficha, jefe_nombre, email, telefono_ext, rol, tipo_cuenta, registrado, activo,
+            'SELECT id, ficha, nombre, jefe_ficha, jefe_nombre, email, telefono_ext, celular, rol, tipo_cuenta, registrado, activo,
                     email_verificado_en, habitual_ubicacion_fisica_id, habitual_nivel_id, habitual_ala, habitual_referencia, creado_en
                FROM usuarios WHERE id = ?'
         );

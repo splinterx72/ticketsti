@@ -35,3 +35,7 @@ CREATE TABLE bitlocker_consultas (
     CONSTRAINT fk_blc_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+-- Celular opcional del usuario (para la doble autenticación y para localizarlo).
+ALTER TABLE usuarios
+    ADD COLUMN celular VARCHAR(20) NULL AFTER telefono_ext;

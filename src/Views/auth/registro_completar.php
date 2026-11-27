@@ -45,6 +45,12 @@ $sel = $old !== [] ? [
                     <input type="text" class="form-control" id="telefono_ext" name="telefono_ext" value="<?= e($old['telefono_ext'] ?? '') ?>"
                            maxlength="30" inputmode="tel" required>
                 </div>
+                <div class="col-sm-7">
+                    <label for="celular" class="form-label fw-semibold">Celular <span class="fw-normal text-body-secondary">(opcional)</span></label>
+                    <input type="tel" class="form-control" id="celular" name="celular" value="<?= e($old['celular'] ?? '') ?>"
+                           maxlength="20" inputmode="tel" autocomplete="tel" placeholder="Ej. 938 123 4567">
+                    <div class="form-text"><i class="bi bi-shield-lock"></i> Opcional. Si tu cuenta usa doble autenticación, TI te llamará a este número para que le dictes los dígitos que te aparecen en pantalla.</div>
+                </div>
                 <div class="col-12">
                     <span class="form-label fw-semibold d-block">¿Dónde estás actualmente?</span>
                     <?= partial('ubicacion_picker', [

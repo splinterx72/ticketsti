@@ -49,10 +49,7 @@ final class Notifier
             'Ver mi ticket'
         );
 
-        $detalle = self::resumen($t);
-        if ((int) $t['discrepancia_ubicacion'] === 1) {
-            $detalle['Atención'] = 'La ubicación física reportada no coincide con la del GECA.';
-        }
+        $detalle = self::fichaCompleta($t);
         foreach (self::avisoTicketNuevo($t['instalacion_id'] !== null ? (int) $t['instalacion_id'] : null) as $email) {
             if (strcasecmp($email, (string) $t['solicitante_email']) === 0) {
                 continue;
@@ -139,7 +136,7 @@ final class Notifier
                 "[{$t['folio']}] Se te asignó: {$t['titulo']}",
                 'Tienes un ticket asignado',
                 'Se te asignó el siguiente ticket:',
-                self::resumen($t),
+                self::fichaCompleta($t),
                 $url,
                 'Atender ticket'
             );
@@ -507,6 +504,76 @@ final class Notifier
     }
 
     /**
+     * Ficha completa para TI y la mesa institucional (Remedy): todo lo necesario
+     * para localizar y atender al usuario. Nunca incluye datos de BitLocker.
+     *
+     * @param array<string, mixed> $t
+     * @return array<string, string>
+     */
+    private static function fichaCompleta(array $t): array
+    {
+        $pdo = Database::getInstance();
+        $sla = (new \App\Services\SlaService($pdo))->estado($t);
+        $d = [
+            'Folio'      => (string) $t['folio'],
+            'Asunto'     => (string) $t['titulo'],
+            'Tipo'       => tipo_label((string) $t['tipo_ticket']),
+            'Prioridad'  => ucfirst((string) $t['prioridad']),
+            'Límite de primera atención' => date('d/m/Y H:i', (int) strtotime($sla['vence_respuesta'])),
+            'Límite de resolución'       => date('d/m/Y H:i', (int) strtotime($sla['vence_resolucion'])),
+            'Descripción' => mb_strlen((string) $t['descripcion']) > 1500 ? mb_substr((string) $t['descripcion'], 0, 1500) . '…' : (string) $t['descripcion'],
+            // Solicitante
+            'Solicitante' => (string) $t['solicitante_nombre'],
+            'Ficha'       => (string) $t['solicitante_ficha'],
+            'Correo'      => (string) ($t['solicitante_email'] ?? '—'),
+            'Extensión'   => (string) ($t['solicitante_ext'] ?? '—'),
+        ];
+        if (!empty($t['solicitante_celular'])) {
+            $d['Celular'] = (string) $t['solicitante_celular'];
+        }
+        $d['Jefe'] = !empty($t['solicitante_jefe'])
+            ? $t['solicitante_jefe'] . (!empty($t['solicitante_jefe_ficha']) ? ' (ficha ' . $t['solicitante_jefe_ficha'] . ')' : '')
+            : '—';
+        // Ubicación
+        $d['Instalación'] = (string) ($t['instalacion_nombre'] ?? 'Sin instalación');
+        $d['Ubicación física'] = (string) ($t['ubicacion_fisica'] ?? 'No indicó ubicación física');
+        if (!empty($t['referencia'])) {
+            $d['Referencia'] = (string) $t['referencia'];
+        }
+        if (!empty($t['indicaciones'])) {
+            $d['Indicaciones del lugar'] = (string) $t['indicaciones'];
+        }
+        if (!empty($t['ubicacion_geca'])) {
+            $d['Ubicación según GECA'] = (string) $t['ubicacion_geca'] . (!empty($t['geca_referencia']) ? ' · ' . $t['geca_referencia'] : '');
+        }
+        if ((int) $t['discrepancia_ubicacion'] === 1) {
+            $d['Atención'] = 'La ubicación física reportada no coincide con la del GECA.';
+        }
+        // Equipo
+        if ($t['serie'] !== null) {
+            $d['Equipo'] = trim(tipo_equipo($t['tipo_componente'] ?? null) . ' ' . $t['serie'] . ' · ' . trim(($t['marca'] ?? '') . ' ' . ($t['modelo'] ?? '')));
+            $d['Componente afectado'] = componente_label((string) $t['componente_afectado']);
+            $mon = array_filter([$t['serie_monitor1'] ?? null, $t['serie_monitor2'] ?? null]);
+            if ($mon !== []) {
+                $d['Monitores'] = implode(', ', $mon);
+            }
+            $gar = (new \App\Services\GarantiaService($pdo))->activasDeEquipo((int) $t['equipo_id']);
+            $d['Garantía'] = $gar === [] ? 'Sin garantía vigente'
+                : implode('; ', array_map(static fn (array $g): string => $g['proveedor'] . ' (vence ' . date('d/m/Y', (int) strtotime((string) $g['fecha_vencimiento'])) . ')', $gar));
+        } else {
+            $d['Equipo'] = 'Sin equipo / incidencia general';
+        }
+        if (!empty($t['hostname_reportado'])) {
+            $d['Hostname'] = (string) $t['hostname_reportado'];
+        }
+        $adj = (int) $pdo->query('SELECT COUNT(*) FROM ticket_archivos WHERE interno = 0 AND ticket_id = ' . (int) $t['id'])->fetchColumn();
+        if ($adj > 0) {
+            $d['Adjuntos'] = $adj . ' archivo(s) — se ven en el sistema';
+        }
+        return $d;
+    }
+
+    /**
      * @param array<string, mixed> $t
      * @return array<string, string>
      */
@@ -600,11 +667,11 @@ final class Notifier
     /**
      * Mensajes encolados aún no enviados (se envían al terminar la petición).
      *
-     * @return list<array{to: string, subject: string}>
+     * @return list<array{to: string, subject: string, text: string}>
      */
     public static function cola(): array
     {
-        return array_map(static fn (array $m): array => ['to' => $m['to'], 'subject' => $m['subject']], self::$queue);
+        return array_map(static fn (array $m): array => ['to' => $m['to'], 'subject' => $m['subject'], 'text' => $m['text']], self::$queue);
     }
 
     /** Descarta la cola sin enviar (uso en pruebas y tras un rollback). */

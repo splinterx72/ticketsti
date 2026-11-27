@@ -114,3 +114,30 @@ function test_destinatarios_ticket_nuevo(): void
         $GLOBALS['__app_config']['mail']['driver'] = 'off';
     }
 }
+
+function test_correo_de_ticket_nuevo_lleva_la_ficha_completa_para_ti_y_remedy(): void
+{
+    $GLOBALS['__app_config']['mail']['driver'] = 'smtp';
+    $GLOBALS['__app_config']['mail']['mesa_institucional'] = 'mesadeayuda@pemex.com';
+    $GLOBALS['__app_config']['mail']['notify_new_tickets_to'] = [];
+    Notifier::reiniciarCola();
+    try {
+        $e = escenario_fisico();
+        $sup = usuario('SUP1', 'supervisor', 'sup1@pemex.com');
+        asignar_supervisor($sup['id'], $e['laguna']);
+        $jose = usuario('12345', 'usuario', 'jose@pemex.com');
+        test_pdo()->prepare("UPDATE usuarios SET telefono_ext = '81234', celular = '9381234567', jefe_nombre = 'MARIA IBAÑEZ', jefe_ficha = '330981' WHERE id = ?")->execute([$jose['id']]);
+        $r = (new TicketService(test_pdo()))->create($jose, ticket_form(reporte_en($e['carga'], $e['unico'], 'na', 'Junto al andén 3')));
+        Notifier::ticketCreado($r['id']);
+
+        $porDestino = array_column(Notifier::cola(), 'text', 'to');
+        $ti = (string) $porDestino['mesadeayuda@pemex.com'];
+        foreach (['Ficha: 12345', 'Extensión: 81234', 'Celular: 9381234567', 'Jefe: MARIA IBAÑEZ (ficha 330981)', 'Zona Industrial Laguna Azul', 'Junto al andén 3', 'botas', 'Límite de primera atención'] as $dato) {
+            assert_true(str_contains($ti, $dato), "el correo para TI/Remedy incluye: {$dato}");
+        }
+        assert_true(!str_contains((string) $porDestino['jose@pemex.com'], 'Celular'), 'la confirmación al trabajador no repite sus datos personales');
+    } finally {
+        Notifier::reiniciarCola();
+        $GLOBALS['__app_config']['mail']['driver'] = 'off';
+    }
+}

@@ -204,3 +204,17 @@ function test_correo_aceptable_solo_exige_dominio_si_cambia(): void
     assert_true(VerificacionEmailService::correoAceptable('nuevo@pemex.com', 'externo@gmail.com'), 'cambiar al de la empresa se acepta');
     assert_true(!VerificacionEmailService::correoAceptable('', 'externo@gmail.com'), 'vacío se rechaza');
 }
+
+function test_celular_opcional_se_normaliza_y_se_guarda_al_registrarse(): void
+{
+    assert_eq(VerificacionEmailService::celular(''), '', 'vacío = sin celular');
+    assert_eq(VerificacionEmailService::celular(' 938 123 4567 '), '938 123 4567', 'se acepta con espacios');
+    assert_eq(VerificacionEmailService::celular('+52 (938) 123-4567'), '+52 (938) 123-4567', 'se acepta con lada y signos');
+    assert_eq(VerificacionEmailService::celular('12345'), null, 'muy corto: menos de 10 dígitos');
+    assert_eq(VerificacionEmailService::celular('938-ABC-4567'), null, 'letras no');
+    assert_eq(VerificacionEmailService::celular(str_repeat('9', 21)), null, 'más de 20 caracteres no');
+
+    $id = ficha_geca('C1');
+    (new VerificacionEmailService(test_pdo()))->prepararRegistro($id, 'c1@pemex.com', '1234', CLAVE_T, null, '9381234567');
+    assert_eq(scalar('SELECT celular FROM usuarios WHERE id = ?', [$id]), '9381234567', 'el celular queda en la cuenta');
+}

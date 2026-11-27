@@ -257,7 +257,10 @@ $monitor = match ($t['componente_afectado']) {
                     <dt>Ficha</dt><dd class="font-monospace"><?= e($t['solicitante_ficha']) ?></dd>
                     <dt>Correo</dt><dd class="text-break"><?= e($t['solicitante_email'] ?? '—') ?></dd>
                     <dt>Teléfono / ext.</dt><dd><?= e($t['solicitante_ext'] ?? '—') ?></dd>
-                    <dt>Jefe</dt><dd><?= e($t['solicitante_jefe'] ?? '—') ?></dd>
+                    <?php if (!empty($t['solicitante_celular'])): ?>
+                        <dt>Celular</dt><dd><a href="tel:<?= e(preg_replace('/[^0-9+]/', '', (string) $t['solicitante_celular'])) ?>"><?= e($t['solicitante_celular']) ?></a></dd>
+                    <?php endif; ?>
+                    <dt>Jefe</dt><dd><?= e($t['solicitante_jefe'] ?? '—') ?><?= !empty($t['solicitante_jefe_ficha']) ? ' <span class="font-monospace text-body-secondary">(' . e($t['solicitante_jefe_ficha']) . ')</span>' : '' ?></dd>
                 </dl>
             </div>
         <?php endif; ?>
