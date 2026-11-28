@@ -67,3 +67,32 @@ function test_supervisor_relaciona_inmuebles_solo_con_sus_instalaciones(): void
     $svc->mapearInmueblePor(usuario('ADM', 'admin_ti'), 'Torre Ejecutiva', $d['laguna']);
     assert_eq((int) scalar("SELECT instalacion_id FROM geca_inmueble_instalacion WHERE inmueble = 'Torre Ejecutiva'"), $d['laguna'], 'el admin puede reasignar cualquiera');
 }
+
+function test_equipos_segun_geca_por_inmueble_referencia_y_tipo(): void
+{
+    $pdo = test_pdo();
+    $inv = new \App\Services\InventarioService($pdo);
+    $km = instalacion('Km 4.5');
+    $sinEq = instalacion('Laguna');
+    $u = usuario('11111');
+    $a = equipo_geca($u, 'S-1', 'Holkanaab');          // con monitor casado MON-S-1
+    $b = equipo_geca($u, 'S-2', 'Holkanaab');
+    $c = equipo_geca($u, 'S-3', '2040');               // inmueble con nombre numérico
+    equipo_geca($u, 'S-4', 'Ajeno');
+    $pdo->prepare("UPDATE equipos SET tipo_componente = 'LAPTOP', ubicacion_referencia = ' piso 2  ala norte.' WHERE id = ?")->execute([$a]);
+    $pdo->prepare("UPDATE equipos SET tipo_componente = 'CPU', ubicacion_referencia = 'PISO 2 ALA NORTE', serie_monitor1 = NULL WHERE id = ?")->execute([$b]);
+    $pdo->prepare("UPDATE equipos SET tipo_componente = 'REPLICADOR', serie_monitor1 = NULL WHERE id = ?")->execute([$c]);
+    $svc = new \App\Services\UbicacionFisicaService($pdo);
+    $svc->mapearInmueble('Holkanaab', $km);
+    $svc->mapearInmueble('2040', $km);
+
+    $d = $inv->gecaPorUbicacion($km);
+    assert_eq($d['total'], 4, '3 equipos + 1 monitor casado; el inmueble ajeno no cuenta');
+    assert_eq($d['inmuebles']['Holkanaab'], 3, 'por inmueble');
+    assert_eq(count($d['filas']), 2, 'la referencia se normaliza: "piso 2  ala norte." = "PISO 2 ALA NORTE"');
+    $holk = array_values(array_filter($d['filas'], static fn (array $f): bool => $f['inmueble'] === 'Holkanaab'))[0];
+    assert_eq([$holk['referencia'], $holk['tipos']], ['PISO 2 ALA NORTE', ['LAPTOP' => 1, 'MONITOR' => 1, 'CPU' => 1]], 'desglose por tipo con el monitor casado');
+    assert_eq(array_values(array_filter($d['filas'], static fn (array $f): bool => $f['inmueble'] === '2040'))[0]['referencia'], 'Sin referencia', 'vacía = Sin referencia');
+    assert_true($d['con_equivalencia'], 'tiene inmuebles relacionados');
+    assert_true(!$inv->gecaPorUbicacion($sinEq)['con_equivalencia'], 'sin inmuebles relacionados');
+}

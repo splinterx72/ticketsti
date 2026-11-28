@@ -112,6 +112,33 @@ final class DashboardController extends Controller
             )->fetch() ?: null;
         }
 
+        // Supervisión: equipos de sus instalaciones según SOLO el GECA (inmueble › referencia › tipo).
+        if (Auth::hasRole(Roles::SUPERVISION)) {
+            $ids = (new Alcance($pdo))->instalacionesSupervisadas($userId);
+            if ($ids !== []) {
+                $nombres = $pdo->query('SELECT id, nombre FROM instalaciones WHERE id IN (' . implode(',', array_map('intval', $ids)) . ') ORDER BY nombre')->fetchAll();
+                $sel = (int) ($_GET['geca'] ?? 0);
+                if (!in_array($sel, $ids, true)) {
+                    // Por omisión, la primera que ya tiene inmuebles del GECA relacionados.
+                    $conInmuebles = $pdo->query('SELECT DISTINCT instalacion_id FROM geca_inmueble_instalacion WHERE instalacion_id IN ('
+                        . implode(',', array_map('intval', $ids)) . ')')->fetchAll(\PDO::FETCH_COLUMN);
+                    $conInmuebles = array_map('intval', $conInmuebles);
+                    $sel = (int) $nombres[0]['id'];
+                    foreach ($nombres as $n) {
+                        if (in_array((int) $n['id'], $conInmuebles, true)) {
+                            $sel = (int) $n['id'];
+                            break;
+                        }
+                    }
+                }
+                $data['gecaUbic'] = [
+                    'instalaciones' => $nombres,
+                    'sel'           => $sel,
+                    'datos'         => (new \App\Services\InventarioService($pdo))->gecaPorUbicacion($sel),
+                ];
+            }
+        }
+
         $data['formatosPorFirmar'] = modulo('formatos') ? (new \App\Services\FormatoService(Database::getInstance()))->pendientesDe(Auth::user()) : [];
         $this->view('dashboard/index', $data);
     }

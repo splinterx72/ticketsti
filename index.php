@@ -272,6 +272,7 @@ if (!$installMode) {
 
     // Supervisión (supervisor y admin_ti).
     $router->get('/supervisor', [SupervisorController::class, 'panel']);
+    $router->get('/supervisor/geca-ubicaciones', [SupervisorController::class, 'gecaCsv']);
     $router->get('/supervisor/ubicaciones', [SupervisorController::class, 'ubicaciones']);
     $router->post('/supervisor/ubicaciones', [SupervisorController::class, 'storeUbicacion']);
     $router->get('/supervisor/ubicaciones/{id}/editar', [SupervisorController::class, 'editUbicacion']);

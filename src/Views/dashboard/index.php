@@ -195,6 +195,8 @@ $n = static fn (array $src, string $k): string => number_format((int) ($src[$k] 
         <?php endforeach; ?>
     </div>
 
+    <?php if (isset($gecaUbic)): ?><?= partial('geca_ubicaciones', $gecaUbic) ?><?php endif; ?>
+
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white fw-semibold"><i class="bi bi-clock-history me-1"></i>Última carga GECA</div>
         <div class="card-body">

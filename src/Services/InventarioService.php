@@ -71,4 +71,67 @@ final class InventarioService
         }
         return $out;
     }
+
+    /**
+     * Equipos de una instalación según SOLO el GECA: equipos vigentes cuyo
+     * inmueble GECA está relacionado con la instalación, agrupados por
+     * inmueble, referencia de ubicación (texto del GECA, normalizado) y tipo.
+     * Los monitores casados cuentan como MONITOR.
+     *
+     * @return array{total: int, inmuebles: array<string, int>, tipos: array<string, int>,
+     *               filas: list<array{inmueble: string, referencia: string, total: int, tipos: array<string, int>}>,
+     *               con_equivalencia: bool}
+     */
+    public function gecaPorUbicacion(int $instalacionId): array
+    {
+        $eq = $this->pdo->prepare('SELECT COUNT(*) FROM geca_inmueble_instalacion WHERE instalacion_id = ?');
+        $eq->execute([$instalacionId]);
+        $stmt = $this->pdo->prepare(
+            "SELECT ug.inmueble, COALESCE(e.ubicacion_referencia, '') AS referencia,
+                    COALESCE(NULLIF(UPPER(TRIM(e.tipo_componente)), ''), 'SIN TIPO') AS tipo,
+                    COUNT(*) AS equipos,
+                    COALESCE(SUM(e.serie_monitor1 IS NOT NULL AND e.serie_monitor1 <> ''), 0)
+                      + COALESCE(SUM(e.serie_monitor2 IS NOT NULL AND e.serie_monitor2 <> ''), 0) AS monitores
+               FROM equipos e
+               JOIN ubicaciones ug ON ug.id = e.ubicacion_geca_id
+               JOIN geca_inmueble_instalacion gi ON gi.inmueble = ug.inmueble
+              WHERE e.vigente_en_geca = 1 AND gi.instalacion_id = ?
+              GROUP BY ug.inmueble, COALESCE(e.ubicacion_referencia, ''), COALESCE(NULLIF(UPPER(TRIM(e.tipo_componente)), ''), 'SIN TIPO')"
+        );
+        $stmt->execute([$instalacionId]);
+
+        $filas = [];
+        $inmuebles = [];
+        $tipos = [];
+        $total = 0;
+        foreach ($stmt->fetchAll() as $r) {
+            $inmueble = (string) $r['inmueble'];
+            $ref = self::referencia((string) $r['referencia']);
+            $key = $inmueble . "\x1F" . $ref;
+            $filas[$key] ??= ['inmueble' => $inmueble, 'referencia' => $ref, 'total' => 0, 'tipos' => []];
+            foreach ([(string) $r['tipo'] => (int) $r['equipos'], 'MONITOR' => (int) $r['monitores']] as $tipo => $n) {
+                if ($n === 0) {
+                    continue;
+                }
+                $filas[$key]['tipos'][$tipo] = ($filas[$key]['tipos'][$tipo] ?? 0) + $n;
+                $filas[$key]['total'] += $n;
+                $inmuebles[$inmueble] = ($inmuebles[$inmueble] ?? 0) + $n;
+                $tipos[$tipo] = ($tipos[$tipo] ?? 0) + $n;
+                $total += $n;
+            }
+        }
+        $filas = array_values($filas);
+        usort($filas, static fn (array $a, array $b): int => [$a['inmueble'], $b['total']] <=> [$b['inmueble'], $a['total']]);
+        arsort($inmuebles);
+        arsort($tipos);
+        return ['total' => $total, 'inmuebles' => $inmuebles, 'tipos' => $tipos, 'filas' => $filas, 'con_equivalencia' => (int) $eq->fetchColumn() > 0];
+    }
+
+    /** Referencia de ubicación del GECA normalizada (mayúsculas, espacios simples); vacía = "Sin referencia". */
+    public static function referencia(string $texto): string
+    {
+        $t = mb_strtoupper(trim((string) preg_replace('/\s+/u', ' ', $texto)));
+        $t = trim($t, " .,;:-");
+        return $t === '' ? 'Sin referencia' : $t;
+    }
 }

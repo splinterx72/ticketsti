@@ -192,6 +192,37 @@ final class SupervisorController extends Controller
         ];
     }
 
+    /** GET /supervisor/geca-ubicaciones?inst=: CSV de equipos según el GECA por inmueble, referencia y tipo. */
+    public function gecaCsv(): void
+    {
+        $this->requireRole(Roles::SUPERVISION);
+        $inst = (int) ($_GET['inst'] ?? 0);
+        $this->exigirSupervisada($inst);
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare('SELECT nombre FROM instalaciones WHERE id = ?');
+        $stmt->execute([$inst]);
+        $nombre = (string) $stmt->fetchColumn();
+        $d = (new InventarioService($pdo))->gecaPorUbicacion($inst);
+        $tipos = array_map('strval', array_keys($d['tipos']));
+
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="equipos_geca_' . preg_replace('/[^A-Za-z0-9]+/', '_', $nombre) . '_' . date('Y-m-d') . '.csv"');
+        header('Cache-Control: no-store, private');
+        $out = fopen('php://output', 'wb');
+        fwrite($out, "\xEF\xBB\xBF");
+        $celda = static fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) === 1 ? "'" . $v : $v;
+        fputcsv($out, array_merge(['Instalación', 'Inmueble (GECA)', 'Referencia de ubicación (GECA)'], array_map(static fn (string $t): string => $t === 'SIN TIPO' ? 'Sin tipo' : tipo_equipo($t), $tipos), ['Total']), ',', '"', '');
+        foreach ($d['filas'] as $f) {
+            $fila = [$celda($nombre), $celda($f['inmueble']), $celda($f['referencia'])];
+            foreach ($tipos as $t) {
+                $fila[] = $f['tipos'][$t] ?? 0;
+            }
+            $fila[] = $f['total'];
+            fputcsv($out, $fila, ',', '"', '');
+        }
+        fclose($out);
+    }
+
     /** POST /supervisor/cobertura: ubicaciones que atiende un agente en una instalación (ninguna = todas). */
     public function saveCobertura(): void
     {
