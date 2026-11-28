@@ -164,7 +164,9 @@ if ($hasOld) {
                             <select class="form-select" id="tarea_asignacion_id" name="tarea_asignacion_id">
                                 <option value="0">No sumar a ninguna tarea</option>
                                 <?php foreach ($misTareas as $mt): ?>
-                                    <option value="<?= e($mt['asignacion_id']) ?>" <?= (int) ($old['tarea_asignacion_id'] ?? 0) === (int) $mt['asignacion_id'] ? 'selected' : '' ?>><?= e($mt['folio'] . ' · ' . $mt['titulo']) ?><?= $mt['meta_unidad'] ? ' (' . e(\App\Services\TareaService::porcentaje((int) $mt['hecho'], (int) $mt['meta_cantidad'])) . ' %)' : '' ?></option>
+                                    <option value="<?= e($mt['asignacion_id']) ?>" <?= (int) ($old['tarea_asignacion_id'] ?? 0) === (int) $mt['asignacion_id'] ? 'selected' : '' ?>><?= e($mt['folio'] . ' · ' . $mt['titulo']) ?><?= $mt['meta_unidad'] ? ' (' . e((int) ($mt['lista_total'] ?? 0) > 0
+                                        ? \App\Services\TareaService::porcentaje((int) $mt['lista_hecho'], (int) $mt['lista_total'])
+                                        : \App\Services\TareaService::porcentaje((int) $mt['hecho'], (int) $mt['meta_cantidad'])) . ' %)' : '' ?></option>
                                 <?php endforeach; ?>
                             </select>
                             <div class="form-text">Se agrega a tu hoja de reportes y los equipos cuentan para tu avance.</div>

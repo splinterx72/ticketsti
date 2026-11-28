@@ -214,7 +214,9 @@ foreach ($semaforo as $s) {
             <?php else: ?>
                 <div class="list-group list-group-flush">
                     <?php foreach ($tareas as $t):
-                        $pct = \App\Services\TareaService::porcentaje((int) ($t['hecho'] ?? 0), isset($t['meta_cantidad']) ? (int) $t['meta_cantidad'] * (int) $t['total'] : null); ?>
+                        $pct = (int) ($t['lista_total'] ?? 0) > 0
+                            ? \App\Services\TareaService::porcentaje((int) $t['lista_hecho'], (int) $t['lista_total'])
+                            : \App\Services\TareaService::porcentaje((int) ($t['hecho'] ?? 0), isset($t['meta_cantidad']) ? (int) $t['meta_cantidad'] * (int) $t['total'] : null); ?>
                         <a class="list-group-item list-group-item-action" href="<?= e(url('/tareas/' . (int) $t['id'])) ?>">
                             <div class="d-flex justify-content-between gap-2">
                                 <span class="text-truncate"><span class="small font-monospace text-body-secondary"><?= e($t['folio']) ?></span> <?= e($t['titulo']) ?></span>

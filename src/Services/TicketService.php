@@ -640,7 +640,14 @@ final class TicketService
             $stmt = $this->pdo->query('SELECT COUNT(DISTINCT usuario_id) FROM equipos WHERE usuario_id IS NOT NULL AND id IN (' . implode(',', array_map('intval', $equipos)) . ')');
             $cantidad = (int) $stmt->fetchColumn();
         }
-        $r = $tareas->reportar($asignacionId, $user, "Ticket {$folio}: {$titulo}" . ($equipos !== [] ? ' (' . count($equipos) . ' equipos)' : ''), $cantidad, [], $ticketId);
+        // Si la tarea tiene lista de equipos, los del ticket que estén en ella quedan intervenidos.
+        if ($equipos !== [] && $tareas->conLista() && (int) $a['agente_id'] === (int) $user['id']) {
+            $this->pdo->prepare(
+                'UPDATE tarea_equipos SET asignacion_id = ?, atendido_por = ?, atendido_en = NOW(), ticket_id = ?
+                  WHERE tarea_id = ? AND atendido_en IS NULL AND equipo_id IN (' . implode(',', array_map('intval', $equipos)) . ')'
+            )->execute([$asignacionId, (int) $user['id'], $ticketId, (int) $a['tarea_id']]);
+        }
+        $r = $tareas->reportar($asignacionId, $user, "Ticket {$folio}: {$titulo}" . ($equipos !== [] ? ' (' . count($equipos) . (count($equipos) === 1 ? ' equipo)' : ' equipos)') : ''), $cantidad, [], $ticketId);
         return $r['completa'] ? $asignacionId : null;
     }
 

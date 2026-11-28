@@ -3,6 +3,7 @@
  * @var array<string, mixed> $tarea
  * @var bool $esRevisor
  * @var array<string, mixed>|null $mia
+ * @var list<array{id: int, nombre: string, descripcion: ?string}> $categorias
  */
 $t = $tarea;
 $estados = \App\Services\TareaService::ESTADOS;
@@ -44,7 +45,7 @@ $archivoLink = static fn (array $f): string => '<a href="' . e(url('/tareas/arch
                 <div class="card-header bg-white fw-semibold"><i class="bi bi-graph-up me-1"></i>Avance<?= $esRevisor && count($t['asignaciones']) > 1 ? ' de la tarea' : '' ?></div>
                 <div class="card-body">
                     <?php if ($esRevisor): ?>
-                        <?= \App\Core\Grafica::anillo((int) $t['porcentaje'], number_format((int) $t['hecho']) . ' de ' . number_format((int) $t['meta_total']) . ' ' . $unidad . ' (' . number_format($meta) . ' por agente)') ?>
+                        <?= \App\Core\Grafica::anillo((int) $t['porcentaje'], number_format((int) $t['hecho']) . ' de ' . number_format((int) $t['meta_total']) . ' ' . $unidad . (($t['lista'] ?? []) === [] ? ' (' . number_format($meta) . ' por agente)' : ' de la lista')) ?>
                         <?php if (count($t['asignaciones']) > 1): ?>
                             <ul class="list-unstyled small mt-3 mb-0">
                                 <?php foreach ($t['asignaciones'] as $a): ?>
@@ -53,7 +54,11 @@ $archivoLink = static fn (array $f): string => '<a href="' . e(url('/tareas/arch
                             </ul>
                         <?php endif; ?>
                     <?php elseif ($mia !== null): ?>
-                        <?= \App\Core\Grafica::anillo((int) $mia['porcentaje'], number_format((int) $mia['hecho']) . ' de ' . number_format($meta) . ' ' . $unidad) ?>
+                        <?php if (($t['lista'] ?? []) !== []): ?>
+                            <?= \App\Core\Grafica::anillo((int) $t['porcentaje'], number_format((int) $t['hecho']) . ' de ' . number_format((int) $t['meta_total']) . ' ' . $unidad . ' de la lista') ?>
+                        <?php else: ?>
+                            <?= \App\Core\Grafica::anillo((int) $mia['porcentaje'], number_format((int) $mia['hecho']) . ' de ' . number_format($meta) . ' ' . $unidad) ?>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </div>
             </div>
@@ -79,6 +84,64 @@ $archivoLink = static fn (array $f): string => '<a href="' . e(url('/tareas/arch
     </div>
 
     <div class="col-lg-7">
+        <?php if (($t['lista'] ?? []) !== []):
+            $pendientes = array_values(array_filter($t['lista'], static fn (array $q): bool => $q['atendido_en'] === null));
+            $puedeIntervenir = $mia !== null && in_array($mia['estado'], ['asignada', 'en_proceso', 'devuelta'], true) && $pendientes !== []; ?>
+            <div class="card border-0 shadow-sm mb-3" id="lista">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold"><i class="bi bi-pc-display me-1"></i>Equipos de la tarea</span>
+                    <span class="small"><strong><?= e(count($t['lista']) - count($pendientes)) ?></strong> de <?= e(count($t['lista'])) ?> intervenidos</span>
+                </div>
+                <form method="post" action="<?= $mia !== null ? e(url('/tareas/asignacion/' . (int) $mia['id'] . '/intervenir')) : '#' ?>" class="needs-loading">
+                    <?= csrf_field() ?>
+                    <ul class="list-group list-group-flush small" style="max-height: 24rem; overflow-y: auto;">
+                        <?php foreach ($t['lista'] as $q): $hecho = $q['atendido_en'] !== null; ?>
+                            <li class="list-group-item d-flex align-items-start gap-2 <?= $hecho ? 'bg-body-tertiary' : '' ?>">
+                                <?php if (!$hecho && $puedeIntervenir): ?>
+                                    <input class="form-check-input mt-1" type="checkbox" name="equipos[]" value="<?= e($q['equipo_id']) ?>" id="teq<?= e($q['id']) ?>">
+                                <?php else: ?>
+                                    <i class="bi <?= $hecho ? 'bi-check-circle-fill text-success' : 'bi-circle text-body-secondary' ?> mt-1" aria-hidden="true"></i>
+                                <?php endif; ?>
+                                <label class="flex-grow-1" for="teq<?= e($q['id']) ?>">
+                                    <span class="font-monospace fw-semibold"><?= e($q['serie']) ?></span>
+                                    <span class="text-body-secondary"><?= e(trim((tipo_equipo((string) ($q['tipo_componente'] ?? '')) ? tipo_equipo((string) $q['tipo_componente']) . ' · ' : '') . ($q['marca'] ?? '') . ' ' . ($q['modelo'] ?? ''))) ?></span>
+                                    <span class="d-block text-body-secondary"><?= e($q['ficha'] ? $q['ficha'] . ' · ' . $q['usuario_nombre'] : 'Sin resguardante') ?></span>
+                                    <?php if ($hecho): ?>
+                                        <span class="d-block text-success">Intervenido <?= e(fecha_mx($q['atendido_en'])) ?> · <?= e($q['atendio_nombre'] ?? '') ?>
+                                            <?php if ($q['ticket_folio']): ?> · <a class="font-monospace" href="<?= e(url('/tickets/' . (int) $q['ticket_id'])) ?>"><?= e($q['ticket_folio']) ?></a><?php endif; ?></span>
+                                    <?php endif; ?>
+                                </label>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php if ($puedeIntervenir): ?>
+                        <div class="card-body border-top small">
+                            <span class="fw-semibold d-block mb-1">¿Generar un ticket por cada equipo marcado?</span>
+                            <div class="d-flex flex-wrap gap-3 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="generar_ticket" value="si" id="gt_si" required data-ticket-si>
+                                    <label class="form-check-label" for="gt_si">Sí, un ticket por equipo</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="generar_ticket" value="no" id="gt_no" required>
+                                    <label class="form-check-label" for="gt_no">No, solo registrar en mi hoja</label>
+                                </div>
+                            </div>
+                            <?php if (($categorias ?? []) !== []): ?>
+                                <label class="form-label mb-1" for="cat_lista">Categoría de los tickets</label>
+                                <select class="form-select form-select-sm mb-2" id="cat_lista" name="categoria_id">
+                                    <?php foreach ($categorias as $c): ?><option value="<?= e($c['id']) ?>"><?= e($c['nombre']) ?></option><?php endforeach; ?>
+                                </select>
+                            <?php endif; ?>
+                            <label class="form-label mb-1" for="com_lista">Comentario <span class="text-body-secondary">(opcional; va en cada ticket y en tu hoja)</span></label>
+                            <textarea class="form-control form-control-sm mb-2" id="com_lista" name="comentario" rows="2" maxlength="3000" placeholder="Ej. Formateo y actualización de Windows."></textarea>
+                            <div class="text-end"><button class="btn btn-primary btn-sm" type="submit"><span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span><i class="bi bi-check2-square me-1"></i>Marcar como intervenidos</button></div>
+                            <div class="form-text">Cada ticket lleva el folio y las instrucciones de la tarea, el equipo y su resguardante; queda asignado a ti y ligado a esta tarea.</div>
+                        </div>
+                    <?php endif; ?>
+                </form>
+            </div>
+        <?php endif; ?>
         <?php foreach ($asignaciones as $a):
             [$label, $color] = $estados[$a['estado']];
             $esMia = $mia !== null && (int) $a['id'] === (int) $mia['id'];
@@ -117,7 +180,7 @@ $archivoLink = static fn (array $f): string => '<a href="' . e(url('/tareas/arch
                             <label class="form-label fw-semibold" for="texto<?= e($a['id']) ?>"><i class="bi bi-journal-plus me-1"></i>Nuevo reporte</label>
                             <textarea class="form-control mb-2" id="texto<?= e($a['id']) ?>" name="texto" rows="3" maxlength="3000" required placeholder="¿Qué hiciste? Ej. Se formatearon 6 equipos del nivel 2, falta el ala sur."></textarea>
                             <div class="row g-2 align-items-end">
-                                <?php if ($meta !== null): ?>
+                                <?php if ($meta !== null && ($t['lista'] ?? []) === []): ?>
                                     <div class="col-sm-4">
                                         <label class="form-label small fw-semibold mb-1" for="cant<?= e($a['id']) ?>"><?= e(ucfirst($unidad)) ?> atendidos</label>
                                         <input type="number" class="form-control" id="cant<?= e($a['id']) ?>" name="cantidad" min="0" max="100000" value="0">

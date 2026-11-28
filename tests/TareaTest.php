@@ -249,3 +249,44 @@ function test_ticket_de_ti_suma_sus_equipos_a_la_tarea(): void
         'tipo_ticket' => 'tarea', 'tarea_asignacion_id' => (string) asignacion_de($id, $t['a1']),
     ])), 'no se suma a la tarea de otro');
 }
+
+function test_lista_de_equipos_un_ticket_por_equipo_o_solo_registro(): void
+{
+    $t = equipo_tareas();
+    $pdo = test_pdo();
+    $svc = new TareaService($pdo);
+    $dueno = usuario('22222');
+    foreach (['L-1', 'L-2', 'L-3', 'L-4'] as $s) {
+        equipo_geca($dueno, $s);
+    }
+    assert_throws(ValidationException::class, fn () => $svc->crear($t['sup'], tarea_form([$t['a1']], ['meta_unidad' => 'equipos', 'equipos_series' => "L-1\nNO-EXISTE", 'evidencias' => []]), []), 'serie desconocida');
+    $id = $svc->crear($t['sup'], tarea_form([$t['a1'], $t['a2']], ['meta_unidad' => 'equipos', 'meta_cantidad' => '', 'equipos_series' => "l-1\nL-2, L-3\nL-4", 'evidencias' => []]), []);
+    assert_eq((int) scalar('SELECT meta_cantidad FROM tareas WHERE id = ?', [$id]), 4, 'la meta es el número de equipos de la lista');
+    $a1 = asignacion_de($id, $t['a1']);
+    $a2 = asignacion_de($id, $t['a2']);
+    $eq = static fn (string $s): string => (string) scalar('SELECT id FROM equipos WHERE serie = ?', [$s]);
+    $cat = (int) scalar('SELECT MIN(id) FROM categorias');
+
+    // Con ticket: uno por cada equipo, con los datos de la tarea.
+    $r = $svc->intervenir($a1, $t['a1'], [$eq('L-1'), $eq('L-2')], 'Formateo', true, $cat);
+    assert_eq(count($r['tickets']), 2, 'dos equipos → dos tickets');
+    $tk = $pdo->prepare('SELECT t.tipo_ticket, t.titulo, t.agente_asignado_id, (SELECT COUNT(*) FROM ticket_equipos te WHERE te.ticket_id = t.id) AS n FROM tickets t WHERE t.id = ?');
+    $tk->execute([$r['tickets'][0]['id']]);
+    $row = $tk->fetch();
+    assert_eq([$row['tipo_ticket'], (int) $row['n'], (int) $row['agente_asignado_id']], ['tarea', 1, $t['a1']['id']], 'ticket tipo Tarea, un equipo, asignado al agente');
+    assert_true(str_contains((string) $row['titulo'], 'L-1') || str_contains((string) $row['titulo'], 'L-2'), 'el título lleva la serie');
+    assert_eq((int) scalar('SELECT COUNT(*) FROM tarea_equipos WHERE ticket_id IS NOT NULL'), 2, 'cada equipo ligado a su ticket');
+    assert_throws(ValidationException::class, fn () => $svc->intervenir($a2, $t['a2'], [$eq('L-1')], '', false), 'un equipo ya intervenido no se vuelve a marcar');
+
+    // Sin ticket: solo el registro en la hoja; otro agente puede tomar los demás.
+    $r = $svc->intervenir($a2, $t['a2'], [$eq('L-3')], 'Revisado', false);
+    assert_eq([$r['tickets'], $r['completa']], [[], false], 'sin tickets');
+    assert_eq($svc->totalesLista($id), ['total' => 4, 'atendidos' => 3], '3 de 4');
+    assert_throws(ValidationException::class, fn () => $svc->cambiarEstado($a1, $t['a1'], 'entregar', '', []), 'al 75 % el cierre pide motivo');
+
+    $r = $svc->intervenir($a1, $t['a1'], [$eq('L-4')], '', true, $cat);
+    assert_true($r['completa'], 'con el último equipo llega al 100 % y avisa');
+    $d = $svc->detalle($id);
+    assert_eq([$d['hecho'], $d['meta_total'], $d['porcentaje']], [4, 4, 100], 'avance de la tarea por la lista');
+    assert_eq((int) $svc->asignadasPor($t['sup'])[0]['lista_hecho'], 4, 'la lista del supervisor trae lo intervenido');
+}

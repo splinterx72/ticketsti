@@ -3,6 +3,7 @@
  * @var list<array{id: int, nombre: string, email: ?string, prestado: bool}> $agentes
  * @var array<string, string> $old
  * @var bool $conReportes
+ * @var bool $conLista
  */
 $unidadSel = $old['meta_unidad'] ?? 'equipos';
 $tipos = \App\Services\TareaService::TIPOS_EVIDENCIA;
@@ -88,6 +89,11 @@ $accept = '.' . implode(',.', array_keys(\App\Services\ArchivoService::PERMITIDO
                             </div>
                         </div>
                         <div class="form-text">Cada agente reporta cuántos lleva y se calcula su % de avance. Al llegar al 100 % te avisamos.</div>
+                        <?php if ($conLista ?? false): ?>
+                            <label class="form-label small fw-semibold mt-3 mb-1" for="equipos_series">Series de los equipos <span class="fw-normal text-body-secondary">(solo con "Equipos"; una por línea)</span></label>
+                            <textarea class="form-control font-monospace" id="equipos_series" name="equipos_series" rows="4" spellcheck="false" placeholder="5CG1234XYZ&#10;5CG5678ABC"><?= e($old['equipos_series'] ?? '') ?></textarea>
+                            <div class="form-text">Si las capturas, la meta es el número de equipos de la lista y los agentes los marcan uno por uno al intervenirlos (con un ticket por equipo si lo eligen).</div>
+                        <?php endif; ?>
                     </div>
                 </div>
             <?php endif; ?>

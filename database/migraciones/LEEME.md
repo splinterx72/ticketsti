@@ -19,6 +19,7 @@ completo.
 | `2026-12-03_categorias_tipos_ti.sql` | Cobertura por ubicación | Categorías y tickets de TI | Categoría de la acción en cada ticket, tipos de ticket de TI (tarea, actualizaciones, levantamiento, instrucción, formateos, bajas, altas) y varios equipos por ticket |
 | `2026-12-04_tareas_reportes.sql` | Categorías y tickets de TI | Tareas con reportes | Meta de la tarea (equipos, usuarios u otro), hoja de reportes de avance con cantidad y evidencias, % de avance y aviso al supervisor al 100 % |
 | `2026-12-05_resguardo.sql` | Tareas con reportes | Resguardo de equipos | Recepción de equipos que dejan los trabajadores (componentes y accesorios, acta GECA escaneada), estados del equipo y disponibles para asignar; módulo `resguardo` |
+| `2026-12-06_tarea_equipos.sql` | Resguardo de equipos | Equipos de una tarea | Lista de series de una tarea (meta "Equipos"); el agente los marca como intervenidos y se genera un ticket por equipo si lo pide |
 
 ## Cómo aplicar una migración (phpMyAdmin en cPanel)
 

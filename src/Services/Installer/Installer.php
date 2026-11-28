@@ -55,6 +55,8 @@ final class Installer
         'tarea_avances',
         // Resguardo de equipos
         'recepciones', 'equipos_resguardo',
+        // Equipos de una tarea
+        'tarea_equipos',
     ];
 
     public const TIMEZONES = [

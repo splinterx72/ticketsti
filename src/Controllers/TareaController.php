@@ -44,6 +44,7 @@ final class TareaController extends Controller
         $this->view('tareas/form', [
             'title'   => 'Nueva tarea',
             'conReportes' => (new TareaService(Database::getInstance()))->conReportes(),
+            'conLista'    => (new TareaService(Database::getInstance()))->conLista(),
             'agentes' => (new Alcance(Database::getInstance()))->agentesDe((int) Auth::id()),
         ]);
     }
@@ -62,6 +63,7 @@ final class TareaController extends Controller
             $in[$c] = $c === 'instrucciones' && is_string($_POST['instrucciones'] ?? null) ? (string) $_POST['instrucciones'] : $this->input($c);
         }
         $in['agentes'] = array_map('strval', (array) ($_POST['agentes'] ?? []));
+        $in['equipos_series'] = is_string($_POST['equipos_series'] ?? null) ? (string) $_POST['equipos_series'] : '';
         $in['evidencias'] = [];
         foreach ((array) ($_POST['evid_tipo'] ?? []) as $i => $tipo) {
             $in['evidencias'][] = ['tipo' => (string) $tipo, 'descripcion' => (string) (($_POST['evid_desc'] ?? [])[$i] ?? '')];
@@ -79,7 +81,7 @@ final class TareaController extends Controller
             foreach ($e->errors() as $error) {
                 Session::flash('danger', $error);
             }
-            $this->rememberInput(self::CAMPOS);
+            $this->rememberInput([...self::CAMPOS, 'equipos_series']);
             redirect('/tareas/nueva');
         }
         Notifier::tareaAsignada($id);
@@ -111,6 +113,7 @@ final class TareaController extends Controller
             'tarea'     => $t,
             'esRevisor' => $esRevisor,
             'mia'       => $mia,
+            'categorias' => (new \App\Services\CategoriaService(Database::getInstance()))->todas(true),
         ]);
     }
 
@@ -132,6 +135,52 @@ final class TareaController extends Controller
     public function devolver(int $id): void
     {
         $this->accion($id, 'devolver');
+    }
+
+    /**
+     * POST /tareas/asignacion/{id}/intervenir: el agente marca equipos de la
+     * lista; si eligió "Sí", se genera un ticket por cada equipo.
+     */
+    public function intervenir(int $id): void
+    {
+        $this->requireModulo('tareas', Roles::TI);
+        $this->verifyCsrf();
+        $svc = new TareaService(Database::getInstance());
+        $asig = $svc->asignacion($id);
+        if ($asig === null) {
+            throw new HttpException(404, 'La tarea no existe.');
+        }
+        $ticket = $this->input('generar_ticket');
+        try {
+            if (!in_array($ticket, ['si', 'no'], true)) {
+                throw new ValidationException(['Indica si quieres generar un ticket por cada equipo.']);
+            }
+            $r = $svc->intervenir(
+                $id,
+                Auth::user(),
+                is_array($_POST['equipos'] ?? null) ? array_values(array_filter($_POST['equipos'], 'is_string')) : [],
+                is_string($_POST['comentario'] ?? null) ? (string) $_POST['comentario'] : '',
+                $ticket === 'si',
+                (int) $this->input('categoria_id')
+            );
+            foreach ($r['tickets'] as $t) {
+                Notifier::ticketCreado($t['id']);
+            }
+            if ($r['tickets'] !== []) {
+                Session::flash('success', 'Se generaron ' . count($r['tickets']) . ' ticket(s): ' . implode(', ', array_column($r['tickets'], 'folio')) . '.');
+            } else {
+                Session::flash('success', 'Equipos marcados como intervenidos.');
+            }
+            if ($r['completa']) {
+                Notifier::tareaCompleta($id);
+                Session::flash('info', 'La lista de equipos llegó al 100 %; avisamos al supervisor.');
+            }
+        } catch (ValidationException $e) {
+            foreach ($e->errors() as $error) {
+                Session::flash('danger', $error);
+            }
+        }
+        redirect('/tareas/' . (int) $asig['tarea_id'] . '#lista');
     }
 
     /** POST /tareas/asignacion/{id}/reportar: agrega un reporte a la hoja del agente. */

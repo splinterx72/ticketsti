@@ -38,6 +38,7 @@ final class TareaService
     public const UNIDADES = ['equipos' => 'Equipos', 'usuarios' => 'Usuarios', 'otro' => 'Otro'];
 
     private static ?bool $reportes = null;
+    private static ?bool $lista = null;
 
     public function __construct(private readonly PDO $pdo)
     {
@@ -52,6 +53,17 @@ final class TareaService
             )->fetchColumn() === 1;
         }
         return self::$reportes;
+    }
+
+    /** ¿Ya se importó la migración de la lista de equipos de la tarea? */
+    public function conLista(): bool
+    {
+        if (self::$lista === null) {
+            self::$lista = (int) $this->pdo->query(
+                "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tarea_equipos'"
+            )->fetchColumn() === 1;
+        }
+        return self::$lista;
     }
 
     /** % de avance (0–100) o null si la tarea no tiene meta. */
@@ -93,8 +105,18 @@ final class TareaService
         $unidad = (string) ($in['meta_unidad'] ?? '');
         $metaDesc = trim((string) preg_replace('/\s+/u', ' ', (string) ($in['meta_descripcion'] ?? '')));
         $metaCant = (int) ($in['meta_cantidad'] ?? 0);
+        // Meta "Equipos" con lista de series: la meta es el número de equipos de la lista.
+        $listaEquipos = [];
+        if ($unidad === 'equipos' && trim((string) ($in['equipos_series'] ?? '')) !== '' && $this->conLista()) {
+            try {
+                $listaEquipos = (new TicketService($this->pdo))->resolverEquipos([], (string) $in['equipos_series']);
+                $metaCant = count($listaEquipos);
+            } catch (ValidationException $e) {
+                $listaErrores = $e->errors();
+            }
+        }
 
-        $errors = [];
+        $errors = $listaErrores ?? [];
         if ($unidad !== '') {
             if (!array_key_exists($unidad, self::UNIDADES)) {
                 $errors[] = 'Elige qué se va a intervenir: equipos, usuarios u otro.';
@@ -144,6 +166,10 @@ final class TareaService
             if ($unidad !== '' && $this->conReportes()) {
                 $this->pdo->prepare('UPDATE tareas SET meta_unidad = ?, meta_descripcion = ?, meta_cantidad = ? WHERE id = ?')
                     ->execute([$unidad, $unidad === 'otro' ? $metaDesc : null, $metaCant, $id]);
+                $insEq = $this->pdo->prepare('INSERT INTO tarea_equipos (tarea_id, equipo_id) VALUES (?, ?)');
+                foreach ($listaEquipos as $eid) {
+                    $insEq->execute([$id, $eid]);
+                }
             }
 
             $ins = $this->pdo->prepare('INSERT INTO tarea_asignaciones (tarea_id, agente_id) VALUES (?, ?)');
@@ -198,7 +224,7 @@ final class TareaService
             throw new ValidationException(['Escribe un comentario explicando qué falta corregir.']);
         }
         if ($accion === 'entregar' && $comentario === '' && $this->conReportes()) {
-            $pct = self::porcentaje($this->hecho($asignacionId), isset($a['meta_cantidad']) ? (int) $a['meta_cantidad'] : null);
+            $pct = $this->progreso($a)['porcentaje'];
             if ($pct !== null && $pct < 100) {
                 throw new ValidationException(["Vas en {$pct} %: escribe el motivo del cierre antes del 100 %."]);
             }
@@ -294,8 +320,7 @@ final class TareaService
             if ($a['estado'] !== 'en_proceso') {
                 $this->pdo->prepare("UPDATE tarea_asignaciones SET estado = 'en_proceso' WHERE id = ?")->execute([$asignacionId]);
             }
-            $hecho = $this->hecho($asignacionId);
-            $pct = self::porcentaje($hecho, $meta);
+            ['hecho' => $hecho, 'porcentaje' => $pct] = $this->progreso($a);
             $completa = false;
             if ($pct === 100) {
                 $upd = $this->pdo->prepare('UPDATE tarea_asignaciones SET completa_avisada_en = NOW() WHERE id = ? AND completa_avisada_en IS NULL');
@@ -312,6 +337,154 @@ final class TareaService
             throw $e;
         }
         return ['porcentaje' => $pct, 'hecho' => $hecho, 'completa' => $completa];
+    }
+
+    /**
+     * Avance de una asignación. Con lista de equipos el avance es de la tarea
+     * (equipos intervenidos / equipos de la lista); si no, lo reportado por el
+     * agente contra su meta.
+     *
+     * @param array<string, mixed> $a fila de asignacion()
+     * @return array{hecho: int, meta: ?int, porcentaje: ?int, lista: bool}
+     */
+    public function progreso(array $a): array
+    {
+        $lista = $this->totalesLista((int) $a['tarea_id']);
+        if ($lista['total'] > 0) {
+            return ['hecho' => $lista['atendidos'], 'meta' => $lista['total'], 'porcentaje' => self::porcentaje($lista['atendidos'], $lista['total']), 'lista' => true];
+        }
+        $meta = isset($a['meta_cantidad']) ? (int) $a['meta_cantidad'] : null;
+        $hecho = $this->hecho((int) $a['id']);
+        return ['hecho' => $hecho, 'meta' => $meta, 'porcentaje' => self::porcentaje($hecho, $meta), 'lista' => false];
+    }
+
+    /** @return array{total: int, atendidos: int} */
+    public function totalesLista(int $tareaId): array
+    {
+        if (!$this->conLista()) {
+            return ['total' => 0, 'atendidos' => 0];
+        }
+        $st = $this->pdo->prepare('SELECT COUNT(*) AS total, COALESCE(SUM(atendido_en IS NOT NULL), 0) AS atendidos FROM tarea_equipos WHERE tarea_id = ?');
+        $st->execute([$tareaId]);
+        $r = $st->fetch() ?: ['total' => 0, 'atendidos' => 0];
+        return ['total' => (int) $r['total'], 'atendidos' => (int) $r['atendidos']];
+    }
+
+    /** @return list<array<string, mixed>> equipos de la lista de la tarea con quién y cuándo se intervinieron */
+    public function listaEquipos(int $tareaId): array
+    {
+        if (!$this->conLista()) {
+            return [];
+        }
+        $st = $this->pdo->prepare(
+            'SELECT te.*, e.serie, e.marca, e.modelo, e.tipo_componente, u.ficha, u.nombre AS usuario_nombre,
+                    ua.nombre AS atendio_nombre, t.folio AS ticket_folio
+               FROM tarea_equipos te
+               JOIN equipos e ON e.id = te.equipo_id
+               LEFT JOIN usuarios u ON u.id = e.usuario_id
+               LEFT JOIN usuarios ua ON ua.id = te.atendido_por
+               LEFT JOIN tickets t ON t.id = te.ticket_id
+              WHERE te.tarea_id = ? ORDER BY (te.atendido_en IS NOT NULL), e.serie'
+        );
+        $st->execute([$tareaId]);
+        return $st->fetchAll();
+    }
+
+    /**
+     * El agente marca equipos de la lista como intervenidos. Con $conTicket se
+     * genera UN ticket por equipo (tipo Tarea, ligado a la tarea, con los datos
+     * de la tarea y el equipo); sin él, solo un reporte en la hoja.
+     *
+     * @param array<string, mixed> $user
+     * @param list<int|string> $equipoIds
+     * @return array{tickets: list<array{id: int, folio: string}>, completa: bool}
+     */
+    public function intervenir(int $asignacionId, array $user, array $equipoIds, string $comentario, bool $conTicket, int $categoriaId = 0): array
+    {
+        $a = $this->asignacion($asignacionId);
+        if ($a === null || (int) $a['agente_id'] !== (int) $user['id']) {
+            throw new ValidationException(['Solo el agente asignado interviene los equipos de su tarea.']);
+        }
+        if (!in_array($a['estado'], ['asignada', 'en_proceso', 'devuelta'], true)) {
+            throw new ValidationException(['La tarea ya está cerrada.']);
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', $equipoIds), static fn (int $i): bool => $i > 0)));
+        if ($ids === []) {
+            throw new ValidationException(['Marca al menos un equipo.']);
+        }
+        $comentario = trim(str_replace(["\r\n", "\r"], "\n", $comentario));
+        if (mb_strlen($comentario) > 3000) {
+            throw new ValidationException(['El comentario admite hasta 3000 caracteres.']);
+        }
+        $pend = $this->pdo->prepare('SELECT te.id, te.equipo_id, e.serie, e.marca, e.modelo, e.tipo_componente, u.ficha, u.nombre AS usuario_nombre
+                                       FROM tarea_equipos te JOIN equipos e ON e.id = te.equipo_id LEFT JOIN usuarios u ON u.id = e.usuario_id
+                                      WHERE te.tarea_id = ? AND te.equipo_id = ? AND te.atendido_en IS NULL');
+        $equipos = [];
+        foreach ($ids as $eid) {
+            $pend->execute([(int) $a['tarea_id'], $eid]);
+            $row = $pend->fetch();
+            if (!$row) {
+                throw new ValidationException(['Uno de los equipos no está en la lista de la tarea o ya fue intervenido; recarga la página.']);
+            }
+            $equipos[] = $row;
+        }
+        $marcar = $this->pdo->prepare(
+            'UPDATE tarea_equipos SET asignacion_id = ?, atendido_por = ?, atendido_en = NOW() WHERE id = ? AND atendido_en IS NULL'
+        );
+
+        if (!$conTicket) {
+            $this->pdo->beginTransaction();
+            try {
+                foreach ($equipos as $eq) {
+                    $marcar->execute([$asignacionId, (int) $user['id'], (int) $eq['id']]);
+                    if ($marcar->rowCount() !== 1) {
+                        throw new ValidationException(["El equipo {$eq['serie']} ya fue intervenido; recarga la página."]);
+                    }
+                }
+                $texto = 'Equipos intervenidos (' . count($equipos) . '): ' . implode(', ', array_column($equipos, 'serie')) . ($comentario !== '' ? "\n" . $comentario : '');
+                $r = $this->reportar($asignacionId, $user, $texto, count($equipos));
+                $this->pdo->commit();
+            } catch (Throwable $e) {
+                if ($this->pdo->inTransaction()) {
+                    $this->pdo->rollBack();
+                }
+                throw $e;
+            }
+            return ['tickets' => [], 'completa' => $r['completa']];
+        }
+
+        // Un ticket por equipo: cada uno en su propia transacción.
+        $tickets = [];
+        $completa = false;
+        $svc = new TicketService($this->pdo);
+        $desmarcar = $this->pdo->prepare('UPDATE tarea_equipos SET asignacion_id = NULL, atendido_por = NULL, atendido_en = NULL WHERE id = ?');
+        $ligar = $this->pdo->prepare('UPDATE tarea_equipos SET ticket_id = ? WHERE id = ?');
+        foreach ($equipos as $eq) {
+            $marcar->execute([$asignacionId, (int) $user['id'], (int) $eq['id']]);
+            if ($marcar->rowCount() !== 1) {
+                continue;   // otro agente lo tomó mientras tanto
+            }
+            $resguardante = $eq['ficha'] ? "{$eq['ficha']} {$eq['usuario_nombre']}" : 'sin resguardante';
+            try {
+                $r = $svc->create($user, [
+                    'tipo_ticket' => 'tarea', 'prioridad' => (string) $a['prioridad'], 'categoria_id' => (string) $categoriaId,
+                    'titulo' => mb_substr("{$a['folio']} · {$eq['serie']} · {$a['titulo']}", 0, 180),
+                    'descripcion' => mb_substr("Tarea {$a['folio']}: {$a['titulo']}\n\n" . trim((string) $a['instrucciones'])
+                        . "\n\nEquipo: {$eq['serie']} " . trim(($eq['marca'] ?? '') . ' ' . ($eq['modelo'] ?? '')) . " · Resguardante: {$resguardante}"
+                        . ($comentario !== '' ? "\n\n{$comentario}" : ''), 0, 5000),
+                    'equipos' => [(string) $eq['equipo_id']], 'equipos_series' => '',
+                    'tarea_asignacion_id' => (string) $asignacionId,
+                    'equipo_id' => '0', 'componente_afectado' => 'general', 'hostname_reportado' => '',
+                ]);
+            } catch (Throwable $e) {
+                $desmarcar->execute([(int) $eq['id']]);
+                throw $e;
+            }
+            $ligar->execute([$r['id'], (int) $eq['id']]);
+            $tickets[] = ['id' => (int) $r['id'], 'folio' => (string) $r['folio']];
+            $completa = $completa || ($r['tarea_completa'] ?? null) !== null;
+        }
+        return ['tickets' => $tickets, 'completa' => $completa];
     }
 
     /** Suma de lo atendido en la hoja de reportes. */
@@ -390,7 +563,10 @@ final class TareaService
                        COALESCE(SUM(a.estado = 'entregada'), 0) AS por_revisar" . ($this->conReportes()
                     ? ", COALESCE(SUM(avs.hecho), 0) AS hecho,
                        COALESCE(SUM(a.completa_avisada_en IS NOT NULL AND a.estado IN ('asignada', 'en_proceso', 'devuelta')), 0) AS listas_cierre"
-                    : ', 0 AS hecho, 0 AS listas_cierre') . "
+                    : ', 0 AS hecho, 0 AS listas_cierre')
+                . ($this->conLista() ? ',
+                       (SELECT COUNT(*) FROM tarea_equipos te WHERE te.tarea_id = t.id) AS lista_total,
+                       (SELECT COUNT(*) FROM tarea_equipos te WHERE te.tarea_id = t.id AND te.atendido_en IS NOT NULL) AS lista_hecho' : ', 0 AS lista_total, 0 AS lista_hecho') . "
                   FROM tareas t
                   LEFT JOIN usuarios u ON u.id = t.supervisor_id
                   LEFT JOIN tarea_asignaciones a ON a.tarea_id = t.id"
@@ -414,6 +590,8 @@ final class TareaService
                     u.nombre AS supervisor_nombre"
             . ($this->conReportes()
                 ? ', t.meta_unidad, t.meta_descripcion, t.meta_cantidad, (SELECT COALESCE(SUM(av.cantidad), 0) FROM tarea_avances av WHERE av.asignacion_id = a.id) AS hecho'
+                    . ($this->conLista() ? ', (SELECT COUNT(*) FROM tarea_equipos te WHERE te.tarea_id = t.id) AS lista_total,
+                       (SELECT COUNT(*) FROM tarea_equipos te WHERE te.tarea_id = t.id AND te.atendido_en IS NOT NULL) AS lista_hecho' : ', 0 AS lista_total, 0 AS lista_hecho')
                 : ', NULL AS meta_unidad, NULL AS meta_descripcion, NULL AS meta_cantidad, 0 AS hecho') . "
                FROM tarea_asignaciones a
                JOIN tareas t ON t.id = a.tarea_id
@@ -446,17 +624,27 @@ final class TareaService
         $a->execute([$tareaId]);
         $t['asignaciones'] = $a->fetchAll();
         $meta = isset($t['meta_cantidad']) ? (int) $t['meta_cantidad'] : null;
+        $lista = $this->totalesLista($tareaId);
+        $t['lista'] = $lista['total'] > 0 ? $this->listaEquipos($tareaId) : [];
         $hechoTotal = 0;
         foreach ($t['asignaciones'] as $i => $asig) {
             $hecho = $this->hecho((int) $asig['id']);
             $hechoTotal += $hecho;
             $t['asignaciones'][$i]['hecho'] = $hecho;
-            $t['asignaciones'][$i]['porcentaje'] = self::porcentaje($hecho, $meta);
+            // Con lista, el avance es de toda la tarea (los equipos se reparten entre agentes).
+            $t['asignaciones'][$i]['porcentaje'] = $lista['total'] > 0
+                ? self::porcentaje($lista['atendidos'], $lista['total'])
+                : self::porcentaje($hecho, $meta);
             $t['asignaciones'][$i]['avances'] = $this->avances((int) $asig['id']);
         }
-        $t['hecho'] = $hechoTotal;
-        $t['meta_total'] = $meta !== null ? $meta * count($t['asignaciones']) : null;
-        $t['porcentaje'] = self::porcentaje($hechoTotal, $t['meta_total']);
+        if ($lista['total'] > 0) {
+            $t['hecho'] = $lista['atendidos'];
+            $t['meta_total'] = $lista['total'];
+        } else {
+            $t['hecho'] = $hechoTotal;
+            $t['meta_total'] = $meta !== null ? $meta * count($t['asignaciones']) : null;
+        }
+        $t['porcentaje'] = self::porcentaje((int) $t['hecho'], $t['meta_total']);
         $f = $this->pdo->prepare('SELECT * FROM tarea_archivos WHERE tarea_id = ? ORDER BY id');
         $f->execute([$tareaId]);
         $t['archivos'] = $f->fetchAll();
@@ -467,7 +655,7 @@ final class TareaService
     public function asignacion(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT a.*, t.supervisor_id, t.evidencias_requeridas, t.folio, t.titulo, t.entrega_en'
+            'SELECT a.*, t.supervisor_id, t.evidencias_requeridas, t.folio, t.titulo, t.entrega_en, t.prioridad, t.instrucciones'
             . ($this->conReportes() ? ', t.meta_cantidad, t.meta_unidad, t.meta_descripcion' : ', NULL AS meta_cantidad, NULL AS meta_unidad, NULL AS meta_descripcion') . '
                FROM tarea_asignaciones a JOIN tareas t ON t.id = a.tarea_id WHERE a.id = ?'
         );
