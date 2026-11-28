@@ -307,6 +307,16 @@ try {
         redirect('/instalacion');
     }
 
+    // Apache rechazó la petición (p. ej. 413 por tamaño o 403 de ModSecurity) y la
+    // reenvió como GET a su página de error: explica la causa en vez de un 405.
+    $redirectStatus = (int) ($_SERVER['REDIRECT_STATUS'] ?? 200);
+    if ($redirectStatus === 413) {
+        throw new HttpException(413, 'Lo que enviaste es demasiado grande para el servidor. Intenta de nuevo; si se repite, avisa al Admin TI.');
+    }
+    if ($redirectStatus === 403) {
+        throw new HttpException(403, 'El servidor rechazó la solicitud. Intenta de nuevo; si se repite, avisa al Admin TI.');
+    }
+
     $router->dispatch((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'), (string) ($_SERVER['REQUEST_URI'] ?? '/'));
 
     // Respaldo de la Tarea Cron: la primera petición del día revisa los recordatorios.
@@ -342,6 +352,7 @@ function renderError(int $status, string $message): void
         403 => 'Acceso denegado',
         404 => 'Página no encontrada',
         405 => 'Método no permitido',
+        413 => 'Solicitud demasiado grande',
         500 => 'Error del servidor',
     ];
 

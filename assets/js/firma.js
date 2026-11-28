@@ -68,6 +68,18 @@
         ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) {
             canvas.addEventListener(t, function () { dibujando = false; });
         });
+        // Copia ligera (máx. 600 px, sin escalar por pantalla): el hosting rechaza
+        // peticiones pesadas y una firma en alta densidad pesaba cientos de KB.
+        function exportar() {
+            var r = canvas.getBoundingClientRect();
+            var ancho = Math.min(600, Math.max(1, Math.round(r.width)));
+            var alto = Math.max(1, Math.round(ancho * canvas.height / canvas.width));
+            var copia = document.createElement('canvas');
+            copia.width = ancho;
+            copia.height = alto;
+            copia.getContext('2d').drawImage(canvas, 0, 0, ancho, alto);
+            return copia.toDataURL('image/png');
+        }
         var limpiar = form.querySelector('[data-firma-limpiar]');
         if (limpiar) {
             limpiar.addEventListener('click', function () { ctx.clearRect(0, 0, canvas.width, canvas.height); trazado = false; });
@@ -80,7 +92,7 @@
                 window.alert('Dibuja la firma en el recuadro antes de enviar.');
                 return;
             }
-            dato.value = canvas.toDataURL('image/png');
+            dato.value = exportar();
         });
         // "El usuario firma también como responsable": pide el motivo.
         var mismo = form.querySelector('[data-mismo-usuario]');
