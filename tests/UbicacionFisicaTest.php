@@ -105,3 +105,36 @@ function test_prestamo_requiere_hasta(): void
     assert_throws(ValidationException::class, fn () => $svc->prestarAgente($sup, $agente['id'], $a, null, date('Y-m-d', strtotime('+3 days'))),
         'préstamo a su propia instalación');
 }
+
+function test_eliminar_ubicacion_e_instalacion_aunque_esten_en_uso(): void
+{
+    $e = ejemplos_usuario();
+    $pdo = test_pdo();
+    $svc = new \App\Services\UbicacionFisicaService($pdo);
+    $u = usuario('11111');
+    $pdo->prepare('UPDATE usuarios SET habitual_ubicacion_fisica_id = ?, habitual_nivel_id = ?, habitual_ala = ? WHERE id = ?')
+        ->execute([$e['holkanaab'], nivel_id('PB'), 'norte', $u['id']]);
+    $eq = equipo_geca($u, 'SER-1');
+    $pdo->prepare('UPDATE equipos SET real_ubicacion_fisica_id = ?, real_nivel_id = ? WHERE id = ?')->execute([$e['holkanaab'], nivel_id('PB'), $eq]);
+    $t = ticket_de($u, $e['km']);
+    $pdo->prepare('UPDATE tickets SET reportada_ubicacion_fisica_id = ? WHERE id = ?')->execute([$e['holkanaab'], $t['id']]);
+    $sup = usuario('SUP', 'supervisor');
+    asignar_supervisor($sup['id'], $e['km']);
+    $svc->mapearInmueble('Torre Ejecutiva', $e['km']);
+
+    $uso = $svc->uso($e['km']);
+    assert_eq([$uso['tickets'], $uso['equipos'], $uso['usuarios'], $uso['ubicaciones']], [1, 1, 1, 1], 'cuenta el uso');
+
+    $svc->eliminarInstalacion($e['km']);
+    assert_eq((int) scalar('SELECT COUNT(*) FROM instalaciones WHERE id = ?', [$e['km']]), 0, 'instalación borrada');
+    assert_eq((int) scalar('SELECT COUNT(*) FROM ubicaciones_fisicas WHERE id = ?', [$e['holkanaab']]), 0, 'sus ubicaciones también');
+    assert_eq(scalar('SELECT instalacion_id FROM tickets WHERE id = ?', [$t['id']]), null, 'el ticket sigue, sin instalación');
+    assert_eq(scalar('SELECT habitual_nivel_id FROM usuarios WHERE id = ?', [$u['id']]), null, 'el usuario queda sin ubicación');
+    assert_eq(scalar('SELECT real_nivel_id FROM equipos WHERE id = ?', [$eq]), null, 'el equipo queda sin ubicación');
+    assert_eq((int) scalar('SELECT COUNT(*) FROM supervisor_instalaciones'), 0, 'sin supervisores');
+    assert_eq((int) scalar('SELECT COUNT(*) FROM geca_inmueble_instalacion'), 0, 'sin equivalencias');
+
+    $svc->eliminarUbicacion($e['carga']);
+    assert_eq((int) scalar('SELECT COUNT(*) FROM ubicaciones_fisicas'), 0, 'ubicación borrada');
+    assert_eq($svc->inmueblePorId((int) scalar("SELECT id FROM ubicaciones WHERE inmueble = 'Torre Ejecutiva'")), 'Torre Ejecutiva', 'inmueble por id');
+}

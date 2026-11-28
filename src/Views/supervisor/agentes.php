@@ -9,6 +9,10 @@
  * @var array<int, array{estado: string, hasta: ?string, especialidades: list<int>}> $disponibilidad
  * @var list<array{id: int, nombre: string}> $departamentos
  * @var array<int, array{modo: string, remedy: bool}> $modos
+ * @var int $cobInstalacion
+ * @var bool $cobDisponible
+ * @var list<array<string, mixed>> $cobUbicaciones
+ * @var list<array{id: int, nombre: string, prestamo: bool, ubicaciones: list<int>, pausas: list<array<string, mixed>>}> $cobAgentes
  */
 $mias = array_column($instalaciones, 'id');
 $base = array_values(array_filter($misAgentes, static fn (array $a): bool => !$a['prestado']));
@@ -198,4 +202,96 @@ $hasta = static fn (?string $h): string => $h ? 'hasta ' . fecha_mx($h, false) :
         </div>
     </div>
 </div>
+<h2 class="h5 mt-4 mb-1" id="cobertura"><i class="bi bi-diagram-3 me-1"></i>Cobertura y pausas por ubicación</h2>
+<p class="small text-body-secondary mb-3">
+    Marca qué ubicaciones atiende cada agente (sin marcar = todas). Si tiene otros trabajos o tareas, ponlo en pausa en una
+    ubicación o en toda la instalación: mientras dure no recibe tickets nuevos ahí (ni sugeridos ni automáticos).
+</p>
+<?php if (!$cobDisponible): ?>
+    <div class="alert alert-warning small">Falta importar la migración <code>2026-12-02_cobertura_agentes.sql</code>. Mientras tanto, los agentes atienden todas las ubicaciones.</div>
+<?php else: ?>
+    <?php if (count($instalaciones) > 1): ?>
+        <form method="get" action="<?= e(url('/supervisor/agentes')) ?>" class="d-flex gap-2 mb-3" style="max-width: 28rem;">
+            <select name="cob" class="form-select form-select-sm" aria-label="Instalación" data-autoenviar>
+                <?php foreach ($instalaciones as $i): ?><option value="<?= e($i['id']) ?>" <?= $i['id'] === $cobInstalacion ? 'selected' : '' ?>><?= e($i['nombre']) ?></option><?php endforeach; ?>
+            </select>
+            <noscript><button class="btn btn-sm btn-primary">Ver</button></noscript>
+        </form>
+    <?php endif; ?>
+    <?php if ($cobAgentes === []): ?>
+        <div class="card border-0 shadow-sm"><div class="card-body small text-body-secondary">No hay agentes asignados a esta instalación.</div></div>
+    <?php elseif ($cobUbicaciones === []): ?>
+        <div class="card border-0 shadow-sm"><div class="card-body small text-body-secondary">La instalación aún no tiene ubicaciones. Dalas de alta en Supervisión › Ubicaciones.</div></div>
+    <?php else: $nombresUbi = array_column($cobUbicaciones, 'nombre', 'id'); ?>
+        <div class="row g-3">
+            <?php foreach ($cobAgentes as $ag): $aid = (int) $ag['id']; ?>
+                <div class="col-xl-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center gap-2">
+                            <span class="fw-semibold"><?= e($ag['nombre']) ?> <?= $ag['prestamo'] ? '<span class="badge text-bg-info">Préstamo</span>' : '' ?></span>
+                            <?php if ($ag['pausas'] !== []): ?>
+                                <span class="badge text-bg-warning"><i class="bi bi-pause-circle me-1"></i>En pausa</span>
+                            <?php else: ?>
+                                <span class="badge text-bg-success"><i class="bi bi-play-circle me-1"></i>Activo</span>
+                            <?php endif; ?>
+                        </div>
+                        <form method="post" action="<?= e(url('/supervisor/cobertura')) ?>" class="card-body pb-2">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="instalacion_id" value="<?= e($cobInstalacion) ?>">
+                            <input type="hidden" name="agente_id" value="<?= e($aid) ?>">
+                            <span class="form-label small fw-semibold d-block mb-1">Atiende <span class="fw-normal text-body-secondary">(<?= $ag['ubicaciones'] === [] ? 'todas' : count($ag['ubicaciones']) . ' de ' . count($cobUbicaciones) ?>)</span></span>
+                            <div class="d-flex flex-wrap gap-1 mb-2">
+                                <?php foreach ($cobUbicaciones as $u): $uid = (int) $u['id']; ?>
+                                    <input type="checkbox" class="btn-check" id="cob_<?= e($aid) ?>_<?= e($uid) ?>" name="ubicaciones[]" value="<?= e($uid) ?>" <?= in_array($uid, $ag['ubicaciones'], true) ? 'checked' : '' ?>>
+                                    <label class="btn btn-sm btn-outline-primary" for="cob_<?= e($aid) ?>_<?= e($uid) ?>"><?= e($u['nombre']) ?></label>
+                                <?php endforeach; ?>
+                            </div>
+                            <div class="text-end"><button class="btn btn-sm btn-outline-primary" type="submit">Guardar ubicaciones</button></div>
+                        </form>
+                        <?php if ($ag['pausas'] !== []): ?>
+                            <ul class="list-group list-group-flush small">
+                                <?php foreach ($ag['pausas'] as $p): ?>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                                        <span>
+                                            <i class="bi bi-pause-circle text-warning me-1"></i><strong><?= e($p['ubicacion'] ?? 'Toda la instalación') ?></strong>
+                                            <?= $p['hasta'] ? ' · hasta ' . e(fecha_mx($p['hasta'], false)) : ' · sin fecha' ?>
+                                            <?php if ($p['motivo']): ?><span class="text-body-secondary"> · <?= e($p['motivo']) ?></span><?php endif; ?>
+                                        </span>
+                                        <form method="post" action="<?= e(url('/supervisor/pausas/' . (int) $p['id'] . '/reanudar')) ?>" class="m-0">
+                                            <?= csrf_field() ?>
+                                            <button class="btn btn-sm btn-outline-success" type="submit"><i class="bi bi-play-fill"></i> Reanudar</button>
+                                        </form>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+                        <form method="post" action="<?= e(url('/supervisor/pausas')) ?>" class="card-footer bg-white row g-2 align-items-end m-0">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="instalacion_id" value="<?= e($cobInstalacion) ?>">
+                            <input type="hidden" name="agente_id" value="<?= e($aid) ?>">
+                            <div class="col-sm-5">
+                                <label class="form-label small mb-1" for="pu_<?= e($aid) ?>">Pausar en</label>
+                                <select class="form-select form-select-sm" id="pu_<?= e($aid) ?>" name="ubicacion_id">
+                                    <option value="0">Toda la instalación</option>
+                                    <?php foreach (($ag['ubicaciones'] !== [] ? $ag['ubicaciones'] : array_keys($nombresUbi)) as $uid): ?>
+                                        <option value="<?= e($uid) ?>"><?= e($nombresUbi[$uid] ?? '') ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1" for="pm_<?= e($aid) ?>">Motivo</label>
+                                <input class="form-control form-control-sm" id="pm_<?= e($aid) ?>" name="motivo" maxlength="255" placeholder="Ej. Tarea en otra área">
+                            </div>
+                            <div class="col-sm-3">
+                                <label class="form-label small mb-1" for="ph_<?= e($aid) ?>">Hasta</label>
+                                <input type="date" class="form-control form-control-sm" id="ph_<?= e($aid) ?>" name="hasta" min="<?= e(date('Y-m-d')) ?>">
+                            </div>
+                            <div class="col-12 text-end"><button class="btn btn-sm btn-warning" type="submit"><i class="bi bi-pause-fill"></i> Pausar</button></div>
+                        </form>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+<?php endif; ?>
 <?php endif; ?>

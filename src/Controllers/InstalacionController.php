@@ -72,6 +72,7 @@ final class InstalacionController extends Controller
             'supervisores' => $asig->vigentes('supervisor_instalaciones', [$id]),
             'agentes'      => $asig->vigentes('agente_instalaciones', [$id]),
             'ubicaciones'  => (new UbicacionFisicaService($pdo))->ubicacionesDe($id),
+            'uso'          => (new UbicacionFisicaService($pdo))->uso($id),
             'candidatos'   => $candidatos,
         ]);
     }
@@ -89,6 +90,17 @@ final class InstalacionController extends Controller
             $this->flashErrors($e);
         }
         redirect('/ti/instalaciones/' . $id);
+    }
+
+    /** POST /ti/instalaciones/{id}/eliminar: borra la instalación aunque esté en uso. */
+    public function destroy(int $id): void
+    {
+        $this->requireRole(['admin_ti']);
+        $this->verifyCsrf();
+        $inst = $this->instalacion($id);
+        (new UbicacionFisicaService(Database::getInstance()))->eliminarInstalacion($id);
+        Session::flash('success', 'Instalación "' . $inst['nombre'] . '" eliminada.');
+        redirect('/ti/instalaciones');
     }
 
     public function addSupervisor(int $id): void
@@ -153,18 +165,17 @@ final class InstalacionController extends Controller
         $this->requireRole(['admin_ti']);
         $this->verifyCsrf();
         $svc = new UbicacionFisicaService(Database::getInstance());
-        $inmuebles = (array) ($_POST['inmueble'] ?? []);
-        $instalaciones = (array) ($_POST['instalacion'] ?? []);
+        // instalacion[<id de ubicaciones>] = instalación; solo llegan las filas cambiadas.
         $n = 0;
-        foreach ($inmuebles as $i => $inmueble) {
-            if (!is_string($inmueble)) {
+        foreach ((array) ($_POST['instalacion'] ?? []) as $ubicacionId => $inst) {
+            $inmueble = $svc->inmueblePorId((int) $ubicacionId);
+            if ($inmueble === null || !is_scalar($inst)) {
                 continue;
             }
-            $inst = (int) ($instalaciones[$i] ?? 0);
-            $svc->mapearInmueble($inmueble, $inst > 0 ? $inst : null);
+            $svc->mapearInmueble($inmueble, (int) $inst > 0 ? (int) $inst : null);
             $n++;
         }
-        Session::flash('success', "Equivalencias guardadas ({$n} inmuebles).");
+        Session::flash('success', $n === 0 ? 'No había cambios que guardar.' : "Equivalencias guardadas ({$n} inmuebles).");
         redirect('/ti/instalaciones#geca');
     }
 

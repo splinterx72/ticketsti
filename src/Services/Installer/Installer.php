@@ -47,6 +47,8 @@ final class Installer
         'delegaciones',
         // Formatos oficiales con firmas
         'formato_plantillas', 'formatos', 'formato_firmas',
+        // Cobertura de agentes por ubicación
+        'agente_ubicaciones', 'agente_pausas',
     ];
 
     public const TIMEZONES = [

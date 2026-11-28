@@ -15,6 +15,7 @@ use App\Services\Alcance;
 use App\Services\InventarioService;
 use App\Services\AsignacionService;
 use App\Services\AsignadorService;
+use App\Services\CoberturaService;
 use App\Services\TareaService;
 use App\Services\UbicacionFisicaService;
 
@@ -66,7 +67,10 @@ final class SupervisorController extends Controller
         $inst = (int) $this->input('instalacion');
         $quitar = $this->input('quitar') === '1';
         try {
-            (new UbicacionFisicaService(Database::getInstance()))->mapearInmueblePor(Auth::user(), $this->input('inmueble'), $quitar ? null : $inst);
+            $svc = new UbicacionFisicaService(Database::getInstance());
+            // Llega el id (inmueble_id); el texto solo si se escribió a mano un nombre que no está en la lista.
+            $inmueble = (int) $this->input('inmueble_id') > 0 ? (string) $svc->inmueblePorId((int) $this->input('inmueble_id')) : $this->input('inmueble');
+            $svc->mapearInmueblePor(Auth::user(), $inmueble, $quitar ? null : $inst);
             Session::flash('success', $quitar ? 'Inmueble quitado de la instalación.' : 'Inmueble relacionado: sus equipos ya cuentan en esta instalación.');
         } catch (ValidationException $e) {
             $this->flashErrors($e);
@@ -118,6 +122,22 @@ final class SupervisorController extends Controller
         $this->guardarUbicacion((int) $u['instalacion_id'], $id);
     }
 
+    /** POST /supervisor/ubicaciones/{id}/eliminar: borra la ubicación aunque esté en uso. */
+    public function destroyUbicacion(int $id): void
+    {
+        $this->requireRole(Roles::SUPERVISION);
+        $this->verifyCsrf();
+        $svc = new UbicacionFisicaService(Database::getInstance());
+        $u = $svc->ubicacion($id);
+        if ($u === null) {
+            throw new HttpException(404, 'La ubicación no existe.');
+        }
+        $this->exigirMia((int) $u['instalacion_id']);
+        $svc->eliminarUbicacion($id);
+        Session::flash('success', 'Ubicación "' . $u['nombre'] . '" eliminada.');
+        redirect('/supervisor/ubicaciones?instalacion=' . (int) $u['instalacion_id']);
+    }
+
     public function agentes(): void
     {
         $this->requireRole(Roles::SUPERVISION);
@@ -146,7 +166,93 @@ final class SupervisorController extends Controller
             ),
             'departamentos' => \App\Services\Catalog::departamentos(),
             'modos'         => $this->modosAsignacion($ids),
-        ]);
+        ] + $this->coberturaData($ids));
+    }
+
+    /**
+     * Sección "Cobertura y pausas" de Supervisión › Agentes (?cob=instalación).
+     *
+     * @param list<int> $ids instalaciones supervisadas
+     * @return array<string, mixed>
+     */
+    private function coberturaData(array $ids): array
+    {
+        $pdo = Database::getInstance();
+        $cob = new CoberturaService($pdo);
+        $sel = (int) ($_GET['cob'] ?? ($ids[0] ?? 0));
+        if (!in_array($sel, $ids, true)) {
+            $sel = $ids[0] ?? 0;
+        }
+        $disponible = $cob->disponible();
+        return [
+            'cobInstalacion' => $sel,
+            'cobDisponible'  => $disponible,
+            'cobUbicaciones' => $sel > 0 ? (new UbicacionFisicaService($pdo))->ubicacionesDe($sel) : [],
+            'cobAgentes'     => $sel > 0 && $disponible ? $cob->resumen($sel) : [],
+        ];
+    }
+
+    /** POST /supervisor/cobertura: ubicaciones que atiende un agente en una instalación (ninguna = todas). */
+    public function saveCobertura(): void
+    {
+        $this->requireRole(Roles::SUPERVISION);
+        $this->verifyCsrf();
+        [$cob, $inst, $agente] = $this->coberturaDe();
+        $ubis = $_POST['ubicaciones'] ?? [];
+        $cob->guardarCobertura($agente, $inst, is_array($ubis) ? array_values(array_filter($ubis, 'is_string')) : []);
+        Session::flash('success', 'Ubicaciones del agente guardadas.');
+        redirect('/supervisor/agentes?cob=' . $inst . '#cobertura');
+    }
+
+    /** POST /supervisor/pausas: pausa al agente en una ubicación (0 = toda la instalación). */
+    public function storePausa(): void
+    {
+        $this->requireRole(Roles::SUPERVISION);
+        $this->verifyCsrf();
+        [$cob, $inst, $agente] = $this->coberturaDe();
+        $ubf = (int) $this->input('ubicacion_id');
+        try {
+            $cob->pausar($agente, $inst, $ubf > 0 ? $ubf : null, $this->input('motivo'), $this->input('hasta'), (int) Auth::id());
+            Session::flash('success', 'Agente en pausa: no recibirá tickets ahí hasta que lo reanudes' . ($this->input('hasta') !== '' ? ' o pase la fecha.' : '.'));
+        } catch (ValidationException $e) {
+            $this->flashErrors($e);
+        }
+        redirect('/supervisor/agentes?cob=' . $inst . '#cobertura');
+    }
+
+    public function reanudarPausa(int $id): void
+    {
+        $this->requireRole(Roles::SUPERVISION);
+        $this->verifyCsrf();
+        $cob = new CoberturaService(Database::getInstance());
+        $p = $cob->pausa($id);
+        if ($p === null) {
+            throw new HttpException(404, 'La pausa no existe.');
+        }
+        $this->exigirSupervisada((int) $p['instalacion_id']);
+        $cob->reanudar($id);
+        Session::flash('success', 'Pausa terminada: el agente vuelve a recibir tickets ahí.');
+        redirect('/supervisor/agentes?cob=' . (int) $p['instalacion_id'] . '#cobertura');
+    }
+
+    /** @return array{0: CoberturaService, 1: int, 2: int} servicio, instalación y agente validados */
+    private function coberturaDe(): array
+    {
+        $cob = new CoberturaService(Database::getInstance());
+        $inst = (int) $this->input('instalacion_id');
+        $agente = (int) $this->input('agente_id');
+        $this->exigirSupervisada($inst);
+        if (!$cob->esAgenteDe($agente, $inst)) {
+            throw new HttpException(404, 'El agente no está asignado a esa instalación.');
+        }
+        return [$cob, $inst, $agente];
+    }
+
+    private function exigirSupervisada(int $instalacionId): void
+    {
+        if (!in_array($instalacionId, (new Alcance(Database::getInstance()))->instalacionesSupervisadas((int) Auth::id()), true)) {
+            throw new HttpException(404, 'La instalación no existe.');
+        }
     }
 
     /** POST /supervisor/agentes/{id}/disponibilidad: estado, fecha y especialidades de un agente propio. */

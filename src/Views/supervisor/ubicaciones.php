@@ -48,7 +48,14 @@ $todasAlas = \App\Services\UbicacionFisicaService::ALAS;
                                     <div class="text-body-secondary">Niveles: <?= e($u['niveles'] !== [] ? implode(', ', $u['niveles']) : 'Único') ?> · Alas: <?= e($u['alas'] !== [] ? implode(', ', array_map(static fn (string $a): string => $todasAlas[$a], $u['alas'])) : 'N/A') ?></div>
                                     <?php if ($u['indicaciones']): ?><div class="text-warning-emphasis mt-1"><i class="bi bi-cone-striped me-1"></i><?= e($u['indicaciones']) ?></div><?php endif; ?>
                                 </div>
-                                <a class="btn btn-sm btn-outline-secondary align-self-start" href="<?= e(url('/supervisor/ubicaciones/' . (int) $u['id'] . '/editar')) ?>"><i class="bi bi-pencil"></i><span class="visually-hidden">Editar</span></a>
+                                <div class="d-flex gap-1 align-self-start">
+                                    <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('/supervisor/ubicaciones/' . (int) $u['id'] . '/editar')) ?>"><i class="bi bi-pencil"></i><span class="visually-hidden">Editar</span></a>
+                                    <form method="post" action="<?= e(url('/supervisor/ubicaciones/' . (int) $u['id'] . '/eliminar')) ?>" class="m-0"
+                                          data-confirm="¿Eliminar &quot;<?= e($u['nombre']) ?>&quot;? Los equipos, usuarios y tickets que la tengan quedarán sin esta ubicación. No se puede deshacer.">
+                                        <?= csrf_field() ?>
+                                        <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i><span class="visually-hidden">Eliminar</span></button>
+                                    </form>
+                                </div>
                             </div>
                         </li>
                     <?php endforeach; ?>
@@ -125,14 +132,15 @@ $todasAlas = \App\Services\UbicacionFisicaService::ALAS;
             y un ticket desde otra instalación marca discrepancia. Solo puedes tomar inmuebles libres; para mover uno de otra
             instalación, pídelo al Admin TI.
         </p>
-        <form method="post" action="<?= e(url('/supervisor/inmuebles')) ?>" class="row g-2 align-items-end mb-3">
+        <form method="post" action="<?= e(url('/supervisor/inmuebles')) ?>" class="row g-2 align-items-end mb-3" data-inmueble-form>
             <?= csrf_field() ?>
+            <input type="hidden" name="inmueble_id" value="" data-inmueble-id>
             <input type="hidden" name="instalacion" value="<?= e($seleccion) ?>">
             <div class="col-md-9">
                 <label class="form-label small mb-1" for="inmueble">Inmueble (tal como viene en el GECA)</label>
                 <input class="form-control" list="inmueblesLibres" id="inmueble" name="inmueble" maxlength="150" required autocomplete="off" placeholder="Escribe para buscar…">
                 <datalist id="inmueblesLibres">
-                    <?php foreach ($inmueblesLibres as $i): ?><option value="<?= e($i['inmueble']) ?>"><?= e(number_format($i['equipos'])) ?> equipos</option><?php endforeach; ?>
+                    <?php foreach ($inmueblesLibres as $i): ?><option value="<?= e($i['inmueble']) ?>" data-id="<?= e($i['id']) ?>"><?= e(number_format($i['equipos'])) ?> equipos</option><?php endforeach; ?>
                 </datalist>
             </div>
             <div class="col-md-3 d-grid"><button class="btn btn-primary" type="submit"><i class="bi bi-plus-lg me-1"></i>Relacionar</button></div>
@@ -147,7 +155,7 @@ $todasAlas = \App\Services\UbicacionFisicaService::ALAS;
                         <form method="post" action="<?= e(url('/supervisor/inmuebles')) ?>" class="m-0" data-confirm="¿Quitar <?= e($i['inmueble']) ?> de esta instalación?">
                             <?= csrf_field() ?>
                             <input type="hidden" name="instalacion" value="<?= e($seleccion) ?>">
-                            <input type="hidden" name="inmueble" value="<?= e($i['inmueble']) ?>">
+                            <input type="hidden" name="inmueble_id" value="<?= e($i['id']) ?>">
                             <input type="hidden" name="quitar" value="1">
                             <button class="btn btn-sm btn-link text-danger" type="submit"><i class="bi bi-x-lg"></i> Quitar</button>
                         </form>

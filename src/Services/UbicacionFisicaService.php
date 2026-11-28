@@ -198,7 +198,7 @@ final class UbicacionFisicaService
     public function inmueblesGeca(): array
     {
         $rows = $this->pdo->query(
-            'SELECT ug.inmueble, gi.instalacion_id, COUNT(e.id) AS equipos
+            'SELECT MIN(ug.id) AS id, ug.inmueble, gi.instalacion_id, COUNT(e.id) AS equipos
                FROM ubicaciones ug
                LEFT JOIN geca_inmueble_instalacion gi ON gi.inmueble = ug.inmueble
                LEFT JOIN equipos e ON e.ubicacion_geca_id = ug.id AND e.vigente_en_geca = 1
@@ -207,6 +207,7 @@ final class UbicacionFisicaService
               ORDER BY (gi.instalacion_id IS NULL) DESC, ug.inmueble'
         )->fetchAll();
         return array_map(static fn (array $r): array => [
+            'id' => (int) $r['id'],
             'inmueble' => (string) $r['inmueble'],
             'instalacion_id' => $r['instalacion_id'] !== null ? (int) $r['instalacion_id'] : null,
             'equipos' => (int) $r['equipos'],
@@ -376,6 +377,19 @@ final class UbicacionFisicaService
         return $id;
     }
 
+    /**
+     * Nombre del inmueble GECA a partir del id de una fila de `ubicaciones`.
+     * Los formularios mandan el id y no el texto: el filtro de seguridad del
+     * hosting (ModSecurity) bloquea algunos nombres de inmueble.
+     */
+    public function inmueblePorId(int $id): ?string
+    {
+        $stmt = $this->pdo->prepare('SELECT inmueble FROM ubicaciones WHERE id = ?');
+        $stmt->execute([$id]);
+        $v = $stmt->fetchColumn();
+        return $v === false ? null : (string) $v;
+    }
+
     public function mapearInmueble(string $inmueble, ?int $instalacionId): void
     {
         $inmueble = trim($inmueble);
@@ -420,6 +434,89 @@ final class UbicacionFisicaService
             throw new ValidationException(['Solo puedes relacionar inmuebles con tus instalaciones.']);
         }
         $this->mapearInmueble($inmueble, $instalacionId);
+    }
+
+    /**
+     * Cuántos registros usan una instalación o una ubicación (para el aviso
+     * antes de borrar).
+     *
+     * @return array{tickets: int, equipos: int, usuarios: int, ubicaciones: int}
+     */
+    public function uso(?int $instalacionId, ?int $ubicacionId = null): array
+    {
+        $ubfs = $ubicacionId !== null ? [$ubicacionId] : [];
+        if ($instalacionId !== null) {
+            $stmt = $this->pdo->prepare('SELECT id FROM ubicaciones_fisicas WHERE instalacion_id = ?');
+            $stmt->execute([$instalacionId]);
+            $ubfs = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        }
+        $in = $ubfs === [] ? '0' : implode(',', $ubfs);
+        $contar = function (string $sql, array $p = []): int {
+            $st = $this->pdo->prepare($sql);
+            $st->execute($p);
+            return (int) $st->fetchColumn();
+        };
+        $tickets = $instalacionId !== null
+            ? $contar("SELECT COUNT(*) FROM tickets WHERE instalacion_id = ? OR reportada_ubicacion_fisica_id IN ({$in})", [$instalacionId])
+            : $contar("SELECT COUNT(*) FROM tickets WHERE reportada_ubicacion_fisica_id IN ({$in})");
+        return [
+            'tickets'     => $tickets,
+            'equipos'     => $contar("SELECT COUNT(*) FROM equipos WHERE real_ubicacion_fisica_id IN ({$in})"),
+            'usuarios'    => $contar("SELECT COUNT(*) FROM usuarios WHERE habitual_ubicacion_fisica_id IN ({$in})"),
+            'ubicaciones' => count($ubfs),
+        ];
+    }
+
+    /**
+     * Borra una ubicación física aunque esté en uso: equipos, usuarios y
+     * tickets que la tenían quedan sin ubicación (con su nivel y ala).
+     */
+    public function eliminarUbicacion(int $id): void
+    {
+        $this->pdo->beginTransaction();
+        try {
+            $this->soltarUbicaciones([$id]);
+            $this->pdo->prepare('DELETE FROM ubicaciones_fisicas WHERE id = ?')->execute([$id]);
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Borra una instalación aunque esté en uso: sus ubicaciones, supervisores,
+     * agentes, equivalencias GECA y avisos dirigidos a ella; los tickets
+     * quedan sin instalación (conservan folio, historial y referencia).
+     */
+    public function eliminarInstalacion(int $id): void
+    {
+        $this->pdo->beginTransaction();
+        try {
+            $stmt = $this->pdo->prepare('SELECT id FROM ubicaciones_fisicas WHERE instalacion_id = ?');
+            $stmt->execute([$id]);
+            $ubfs = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+            if ($ubfs !== []) {
+                $this->soltarUbicaciones($ubfs);
+                $this->pdo->prepare('DELETE FROM ubicaciones_fisicas WHERE instalacion_id = ?')->execute([$id]);
+            }
+            // supervisor/agente_instalaciones, geca_inmueble_instalacion y aviso_instalaciones
+            // caen por ON DELETE CASCADE; tickets.instalacion_id queda en NULL.
+            $this->pdo->prepare('DELETE FROM instalaciones WHERE id = ?')->execute([$id]);
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /** @param list<int> $ids Quita nivel, ala y ubicación de quien usaba estas ubicaciones. */
+    private function soltarUbicaciones(array $ids): void
+    {
+        $in = implode(',', array_map('intval', $ids));
+        $this->pdo->exec("UPDATE equipos SET real_ubicacion_fisica_id = NULL, real_nivel_id = NULL, real_ala = NULL WHERE real_ubicacion_fisica_id IN ({$in})");
+        $this->pdo->exec("UPDATE usuarios SET habitual_ubicacion_fisica_id = NULL, habitual_nivel_id = NULL, habitual_ala = NULL WHERE habitual_ubicacion_fisica_id IN ({$in})");
+        $this->pdo->exec("UPDATE tickets SET reportada_ubicacion_fisica_id = NULL WHERE reportada_ubicacion_fisica_id IN ({$in})");
     }
 
     public function guardarTipo(string $nombre): void

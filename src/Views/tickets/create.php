@@ -10,6 +10,7 @@
  * @var array<string, string> $old
  * @var list<array{id: int, nombre: string, ficha: string, ver_todos: bool, hasta: ?string}> $jefes  quienes me autorizaron
  * @var array{id: int, nombre: string, ficha: string}|null $para  a nombre de quién (null = yo)
+ * @var bool $supervisa  supervisor/coordinador/admin: puede levantar por trabajadores de sus instalaciones
  */
 $hasOld = $old !== [];
 // Regla 3.C: se preselecciona el equipo principal (el primero, ordenado por es_principal DESC).
@@ -35,7 +36,29 @@ if ($hasOld) {
     <a href="<?= e(url('/tickets')) ?>" class="btn btn-link"><i class="bi bi-arrow-left me-1"></i>Mis tickets</a>
 </div>
 
-<?php if ($jefes !== []): ?>
+<?php if ($supervisa): ?>
+    <form method="get" action="<?= e(url('/tickets/nuevo')) ?>" class="card border-0 shadow-sm mb-4 para-quien<?= $para !== null ? ' is-delegado' : '' ?>">
+        <div class="card-body d-flex flex-wrap align-items-end gap-2">
+            <div class="flex-grow-1" style="max-width: 22rem;">
+                <label class="form-label fw-semibold mb-1" for="ficha"><i class="bi bi-person-plus me-1"></i>¿Para quién es el ticket?</label>
+                <input class="form-control font-monospace" id="ficha" name="ficha" maxlength="20" placeholder="Ficha del trabajador (vacío = para mí)" value="<?= e($para['ficha'] ?? '') ?>">
+            </div>
+            <?php if ($jefes !== []): ?>
+                <select class="form-select w-auto" name="para" aria-label="O a nombre de quien te autorizó" data-autoenviar>
+                    <option value="0">… o de quien me autorizó</option>
+                    <?php foreach ($jefes as $j): ?><option value="<?= (int) $j['id'] ?>"><?= e($j['nombre']) ?> (<?= e($j['ficha']) ?>)</option><?php endforeach; ?>
+                </select>
+            <?php endif; ?>
+            <button class="btn btn-outline-primary" type="submit">Usar</button>
+            <?php if ($para !== null): ?><a class="btn btn-link" href="<?= e(url('/tickets/nuevo')) ?>">Para mí</a><?php endif; ?>
+            <div class="w-100 small text-body-secondary">
+                <i class="bi bi-info-circle me-1"></i><?= $para !== null
+                    ? 'Se muestran los equipos y la ubicación de <strong>' . e($para['nombre']) . '</strong>. El ticket quedará a su nombre, indicando que tú lo levantaste, y a los dos les llegarán los avisos.'
+                    : 'Como supervisor puedes levantarlo a nombre de cualquier trabajador de tus instalaciones (por su ubicación o sus equipos).' ?>
+            </div>
+        </div>
+    </form>
+<?php elseif ($jefes !== []): ?>
     <form method="get" action="<?= e(url('/tickets/nuevo')) ?>" class="card border-0 shadow-sm mb-4 para-quien<?= $para !== null ? ' is-delegado' : '' ?>">
         <div class="card-body d-flex flex-wrap align-items-center gap-3">
             <label class="fw-semibold mb-0" for="para"><i class="bi bi-people me-1"></i>¿Para quién es el ticket?</label>

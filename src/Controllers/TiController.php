@@ -275,9 +275,10 @@ final class TiController extends Controller
     }
 
     /** POST /ti/mi-estado: el agente marca su propia disponibilidad desde el encabezado. */
+    /** Solo supervisión cambia su propio estado; al agente se lo cambia su supervisor. */
     public function myStatus(): void
     {
-        $this->requireRole(self::ROLES);
+        $this->requireRole(Roles::SUPERVISION);
         $this->verifyCsrf();
         try {
             (new AsignadorService(Database::getInstance()))->guardarEstado((int) Auth::id(), $this->input('estado'), $this->input('hasta'), (int) Auth::id());

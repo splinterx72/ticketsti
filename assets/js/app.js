@@ -58,6 +58,30 @@
     });
 
     // ------------------------------------------------------------------
+    //  Formularios que mandan solo lo cambiado (data-solo-cambios + data-original):
+    //  menos campos por petición para no chocar con el filtro del hosting.
+    // ------------------------------------------------------------------
+    document.querySelectorAll('form[data-solo-cambios]').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            form.querySelectorAll('[data-original]').forEach(function (campo) {
+                campo.disabled = campo.value === campo.getAttribute('data-original');
+            });
+        });
+    });
+
+    // Inmueble GECA elegido de la lista: se manda su id, no el texto.
+    document.querySelectorAll('form[data-inmueble-form]').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            var texto = form.querySelector('input[list]');
+            var oculto = form.querySelector('[data-inmueble-id]');
+            if (!texto || !oculto || !texto.list) { return; }
+            var elegido = Array.prototype.find.call(texto.list.options, function (o) { return o.value === texto.value; });
+            oculto.value = elegido ? (elegido.getAttribute('data-id') || '') : '';
+            texto.disabled = oculto.value !== '';
+        });
+    });
+
+    // ------------------------------------------------------------------
     //  Spinner y bloqueo de doble envío
     // ------------------------------------------------------------------
     document.querySelectorAll('form.needs-loading').forEach(function (form) {

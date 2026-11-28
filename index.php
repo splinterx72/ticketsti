@@ -227,6 +227,7 @@ if (!$installMode) {
     $router->post('/ti/instalaciones/geca', [InstalacionController::class, 'geca']);
     $router->get('/ti/instalaciones/{id}', [InstalacionController::class, 'show']);
     $router->post('/ti/instalaciones/{id}', [InstalacionController::class, 'update']);
+    $router->post('/ti/instalaciones/{id}/eliminar', [InstalacionController::class, 'destroy']);
     $router->post('/ti/instalaciones/{id}/supervisores', [InstalacionController::class, 'addSupervisor']);
     $router->post('/ti/instalaciones/asignacion/{id}/quitar', [InstalacionController::class, 'removeSupervisor']);
     $router->get('/ti/plantillas', [PlantillaController::class, 'index']);
@@ -260,6 +261,7 @@ if (!$installMode) {
     $router->post('/supervisor/ubicaciones', [SupervisorController::class, 'storeUbicacion']);
     $router->get('/supervisor/ubicaciones/{id}/editar', [SupervisorController::class, 'editUbicacion']);
     $router->post('/supervisor/ubicaciones/{id}', [SupervisorController::class, 'updateUbicacion']);
+    $router->post('/supervisor/ubicaciones/{id}/eliminar', [SupervisorController::class, 'destroyUbicacion']);
     $router->post('/supervisor/inmuebles', [SupervisorController::class, 'storeInmueble']);
     $router->get('/supervisor/avisos', [AvisoController::class, 'index']);
     $router->get('/supervisor/avisos/nuevo', [AvisoController::class, 'create']);
@@ -279,6 +281,9 @@ if (!$installMode) {
     $router->post('/supervisor/agentes', [SupervisorController::class, 'storeAgente']);
     $router->post('/supervisor/prestamos', [SupervisorController::class, 'storePrestamo']);
     $router->post('/supervisor/asignacion/{id}/quitar', [SupervisorController::class, 'removeAsignacion']);
+    $router->post('/supervisor/cobertura', [SupervisorController::class, 'saveCobertura']);
+    $router->post('/supervisor/pausas', [SupervisorController::class, 'storePausa']);
+    $router->post('/supervisor/pausas/{id}/reanudar', [SupervisorController::class, 'reanudarPausa']);
     $router->post('/supervisor/agentes/{id}/disponibilidad', [SupervisorController::class, 'saveDisponibilidad']);
     $router->post('/supervisor/instalaciones/{id}/asignacion', [SupervisorController::class, 'saveModoAsignacion']);
     $router->post('/supervisor/instalaciones/{id}/remedy', [SupervisorController::class, 'saveRemedy']);

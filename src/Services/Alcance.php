@@ -143,6 +143,43 @@ final class Alcance
         );
     }
 
+    /**
+     * ¿El supervisor (coordinador o Admin TI) puede levantar un ticket a nombre
+     * de este trabajador? Sí, si es de una de las instalaciones que supervisa:
+     * por su ubicación habitual o por alguno de sus equipos.
+     */
+    public function puedeLevantarPara(array $actor, int $usuarioId): bool
+    {
+        if (!in_array($actor['rol'] ?? '', Roles::SUPERVISION, true) || $usuarioId <= 0) {
+            return false;
+        }
+        $stmt = $this->pdo->prepare('SELECT activo FROM usuarios WHERE id = ?');
+        $stmt->execute([$usuarioId]);
+        if ((int) $stmt->fetchColumn() !== 1) {
+            return false;
+        }
+        if (($actor['rol'] ?? '') === 'admin_ti') {
+            return true;
+        }
+        $mias = $this->instalacionesSupervisadas((int) $actor['id']);
+        if ($mias === []) {
+            return false;
+        }
+        $in = implode(',', array_map('intval', $mias));
+        $stmt = $this->pdo->prepare(
+            "SELECT 1 FROM usuarios u JOIN ubicaciones_fisicas uf ON uf.id = u.habitual_ubicacion_fisica_id
+              WHERE u.id = ? AND uf.instalacion_id IN ({$in})"
+        );
+        $stmt->execute([$usuarioId]);
+        if ($stmt->fetchColumn()) {
+            return true;
+        }
+        [$cond, $params] = (new InventarioService($this->pdo))->condicionInstalaciones($mias);
+        $stmt = $this->pdo->prepare("SELECT 1 FROM equipos e WHERE e.usuario_id = ? AND {$cond} LIMIT 1");
+        $stmt->execute(array_merge([$usuarioId], $params));
+        return (bool) $stmt->fetchColumn();
+    }
+
     /** Instalaciones donde el usuario es supervisor (admin: todas). @return list<int> */
     public function instalacionesSupervisadas(int $supervisorId, ?string $fecha = null): array
     {

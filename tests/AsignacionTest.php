@@ -161,9 +161,50 @@ function test_quien_cambia_la_disponibilidad_de_un_agente(): void
     $supOtra = usuario('SUP2', 'supervisor');
     asignar_supervisor($supOtra['id'], $laguna);
     $svc = new AsignadorService(test_pdo());
-    assert_true($svc->puedeGestionar($a, $a['id']), 'el propio agente');
+    assert_true(!$svc->puedeGestionar($a, $a['id']), 'el propio agente ya no: lo decide su supervisor');
+    assert_true($svc->puedeGestionar($sup, $sup['id']), 'el supervisor sí cambia el suyo');
     assert_true($svc->puedeGestionar($sup, $a['id']), 'el supervisor de su instalación');
     assert_true(!$svc->puedeGestionar($supOtra, $a['id']), 'el supervisor de otra instalación no');
     assert_true(!$svc->puedeGestionar(agente_listo('A2', $km), $a['id']), 'otro agente no');
     assert_true($svc->puedeGestionar(usuario('ADM', 'admin_ti'), $a['id']), 'el admin sí');
+}
+
+function test_cobertura_por_ubicacion_y_pausas_del_supervisor(): void
+{
+    $e = ejemplos_usuario();
+    $pdo = test_pdo();
+    $nave = (new \App\Services\UbicacionFisicaService($pdo))->guardarUbicacion($e['km'], null, [
+        'nombre' => 'Nave 1', 'tipo_id' => '', 'niveles' => [], 'alas' => [], 'indicaciones' => '',
+    ]);
+    $svc = new AsignadorService($pdo);
+    $cob = new \App\Services\CoberturaService($pdo);
+    $a = agente_listo('A1', $e['km']);
+    $b = agente_listo('B1', $e['km']);
+    carga($b['id'], $e['km'], 'alta');    // a tiene menos carga: es el preferido
+
+    $enNave = ticket_nuevo($e['km']);
+    $pdo->prepare('UPDATE tickets SET reportada_ubicacion_fisica_id = ? WHERE id = ?')->execute([$nave, $enNave]);
+    assert_eq($svc->sugerir($enNave)['id'] ?? null, $a['id'], 'sin cobertura capturada atiende todas');
+
+    $cob->guardarCobertura($a['id'], $e['km'], [(string) $e['holkanaab'], '999999']);
+    assert_eq((int) scalar('SELECT COUNT(*) FROM agente_ubicaciones WHERE agente_id = ?', [$a['id']]), 1, 'ignora ubicaciones ajenas');
+    assert_eq($svc->sugerir($enNave)['id'] ?? null, $b['id'], 'no atiende Nave 1: va el otro');
+    assert_eq($svc->sugerir(ticket_nuevo($e['km']))['id'] ?? null, $a['id'], 'ticket sin ubicación: no filtra por cobertura');
+
+    $enHolk = ticket_nuevo($e['km']);
+    $pdo->prepare('UPDATE tickets SET reportada_ubicacion_fisica_id = ? WHERE id = ?')->execute([$e['holkanaab'], $enHolk]);
+    assert_eq($svc->sugerir($enHolk)['id'] ?? null, $a['id'], 'atiende Holkanaab');
+    $cob->pausar($a['id'], $e['km'], $e['holkanaab'], 'Tarea en otra área', null, $a['id']);
+    assert_eq($svc->sugerir($enHolk)['id'] ?? null, $b['id'], 'en pausa en Holkanaab: no recibe ahí');
+
+    $cob->guardarCobertura($a['id'], $e['km'], []);
+    $pdo->exec('DELETE FROM agente_pausas');
+    $cob->pausar($a['id'], $e['km'], null, '', date('Y-m-d'), $a['id']);
+    assert_eq($svc->sugerir($enNave)['id'] ?? null, $b['id'], 'pausa en toda la instalación (hasta hoy inclusive)');
+    $pdo->exec("UPDATE agente_pausas SET hasta = '2000-01-01'");
+    assert_eq($svc->sugerir($enNave)['id'] ?? null, $a['id'], 'al pasar la fecha la pausa termina sola');
+
+    assert_throws(\App\Core\ValidationException::class, fn () => $cob->pausar($a['id'], $e['km'], $e['carga'], '', null, $a['id']), 'ubicación de otra instalación no');
+    $resumen = $cob->resumen($e['km']);
+    assert_eq(count($resumen), 2, 'resumen con los dos agentes de la instalación');
 }

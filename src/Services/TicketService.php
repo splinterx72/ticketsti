@@ -155,12 +155,14 @@ final class TicketService
         $esTi = Roles::esTi($user['rol']);
         $errors = [];
 
-        // A nombre de otra persona (delegación: la secretaria levanta por su jefe).
+        // A nombre de otra persona: delegación (la secretaria levanta por su jefe) o
+        // supervisión (el supervisor, por un trabajador de sus instalaciones).
         $userId = (int) $user['id'];
         $creadoPor = null;
         $para = (int) ($in['para_usuario_id'] ?? 0);
         if ($para > 0 && $para !== $userId) {
-            if (!(new DelegacionService($this->pdo))->puedeLevantarPor($userId, $para)) {
+            if (!(new DelegacionService($this->pdo))->puedeLevantarPor($userId, $para)
+                && !(new Alcance($this->pdo))->puedeLevantarPara($user, $para)) {
                 throw new ValidationException(['No estás autorizado para levantar tickets a nombre de esa persona.']);
             }
             $creadoPor = $userId;

@@ -155,3 +155,39 @@ function test_mis_tickets_incluye_los_de_mis_jefes(): void
     [$sql, $p] = DelegacionService::filtroSql((int) $sec['id']);
     assert_eq((int) scalar("SELECT COUNT(*) FROM tickets t WHERE {$sql}", $p), 1, 'el filtro trae el ticket del jefe');
 }
+
+function test_supervisor_levanta_tickets_por_trabajadores_de_sus_instalaciones(): void
+{
+    $e = ejemplos_usuario();
+    $pdo = test_pdo();
+    $sup = usuario('SUP', 'supervisor');
+    asignar_supervisor($sup['id'], $e['km']);
+    $alc = new \App\Services\Alcance($pdo);
+
+    $deKm = usuario('11111');
+    $pdo->prepare('UPDATE usuarios SET habitual_ubicacion_fisica_id = ? WHERE id = ?')->execute([$e['holkanaab'], $deKm['id']]);
+    $deLaguna = usuario('22222');
+    $pdo->prepare('UPDATE usuarios SET habitual_ubicacion_fisica_id = ? WHERE id = ?')->execute([$e['carga'], $deLaguna['id']]);
+    $porEquipo = usuario('33333');
+    $eq = equipo_geca($porEquipo, 'SER-333');
+    $pdo->prepare('UPDATE equipos SET real_ubicacion_fisica_id = ? WHERE id = ?')->execute([$e['holkanaab'], $eq]);
+
+    assert_true($alc->puedeLevantarPara($sup, $deKm['id']), 'trabajador ubicado en su instalación');
+    assert_true($alc->puedeLevantarPara($sup, $porEquipo['id']), 'por su equipo en la instalación');
+    assert_true(!$alc->puedeLevantarPara($sup, $deLaguna['id']), 'de otra instalación no');
+    assert_true(!$alc->puedeLevantarPara(agente_ti_simple(), $deKm['id']), 'un agente no');
+
+    $r = (new \App\Services\TicketService($pdo))->create($sup, ticket_form([
+        'para_usuario_id' => (string) $deKm['id'],
+        'reportada_ubicacion_fisica_id' => (string) $e['holkanaab'], 'reportada_nivel_id' => (string) nivel_id('PB'),
+        'reportada_ala' => 'norte', 'reportada_referencia' => '',
+    ]));
+    assert_eq(scalar('SELECT usuario_solicitante_id FROM tickets WHERE id = ?', [$r['id']]), $deKm['id'], 'a nombre del trabajador');
+    assert_eq(scalar('SELECT creado_por_id FROM tickets WHERE id = ?', [$r['id']]), $sup['id'], 'levantado por el supervisor');
+    assert_throws(\App\Core\ValidationException::class, fn () => (new \App\Services\TicketService($pdo))->create($sup, ticket_form(['para_usuario_id' => (string) $deLaguna['id']])), 'fuera de su alcance no');
+}
+
+function agente_ti_simple(): array
+{
+    return usuario('AG' . bin2hex(random_bytes(2)), 'agente_ti');
+}

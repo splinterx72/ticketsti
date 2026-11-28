@@ -179,6 +179,12 @@ $rolLabel = \App\Core\Roles::LABELS;
             <?php if ($esTi):
                 $miEstado = (new \App\Services\AsignadorService(\App\Config\Database::getInstance()))->estadoDe((int) $authUser['id']);
                 $icoEstado = ['disponible' => 'bi-circle-fill text-success', 'ocupado' => 'bi-circle-half text-warning', 'fuera' => 'bi-dash-circle text-secondary', 'vacaciones' => 'bi-airplane text-secondary'][$miEstado['estado']]; ?>
+                <?php if (!in_array($authUser['rol'], \App\Core\Roles::SUPERVISION, true)): ?>
+                    <span class="ms-sm-auto d-inline-flex align-items-center gap-1" title="Tu disponibilidad la cambia tu supervisor">
+                        <i class="bi <?= e($icoEstado) ?>" aria-hidden="true"></i>
+                        <span class="user-context-text"><?= e(\App\Services\AsignadorService::ESTADOS[$miEstado['estado']]) ?><?= $miEstado['hasta'] !== null ? ' hasta ' . e(date('d/m', (int) strtotime((string) $miEstado['hasta']))) : '' ?></span>
+                    </span>
+                <?php else: ?>
                 <div class="dropdown ms-sm-auto">
                     <button class="btn btn-sm btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Mi disponibilidad para recibir tickets">
                         <i class="bi <?= e($icoEstado) ?>" aria-hidden="true"></i>
@@ -199,6 +205,7 @@ $rolLabel = \App\Core\Roles::LABELS;
                         <button class="btn btn-sm btn-primary w-100" type="submit">Guardar</button>
                     </form>
                 </div>
+                <?php endif; ?>
             <?php endif; ?>
             <a href="<?= e(url('/cuenta')) ?>" class="d-inline-flex align-items-center gap-1 text-body-secondary<?= $esTi ? '' : ' ms-sm-auto' ?>">
                 <i class="bi bi-telephone" aria-hidden="true"></i>

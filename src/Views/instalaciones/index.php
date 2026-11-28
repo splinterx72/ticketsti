@@ -54,7 +54,7 @@ $activas = array_values(array_filter($instalaciones, static fn (array $i): bool 
             <?php if ($inmuebles === []): ?>
                 <div class="card-body small text-body-secondary">Aún no hay inmuebles: se llenan con la carga semanal del GECA.</div>
             <?php else: ?>
-                <form method="post" action="<?= e(url('/ti/instalaciones/geca')) ?>">
+                <form method="post" action="<?= e(url('/ti/instalaciones/geca')) ?>" data-solo-cambios>
                     <?= csrf_field() ?>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
@@ -62,10 +62,10 @@ $activas = array_values(array_filter($instalaciones, static fn (array $i): bool 
                             <tbody>
                             <?php foreach ($inmuebles as $k => $m): ?>
                                 <tr>
-                                    <td class="small"><?= e($m['inmueble']) ?><input type="hidden" name="inmueble[<?= e($k) ?>]" value="<?= e($m['inmueble']) ?>"></td>
+                                    <td class="small"><?= e($m['inmueble']) ?></td>
                                     <td class="text-end small"><?= e($m['equipos']) ?></td>
                                     <td>
-                                        <select name="instalacion[<?= e($k) ?>]" class="form-select form-select-sm" aria-label="Instalación de <?= e($m['inmueble']) ?>">
+                                        <select name="instalacion[<?= e($m['id']) ?>]" data-original="<?= e($m['instalacion_id'] ?? 0) ?>" class="form-select form-select-sm" aria-label="Instalación de <?= e($m['inmueble']) ?>">
                                             <option value="0">— Sin asignar —</option>
                                             <?php foreach ($activas as $i): ?>
                                                 <option value="<?= e($i['id']) ?>" <?= $m['instalacion_id'] === $i['id'] ? 'selected' : '' ?>><?= e($i['nombre']) ?></option>

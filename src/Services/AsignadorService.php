@@ -51,6 +51,11 @@ final class AsignadorService
         $vigente = '(ai.desde IS NULL OR ai.desde <= CURDATE()) AND (ai.hasta IS NULL OR ai.hasta >= CURDATE())';
         $estadoVigente = '(ae.hasta IS NULL OR ae.hasta >= CURDATE())';
         $abierto = 'SELECT 1 FROM estados es WHERE es.id = x.estado_id AND es.es_cierre = 0';
+        // Ubicaciones que atiende y pausas que puso el supervisor.
+        [$cobertura, $pCobertura] = (new CoberturaService($this->pdo))->condicionSql(
+            (int) $t['instalacion_id'],
+            $t['reportada_ubicacion_fisica_id'] !== null ? (int) $t['reportada_ubicacion_fisica_id'] : null
+        );
         $stmt = $this->pdo->prepare(
             "SELECT u.id, u.nombre, u.rol, u.tipo_cuenta, u.admin_local_cambiado_en,
                     (CASE WHEN ae.estado = 'ocupado' AND {$estadoVigente} THEN 1 ELSE 0 END) AS ocupado,
@@ -65,9 +70,10 @@ final class AsignadorService
                 AND EXISTS (SELECT 1 FROM agente_instalaciones ai WHERE ai.agente_id = u.id AND ai.instalacion_id = :inst AND {$vigente})
                 AND (ae.estado IS NULL OR ae.estado NOT IN ('fuera', 'vacaciones') OR NOT {$estadoVigente})
                 AND (NOT EXISTS (SELECT 1 FROM agente_departamentos ad WHERE ad.agente_id = u.id)
-                     OR EXISTS (SELECT 1 FROM agente_departamentos ad WHERE ad.agente_id = u.id AND ad.departamento_id = :depto))"
+                     OR EXISTS (SELECT 1 FROM agente_departamentos ad WHERE ad.agente_id = u.id AND ad.departamento_id = :depto))
+                AND {$cobertura}"
         );
-        $stmt->execute([
+        $stmt->execute($pCobertura + [
             't1' => $ticketId, 't2' => $ticketId, 'inst' => (int) $t['instalacion_id'], 'depto' => (int) $t['departamento_id'],
             'ubf' => $t['reportada_ubicacion_fisica_id'], 'ubf2' => $t['reportada_ubicacion_fisica_id'],
         ]);
@@ -140,18 +146,19 @@ final class AsignadorService
     }
 
     /**
-     * Disponibilidad y especialidades: el propio agente, el supervisor o
-     * coordinador de alguna de sus instalaciones vigentes, o el Admin TI.
+     * Disponibilidad y especialidades: solo supervisión. El supervisor o
+     * coordinador de alguna de sus instalaciones vigentes (y el propio, si
+     * supervisa), o el Admin TI. El agente ya no cambia su propio estado.
      *
      * @param array<string, mixed> $user
      */
     public function puedeGestionar(array $user, int $agenteId): bool
     {
-        if ((int) $user['id'] === $agenteId || ($user['rol'] ?? '') === 'admin_ti') {
-            return true;
-        }
         if (!in_array($user['rol'] ?? '', Roles::SUPERVISION, true)) {
             return false;
+        }
+        if ((int) $user['id'] === $agenteId || ($user['rol'] ?? '') === 'admin_ti') {
+            return true;
         }
         return in_array($agenteId, array_column((new Alcance($this->pdo))->agentesDe((int) $user['id']), 'id'), true);
     }

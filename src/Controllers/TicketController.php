@@ -90,14 +90,36 @@ final class TicketController extends Controller
         $pdo = Database::getInstance();
         $service = new TicketService($pdo);
 
-        // ¿Para quién? Yo, o un jefe que me autorizó (delegación).
+        // ¿Para quién? Yo, un jefe que me autorizó (delegación) o, si superviso,
+        // un trabajador de mis instalaciones (por ficha).
         $jefes = (new \App\Services\DelegacionService($pdo))->jefesDe((int) $user['id']);
+        $supervisa = Auth::hasRole(Roles::SUPERVISION);
         $para = null;
         $paraId = (int) ($_GET['para'] ?? 0);
+        $ficha = strtoupper(trim((string) ($_GET['ficha'] ?? '')));
+        if ($supervisa && $ficha !== '' && $paraId === 0) {
+            $stmt = $pdo->prepare('SELECT id FROM usuarios WHERE ficha = ?');
+            $stmt->execute([$ficha]);
+            $paraId = (int) $stmt->fetchColumn();
+            if ($paraId === 0 || $paraId === (int) $user['id']) {
+                Session::flash('danger', $paraId === 0 ? "No existe un trabajador con la ficha {$ficha}." : 'Esa es tu propia ficha.');
+                redirect('/tickets/nuevo');
+            }
+        }
         foreach ($jefes as $j) {
             if ($j['id'] === $paraId) {
                 $para = $j;
             }
+        }
+        if ($para === null && $paraId > 0 && $paraId !== (int) $user['id'] && $supervisa) {
+            if (!(new \App\Services\Alcance($pdo))->puedeLevantarPara($user, $paraId)) {
+                Session::flash('danger', 'Ese trabajador no es de tus instalaciones (ni por su ubicación ni por sus equipos).');
+                redirect('/tickets/nuevo');
+            }
+            $stmt = $pdo->prepare('SELECT id, nombre, ficha FROM usuarios WHERE id = ?');
+            $stmt->execute([$paraId]);
+            $r = $stmt->fetch();
+            $para = ['id' => (int) $r['id'], 'nombre' => (string) $r['nombre'], 'ficha' => (string) $r['ficha'], 'supervision' => true];
         }
         $solicitanteId = $para['id'] ?? (int) $user['id'];
         $equipos = $service->equiposDeUsuario($solicitanteId);
@@ -122,6 +144,7 @@ final class TicketController extends Controller
             'habitual'    => $habitual,
             'instalacionGeca' => $instalacionGeca,
             'jefes'       => $jefes,
+            'supervisa'   => $supervisa,
             'para'        => $para,
             'tipos'       => array_intersect_key(Catalog::TIPOS, array_flip(Catalog::TIPOS_USUARIO)),
             'prioridades' => Auth::hasRole(Roles::TI)
@@ -164,7 +187,7 @@ final class TicketController extends Controller
             redirect('/formatos/' . (int) $formato['id']);
         }
         if ((int) $input['para_usuario_id'] > 0 && (int) $input['para_usuario_id'] !== (int) Auth::id()) {
-            Session::flash('info', 'El ticket quedó a nombre de la persona que te autorizó; a los dos les llegarán los avisos.');
+            Session::flash('info', 'El ticket quedó a nombre del trabajador, indicando que tú lo levantaste; a los dos les llegarán los avisos.');
         }
         if ($result['asignado_a'] !== null) {
             Notifier::ticketActualizado($result['id'], 0, false, true);   // aviso al agente asignado automáticamente

@@ -5,6 +5,7 @@
  * @var list<array<string, mixed>> $agentes
  * @var list<array<string, mixed>> $ubicaciones
  * @var list<array<string, mixed>> $candidatos
+ * @var array{tickets: int, equipos: int, usuarios: int, ubicaciones: int} $uso
  */
 $i = $instalacion;
 $alas = \App\Services\UbicacionFisicaService::ALAS;
@@ -104,6 +105,15 @@ $vigencia = static function (array $a): string {
                 <div class="col-12 text-end"><button class="btn btn-sm btn-primary" type="submit">Guardar</button></div>
             </form>
         </div>
+
+        <form method="post" action="<?= e(url('/ti/instalaciones/' . (int) $i['id'] . '/eliminar')) ?>" class="card border-danger-subtle shadow-sm mb-4"
+              data-confirm="¿Eliminar &quot;<?= e($i['nombre']) ?>&quot;? Se borran sus <?= e($uso['ubicaciones']) ?> ubicaciones, supervisores, agentes y equivalencias GECA. <?= e($uso['tickets']) ?> tickets quedan sin instalación y <?= e($uso['equipos'] + $uso['usuarios']) ?> equipos/usuarios sin ubicación. No se puede deshacer.">
+            <?= csrf_field() ?>
+            <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2 small">
+                <span class="text-body-secondary">En uso por <?= e($uso['tickets']) ?> tickets, <?= e($uso['equipos']) ?> equipos y <?= e($uso['usuarios']) ?> usuarios. Al eliminarla, pierden la instalación o la ubicación; nada más se borra.</span>
+                <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash me-1"></i>Eliminar instalación</button>
+            </div>
+        </form>
 
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
