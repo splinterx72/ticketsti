@@ -113,6 +113,9 @@ h1, .h1, .h4 { letter-spacing: -.005em; }
 }
 .list-group { --bs-list-group-active-bg: var(--mesa-primary); --bs-list-group-active-border-color: var(--mesa-primary); }
 .progress, .progress-stacked { --bs-progress-bar-bg: var(--mesa-primary); }
+/* Casillas y radios sin marcar: borde gris oscuro (contraste ≥ 3:1 sobre blanco) para que se vean. */
+.form-check-input { border: 1.5px solid #6b7f8a; }
+.form-check-input:hover:not(:disabled) { border-color: var(--mesa-primary); }
 .form-check-input:checked { background-color: var(--mesa-primary); border-color: var(--mesa-primary); }
 .form-control:focus, .form-select:focus, .form-check-input:focus {
     border-color: #6fa9b8;
