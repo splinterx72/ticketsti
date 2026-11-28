@@ -117,6 +117,10 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
   * "Cierre" = entregar; antes del 100 % exige motivo. El supervisor acepta o devuelve como antes.
   * Un ticket de TI puede "Sumar a mi tarea" (`tarea_asignacion_id`): agrega un reporte con sus equipos (o usuarios distintos) y liga el ticket.
   * Migración `2026-12-04_tareas_reportes.sql`.
+* **Fase 13 — Entrega C (hecha):**
+  * Módulo `resguardo` (`ResguardoService`, `ResguardoController`, *Gestión › Resguardo de equipos / Equipos disponibles*). Recepción `RE-AAAA-NNNNNN` (`recepciones`): por ficha o serie se listan sus equipos del GECA; se marca qué deja (monitores casados + `ResguardoService::ACCESORIOS`), condición y observaciones; motivo, instalación donde se guarda y acta del GECA escaneada opcional (`storage/resguardo`). Las actas de baja y responsivas las genera el GECA, no la app.
+  * Por equipo (`equipos_resguardo`): en_resguardo → disponible → asignado (por ficha, "pendiente en GECA" hasta que la carga lo trae a su nombre: `confirmarConGeca`, se corre al listar) o dictamen / baja_definitiva. Alcance: instalaciones del usuario o sin instalación; admin todo.
+  * Migración `2026-12-05_resguardo.sql`.
 * **Diagnóstico y robustez:** *Gestión › Diagnóstico* (`DiagnosticoService`): migraciones pendientes (lee cada `.sql` y revisa tablas/columnas), extensiones, carpetas de `storage` con escritura, configuración y últimas líneas de `storage/logs/php-error.log`. Una tabla/columna faltante (SQLSTATE 42S02/42S22) muestra "falta importar una migración". BitLocker crea el cifrado solo al guardar o ver una llave (`BitLockerService::cifrado()`); sin sodium o sin permiso en `storage/keys` explica en pantalla en vez de error 500.
 * **Fase 4 (hecha):**
   * Garantías (`GarantiaService`, `/ti/garantias`): alta por serie de CPU o de monitor y validación del monitor casado. Las vigentes con fecha pasada se marcan como vencidas al consultarlas (sin cron). "Por vencer" = 60 días.
@@ -190,4 +194,4 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 
 ## 4. Esquema de base de datos
 
-La fuente de verdad es **`database/schema.sql`** (48 tablas; lista completa en `Installer::TABLES`) con semillas de `estados`, `departamentos`, `niveles`, `ubicacion_tipos`, `sla_prioridades`, `modulos` y `plantillas_correo`. Cualquier cambio de esquema se hace ahí **y** como script incremental en `database/migraciones/` importable desde phpMyAdmin (ver `database/migraciones/LEEME.md`); `tests/SchemaTest.php` verifica que ambos coincidan.
+La fuente de verdad es **`database/schema.sql`** (50 tablas; lista completa en `Installer::TABLES`) con semillas de `estados`, `departamentos`, `niveles`, `ubicacion_tipos`, `sla_prioridades`, `modulos` y `plantillas_correo`. Cualquier cambio de esquema se hace ahí **y** como script incremental en `database/migraciones/` importable desde phpMyAdmin (ver `database/migraciones/LEEME.md`); `tests/SchemaTest.php` verifica que ambos coincidan.

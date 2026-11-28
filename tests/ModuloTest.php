@@ -34,7 +34,7 @@ function test_admin_apaga_modulos_y_cambia_roles(): void
 function test_lista_para_la_pantalla_del_admin(): void
 {
     $lista = (new ModuloService(test_pdo()))->todos();
-    assert_eq(array_column($lista, 'clave'), ['avisos', 'bitlocker', 'formatos', 'garantias', 'inventario', 'plantillas', 'reportes', 'tareas'], 'los ocho módulos');
+    assert_eq(array_column($lista, 'clave'), ['avisos', 'bitlocker', 'formatos', 'garantias', 'inventario', 'plantillas', 'reportes', 'resguardo', 'tareas'], 'los nueve módulos');
     assert_eq($lista[3]['roles'], ['usuario', 'agente_ti', 'supervisor', 'coordinador'], 'roles como lista');
 }
 

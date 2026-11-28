@@ -69,6 +69,8 @@ $rolLabel = \App\Core\Roles::LABELS;
                         $gestion = array_values(array_filter([
                             modulo('inventario') ? ['/ti/equipos', 'bi-pc-display', 'Inventario'] : null,
                             modulo('garantias') ? ['/ti/garantias', 'bi-shield-check', 'Garantías'] : null,
+                            modulo('resguardo') ? ['/resguardo', 'bi-box-seam', 'Resguardo de equipos'] : null,
+                            modulo('resguardo') ? ['/resguardo/disponibles', 'bi-check2-square', 'Equipos disponibles'] : null,
                             modulo('bitlocker') ? ['/bitlocker', 'bi-key', 'BitLocker'] : null,
                             modulo('reportes') ? ['/ti/reportes', 'bi-bar-chart', 'Reportes'] : null,
                             ['/geca', 'bi-cloud-arrow-up', 'Carga GECA'],

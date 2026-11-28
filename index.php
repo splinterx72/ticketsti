@@ -9,6 +9,7 @@ declare(strict_types=1);
  */
 
 use App\Config\Database;
+use App\Controllers\ResguardoController;
 use App\Controllers\CategoriaController;
 use App\Controllers\AdminLocalController;
 use App\Controllers\AuthController;
@@ -249,6 +250,14 @@ if (!$installMode) {
     $router->post('/ti/formatos/{id}', [FormatoAdminController::class, 'update']);
     $router->get('/ti/modulos', [ModuloController::class, 'index']);
     $router->post('/ti/modulos', [ModuloController::class, 'save']);
+    $router->get('/resguardo', [ResguardoController::class, 'index']);
+    $router->get('/resguardo/disponibles', [ResguardoController::class, 'disponibles']);
+    $router->get('/resguardo/recibir', [ResguardoController::class, 'recibir']);
+    $router->post('/resguardo/recibir', [ResguardoController::class, 'store']);
+    $router->get('/resguardo/{id}', [ResguardoController::class, 'show']);
+    $router->get('/resguardo/{id}/acta', [ResguardoController::class, 'acta']);
+    $router->post('/resguardo/equipo/{id}/estado', [ResguardoController::class, 'estado']);
+    $router->post('/resguardo/equipo/{id}/asignar', [ResguardoController::class, 'asignar']);
     $router->get('/ti/categorias', [CategoriaController::class, 'index']);
     $router->post('/ti/categorias', [CategoriaController::class, 'store']);
     $router->post('/ti/categorias/{id}', [CategoriaController::class, 'update']);
@@ -363,6 +372,7 @@ function renderError(int $status, string $message): void
         403 => 'Acceso denegado',
         404 => 'Página no encontrada',
         405 => 'Método no permitido',
+        503 => 'Falta actualizar',
         413 => 'Solicitud demasiado grande',
         500 => 'Error del servidor',
     ];

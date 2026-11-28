@@ -23,7 +23,7 @@ final class Folio
      */
     public static function asignar(PDO $pdo, string $tabla, string $prefijo, int $id, ?callable $aleatorio = null): string
     {
-        if (!in_array($tabla, ['tickets', 'tareas', 'formatos'], true) || preg_match('/^[A-Z]{2}$/', $prefijo) !== 1) {
+        if (!in_array($tabla, ['tickets', 'tareas', 'formatos', 'recepciones'], true) || preg_match('/^[A-Z]{2}$/', $prefijo) !== 1) {
             throw new \InvalidArgumentException('Tabla o prefijo de folio inválido.');
         }
         $aleatorio ??= static fn (): int => random_int(100000, 999999);

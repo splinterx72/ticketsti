@@ -53,6 +53,8 @@ final class Installer
         'categorias', 'ticket_equipos',
         // Tareas como hoja de reportes
         'tarea_avances',
+        // Resguardo de equipos
+        'recepciones', 'equipos_resguardo',
     ];
 
     public const TIMEZONES = [
