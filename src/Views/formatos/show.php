@@ -60,10 +60,11 @@ $sugerido = $d['responsable_sugerido'] ?? null;
 
     <div class="col-xl-4">
         <?php if ($puede): ?>
-            <form method="post" action="<?= e(url('/formatos/' . (int) $f['id'] . '/firmar')) ?>" class="card border-0 shadow-sm mb-4 formato-firmar" data-firma-form>
+            <form method="post" action="<?= e(url('/formatos/' . (int) $f['id'] . '/firmar')) ?>" enctype="multipart/form-data" class="card border-0 shadow-sm mb-4 formato-firmar" data-firma-form>
                 <?= csrf_field() ?>
                 <input type="hidden" name="rol" value="<?= e($turno) ?>">
                 <input type="hidden" name="firma" value="" data-firma-dato>
+                <input type="file" name="firma_archivo" accept="image/png" class="d-none" tabindex="-1" aria-hidden="true" data-firma-archivo>
                 <?php if ($presencial): ?><input type="hidden" name="modo" value="presencial"><?php endif; ?>
                 <div class="card-header bg-white fw-semibold"><i class="bi bi-pen me-1"></i>Firma: <?= e(mb_strtolower($roles[$turno])) ?></div>
                 <div class="card-body">

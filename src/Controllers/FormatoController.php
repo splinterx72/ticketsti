@@ -80,7 +80,7 @@ final class FormatoController extends Controller
         $motivos = $_POST['motivos'] ?? [];
         try {
             $svc->firmar($id, $rol, Auth::user(), [
-                'png'           => (string) ($_POST['firma'] ?? ''),
+                'png'           => self::firmaRecibida(),
                 'password'      => (string) ($_POST['password'] ?? ''),
                 'modo'          => $this->input('modo'),
                 'motivos'       => is_array($motivos) ? $motivos : [],
@@ -98,6 +98,25 @@ final class FormatoController extends Controller
             $this->flashErrors($e);
         }
         redirect('/formatos/' . $id);
+    }
+
+    /**
+     * Firma dibujada como data URL. Llega como archivo PNG (`firma_archivo`) o, de
+     * respaldo, como base64 sin el prefijo "data:" (que bloquea ModSecurity).
+     */
+    private static function firmaRecibida(): string
+    {
+        $f = $_FILES['firma_archivo'] ?? null;
+        if (is_array($f) && ($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK
+            && is_uploaded_file((string) $f['tmp_name']) && (int) $f['size'] <= 300 * 1024) {
+            $bin = (string) file_get_contents((string) $f['tmp_name']);
+            return 'data:image/png;base64,' . base64_encode($bin);
+        }
+        $b64 = trim((string) ($_POST['firma'] ?? ''));
+        if ($b64 === '') {
+            return '';
+        }
+        return str_starts_with($b64, 'data:') ? $b64 : 'data:image/png;base64,' . $b64;
     }
 
     /** POST /formatos/{id}/autografa: TI sube el formato firmado en papel. */

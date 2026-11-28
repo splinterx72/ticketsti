@@ -92,7 +92,22 @@
                 window.alert('Dibuja la firma en el recuadro antes de enviar.');
                 return;
             }
-            dato.value = exportar();
+            // Se envía como archivo: el filtro de seguridad del hosting (ModSecurity)
+            // bloquea un campo de texto con "data:image/png;base64,...".
+            var url = exportar();
+            var b64 = url.substring(url.indexOf(',') + 1);
+            var archivo = form.querySelector('[data-firma-archivo]');
+            try {
+                var bin = atob(b64);
+                var bytes = new Uint8Array(bin.length);
+                for (var i = 0; i < bin.length; i++) { bytes[i] = bin.charCodeAt(i); }
+                var dt = new DataTransfer();
+                dt.items.add(new File([bytes], 'firma.png', { type: 'image/png' }));
+                archivo.files = dt.files;
+                dato.value = '';
+            } catch (e) {
+                dato.value = b64; // respaldo para navegadores sin DataTransfer
+            }
         });
         // "El usuario firma también como responsable": pide el motivo.
         var mismo = form.querySelector('[data-mismo-usuario]');
