@@ -51,6 +51,8 @@ final class Installer
         'agente_ubicaciones', 'agente_pausas',
         // Categorías y varios equipos por ticket
         'categorias', 'ticket_equipos',
+        // Tareas como hoja de reportes
+        'tarea_avances',
     ];
 
     public const TIMEZONES = [

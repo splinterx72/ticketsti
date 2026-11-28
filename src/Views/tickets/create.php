@@ -13,6 +13,7 @@
  * @var bool $supervisa  supervisor/coordinador/admin: puede levantar por trabajadores de sus instalaciones
  * @var list<array{id: int, nombre: string, descripcion: ?string}> $categorias
  * @var array<string, string> $tiposTi  tipos que solo TI usa en sus propios tickets (varios equipos)
+ * @var list<array<string, mixed>> $misTareas  asignaciones abiertas del agente (para sumar el ticket a su avance)
  */
 $tipoSel = $old['tipo_ticket'] ?? 'incidencia';
 $catSel = (int) ($old['categoria_id'] ?? 0);
@@ -158,6 +159,16 @@ if ($hasOld) {
                         <ul class="list-group list-group-flush small mt-2" data-elegidos></ul>
                         <label for="equipos_series" class="form-label fw-semibold mt-3">O pega las series <span class="fw-normal text-body-secondary">(una por línea o separadas por coma)</span></label>
                         <textarea class="form-control font-monospace" id="equipos_series" name="equipos_series" rows="3" spellcheck="false"><?= e($old['equipos_series'] ?? '') ?></textarea>
+                        <?php if (($misTareas ?? []) !== []): ?>
+                            <label for="tarea_asignacion_id" class="form-label fw-semibold mt-3">Sumar a mi tarea <span class="fw-normal text-body-secondary">(opcional)</span></label>
+                            <select class="form-select" id="tarea_asignacion_id" name="tarea_asignacion_id">
+                                <option value="0">No sumar a ninguna tarea</option>
+                                <?php foreach ($misTareas as $mt): ?>
+                                    <option value="<?= e($mt['asignacion_id']) ?>" <?= (int) ($old['tarea_asignacion_id'] ?? 0) === (int) $mt['asignacion_id'] ? 'selected' : '' ?>><?= e($mt['folio'] . ' · ' . $mt['titulo']) ?><?= $mt['meta_unidad'] ? ' (' . e(\App\Services\TareaService::porcentaje((int) $mt['hecho'], (int) $mt['meta_cantidad'])) . ' %)' : '' ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="form-text">Se agrega a tu hoja de reportes y los equipos cuentan para tu avance.</div>
+                        <?php endif; ?>
                         <div class="form-text">El ticket queda asignado a ti. La ubicación es opcional si el trabajo abarca varios edificios.</div>
                     </div>
                 </div>

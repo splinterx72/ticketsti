@@ -2,7 +2,9 @@
 /**
  * @var list<array{id: int, nombre: string, email: ?string, prestado: bool}> $agentes
  * @var array<string, string> $old
+ * @var bool $conReportes
  */
+$unidadSel = $old['meta_unidad'] ?? 'equipos';
 $tipos = \App\Services\TareaService::TIPOS_EVIDENCIA;
 $accept = '.' . implode(',.', array_keys(\App\Services\ArchivoService::PERMITIDOS));
 ?>
@@ -65,6 +67,30 @@ $accept = '.' . implode(',.', array_keys(\App\Services\ArchivoService::PERMITIDO
                     <div class="form-text">Cada agente entrega sus propias evidencias.</div>
                 </div>
             </div>
+            <?php if ($conReportes ?? false): ?>
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white fw-semibold"><i class="bi bi-bullseye me-1"></i>¿Qué se va a intervenir?</div>
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap gap-2 mb-2" role="group" aria-label="Unidad de la meta">
+                            <?php foreach (['' => 'Sin meta'] + \App\Services\TareaService::UNIDADES as $k => $label): ?>
+                                <input type="radio" class="btn-check" name="meta_unidad" id="mu_<?= e($k ?: 'no') ?>" value="<?= e($k) ?>" <?= $unidadSel === $k ? 'checked' : '' ?>>
+                                <label class="btn btn-sm btn-outline-primary" for="mu_<?= e($k ?: 'no') ?>"><?= e($label) ?></label>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-5">
+                                <label class="form-label small fw-semibold mb-1" for="meta_cantidad">Cuántos por agente</label>
+                                <input type="number" class="form-control" id="meta_cantidad" name="meta_cantidad" min="1" max="100000" value="<?= e($old['meta_cantidad'] ?? '') ?>" placeholder="Ej. 40">
+                            </div>
+                            <div class="col-7">
+                                <label class="form-label small fw-semibold mb-1" for="meta_descripcion">Si es "Otro", ¿qué?</label>
+                                <input type="text" class="form-control" id="meta_descripcion" name="meta_descripcion" maxlength="60" value="<?= e($old['meta_descripcion'] ?? '') ?>" placeholder="Ej. nodos, impresoras">
+                            </div>
+                        </div>
+                        <div class="form-text">Cada agente reporta cuántos lleva y se calcula su % de avance. Al llegar al 100 % te avisamos.</div>
+                    </div>
+                </div>
+            <?php endif; ?>
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white fw-semibold">Evidencias que pides</div>
                 <div class="card-body">

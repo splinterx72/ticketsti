@@ -111,6 +111,12 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
   * Categorías de la acción (`categorias`, `CategoriaService`, *Gestión › Categorías*): nombre + descripción de lo que abarca; obligatoria al crear (si la tabla existe), TI la corrige en el ticket (bitácora), "Por categoría" en reportes y CSV.
   * Tipos de ticket solo de TI en su ticket propio (`Catalog::TIPOS_TI`: tarea, actualizaciones, levantamiento, instrucción, formateos, bajas, altas) con varios equipos (`ticket_equipos`; búsqueda `/ti/equipos/buscar` y series pegadas, `TicketService::resolverEquipos`); quedan asignados a quien los levanta; ubicación opcional. Levantamiento, bajas y altas → Control de Resguardos GECA.
   * Migración `2026-12-03_categorias_tipos_ti.sql`.
+* **Fase 13 — Entrega B (hecha):**
+  * Tareas como hoja de reportes (`tarea_avances`, `TareaService::reportar`): el agente escribe reportes con cantidad atendida y evidencias (`tarea_archivos.avance_id`); al primero pasa a en proceso.
+  * Meta opcional por agente (`tareas.meta_unidad` equipos/usuarios/otro + `meta_descripcion`, `meta_cantidad`); % = suma/meta (tope 100), `Core/Grafica::anillo`, barras en la lista, el panel del supervisor y la tarea. Al 100 % se avisa al supervisor una vez (`tarea_asignaciones.completa_avisada_en`, `Notifier::tareaCompleta`) y se marca "Lista para cierre".
+  * "Cierre" = entregar; antes del 100 % exige motivo. El supervisor acepta o devuelve como antes.
+  * Un ticket de TI puede "Sumar a mi tarea" (`tarea_asignacion_id`): agrega un reporte con sus equipos (o usuarios distintos) y liga el ticket.
+  * Migración `2026-12-04_tareas_reportes.sql`.
 * **Diagnóstico y robustez:** *Gestión › Diagnóstico* (`DiagnosticoService`): migraciones pendientes (lee cada `.sql` y revisa tablas/columnas), extensiones, carpetas de `storage` con escritura, configuración y últimas líneas de `storage/logs/php-error.log`. Una tabla/columna faltante (SQLSTATE 42S02/42S22) muestra "falta importar una migración". BitLocker crea el cifrado solo al guardar o ver una llave (`BitLockerService::cifrado()`); sin sodium o sin permiso en `storage/keys` explica en pantalla en vez de error 500.
 * **Fase 4 (hecha):**
   * Garantías (`GarantiaService`, `/ti/garantias`): alta por serie de CPU o de monitor y validación del monitor casado. Las vigentes con fecha pasada se marcan como vencidas al consultarlas (sin cron). "Por vencer" = 60 días.
@@ -184,4 +190,4 @@ Sistema web ligero de tickets de soporte técnico integrado con el inventario of
 
 ## 4. Esquema de base de datos
 
-La fuente de verdad es **`database/schema.sql`** (47 tablas; lista completa en `Installer::TABLES`) con semillas de `estados`, `departamentos`, `niveles`, `ubicacion_tipos`, `sla_prioridades`, `modulos` y `plantillas_correo`. Cualquier cambio de esquema se hace ahí **y** como script incremental en `database/migraciones/` importable desde phpMyAdmin (ver `database/migraciones/LEEME.md`); `tests/SchemaTest.php` verifica que ambos coincidan.
+La fuente de verdad es **`database/schema.sql`** (48 tablas; lista completa en `Installer::TABLES`) con semillas de `estados`, `departamentos`, `niveles`, `ubicacion_tipos`, `sla_prioridades`, `modulos` y `plantillas_correo`. Cualquier cambio de esquema se hace ahí **y** como script incremental en `database/migraciones/` importable desde phpMyAdmin (ver `database/migraciones/LEEME.md`); `tests/SchemaTest.php` verifica que ambos coincidan.

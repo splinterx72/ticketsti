@@ -17,6 +17,7 @@ completo.
 | `2026-12-01_formatos.sql` | Delegación | Formatos con firma | Formatos oficiales por año (logos y textos), documentos con folio y código de verificación, firmas del usuario, su jefe y TI, tipo de ticket "Solicitud de formateo", folio Remedy en el ticket, inventario del equipo y ciudad por instalación |
 | `2026-12-02_cobertura_agentes.sql` | Formatos con firma | Cobertura por ubicación | Qué ubicaciones atiende cada agente y pausas por ubicación o por instalación que pone el supervisor |
 | `2026-12-03_categorias_tipos_ti.sql` | Cobertura por ubicación | Categorías y tickets de TI | Categoría de la acción en cada ticket, tipos de ticket de TI (tarea, actualizaciones, levantamiento, instrucción, formateos, bajas, altas) y varios equipos por ticket |
+| `2026-12-04_tareas_reportes.sql` | Categorías y tickets de TI | Tareas con reportes | Meta de la tarea (equipos, usuarios u otro), hoja de reportes de avance con cantidad y evidencias, % de avance y aviso al supervisor al 100 % |
 
 ## Cómo aplicar una migración (phpMyAdmin en cPanel)
 

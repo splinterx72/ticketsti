@@ -318,6 +318,7 @@ final class TicketService
                 }
                 $this->pdo->prepare('UPDATE tickets SET agente_asignado_id = ?, atendido_en = CURRENT_TIMESTAMP WHERE id = ?')->execute([$userId, $id]);
                 $asignadoA = null;
+                $tareaCompleta = $this->sumarATarea((int) ($in['tarea_asignacion_id'] ?? 0), $user, $id, $folio, $titulo, $equiposTi);
             } else {
                 $asignadoA = (new AsignadorService($this->pdo))->alCrear($id);
             }
@@ -329,7 +330,10 @@ final class TicketService
             throw $e;
         }
 
-        return ['id' => $id, 'folio' => $folio, 'discrepancia' => $discrepancia, 'vinculado' => $vinculado, 'asignado_a' => $asignadoA];
+        return [
+            'id' => $id, 'folio' => $folio, 'discrepancia' => $discrepancia, 'vinculado' => $vinculado, 'asignado_a' => $asignadoA,
+            'tarea_completa' => $tareaCompleta ?? null,
+        ];
     }
 
     /**
@@ -610,6 +614,35 @@ final class TicketService
     // ==================================================================
     //  Utilidades
     // ==================================================================
+
+    /**
+     * Ticket de TI ligado a una tarea del agente: agrega un reporte a su hoja
+     * con los equipos (o sus usuarios distintos) como cantidad atendida.
+     *
+     * @param array<string, mixed> $user
+     * @param list<int> $equipos
+     * @return int|null asignación que llegó al 100 % con este reporte (para avisar)
+     */
+    private function sumarATarea(int $asignacionId, array $user, int $ticketId, string $folio, string $titulo, array $equipos): ?int
+    {
+        if ($asignacionId <= 0) {
+            return null;
+        }
+        $tareas = new TareaService($this->pdo);
+        $a = $tareas->asignacion($asignacionId);
+        if ($a === null) {
+            throw new ValidationException(['La tarea elegida no existe.']);
+        }
+        $cantidad = 0;
+        if (($a['meta_unidad'] ?? null) === 'equipos') {
+            $cantidad = count($equipos);
+        } elseif (($a['meta_unidad'] ?? null) === 'usuarios' && $equipos !== []) {
+            $stmt = $this->pdo->query('SELECT COUNT(DISTINCT usuario_id) FROM equipos WHERE usuario_id IS NOT NULL AND id IN (' . implode(',', array_map('intval', $equipos)) . ')');
+            $cantidad = (int) $stmt->fetchColumn();
+        }
+        $r = $tareas->reportar($asignacionId, $user, "Ticket {$folio}: {$titulo}" . ($equipos !== [] ? ' (' . count($equipos) . ' equipos)' : ''), $cantidad, [], $ticketId);
+        return $r['completa'] ? $asignacionId : null;
+    }
 
     /** Máximo de equipos en un ticket de TI. */
     public const MAX_EQUIPOS = 500;

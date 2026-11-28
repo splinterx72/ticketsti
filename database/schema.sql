@@ -518,6 +518,9 @@ CREATE TABLE tareas (
     prioridad ENUM('baja', 'media', 'alta', 'critica') NOT NULL DEFAULT 'media',
     entrega_en DATETIME NOT NULL,
     evidencias_requeridas TEXT NULL,
+    meta_unidad ENUM('equipos', 'usuarios', 'otro') NULL,
+    meta_descripcion VARCHAR(60) NULL,
+    meta_cantidad INT UNSIGNED NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_tareas_entrega (entrega_en),
     CONSTRAINT fk_tarea_supervisor FOREIGN KEY (supervisor_id) REFERENCES usuarios(id) ON DELETE SET NULL
@@ -532,16 +535,34 @@ CREATE TABLE tarea_asignaciones (
     entregado_en DATETIME NULL,
     comentario_revision TEXT NULL,
     revisado_en DATETIME NULL,
+    completa_avisada_en DATETIME NULL,
     actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_tarea_agente (tarea_id, agente_id),
     CONSTRAINT fk_ta_tarea FOREIGN KEY (tarea_id) REFERENCES tareas(id) ON DELETE CASCADE,
     CONSTRAINT fk_ta_agente FOREIGN KEY (agente_id) REFERENCES usuarios(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Hoja de reportes de cada agente en su tarea: texto libre, cuántos equipos
+-- o usuarios atendió (suma al avance) y, si salió de un ticket, cuál.
+CREATE TABLE tarea_avances (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    asignacion_id INT UNSIGNED NOT NULL,
+    texto TEXT NOT NULL,
+    cantidad INT UNSIGNED NOT NULL DEFAULT 0,
+    ticket_id INT UNSIGNED NULL,
+    creado_por INT UNSIGNED NULL,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_tav_asignacion (asignacion_id),
+    CONSTRAINT fk_tav_asignacion FOREIGN KEY (asignacion_id) REFERENCES tarea_asignaciones(id) ON DELETE CASCADE,
+    CONSTRAINT fk_tav_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
+    CONSTRAINT fk_tav_creo FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE tarea_archivos (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     tarea_id INT UNSIGNED NOT NULL,
     asignacion_id INT UNSIGNED NULL,
+    avance_id INT UNSIGNED NULL,
     nombre_original VARCHAR(255) NOT NULL,
     ruta VARCHAR(255) NOT NULL,
     mime VARCHAR(100) NOT NULL,
@@ -550,6 +571,7 @@ CREATE TABLE tarea_archivos (
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_tarch_tarea FOREIGN KEY (tarea_id) REFERENCES tareas(id) ON DELETE CASCADE,
     CONSTRAINT fk_tarch_asignacion FOREIGN KEY (asignacion_id) REFERENCES tarea_asignaciones(id) ON DELETE CASCADE,
+    CONSTRAINT fk_tarch_avance FOREIGN KEY (avance_id) REFERENCES tarea_avances(id) ON DELETE CASCADE,
     CONSTRAINT fk_tarch_subido_por FOREIGN KEY (subido_por) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

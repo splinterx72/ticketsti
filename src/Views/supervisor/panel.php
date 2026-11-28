@@ -213,16 +213,22 @@ foreach ($semaforo as $s) {
                 <div class="card-body small text-body-secondary">No hay tareas pendientes.</div>
             <?php else: ?>
                 <div class="list-group list-group-flush">
-                    <?php foreach ($tareas as $t): ?>
+                    <?php foreach ($tareas as $t):
+                        $pct = \App\Services\TareaService::porcentaje((int) ($t['hecho'] ?? 0), isset($t['meta_cantidad']) ? (int) $t['meta_cantidad'] * (int) $t['total'] : null); ?>
                         <a class="list-group-item list-group-item-action" href="<?= e(url('/tareas/' . (int) $t['id'])) ?>">
                             <div class="d-flex justify-content-between gap-2">
                                 <span class="text-truncate"><span class="small font-monospace text-body-secondary"><?= e($t['folio']) ?></span> <?= e($t['titulo']) ?></span>
                                 <span class="small text-nowrap">
-                                    <?= e($t['entregadas']) ?>/<?= e($t['total']) ?>
+                                    <?php if ($pct !== null): ?><strong><?= e($pct) ?> %</strong> · <?php endif; ?>
+                                    <?= e($t['entregadas']) ?>/<?= e($t['total']) ?> cerraron
+                                    <?php if ((int) ($t['listas_cierre'] ?? 0) > 0): ?><span class="badge text-bg-success ms-1">al 100 %</span><?php endif; ?>
                                     <?php if ((int) $t['por_revisar'] > 0): ?><span class="badge text-bg-info ms-1"><?= e($t['por_revisar']) ?> por revisar</span><?php endif; ?>
                                 </span>
                             </div>
                             <div class="small text-body-secondary">Entrega <?= e(fecha_mx($t['entrega_en'])) ?></div>
+                            <?php if ($pct !== null): ?>
+                                <div class="progress mt-1" style="height: 6px;" role="progressbar" aria-label="Avance" aria-valuenow="<?= e($pct) ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar <?= $pct >= 100 ? 'bg-success' : 'bg-primary' ?>" style="width: <?= e($pct) ?>%"></div></div>
+                            <?php endif; ?>
                         </a>
                     <?php endforeach; ?>
                 </div>

@@ -21,7 +21,7 @@ use App\Services\TareaService;
  */
 final class TareaController extends Controller
 {
-    private const CAMPOS = ['titulo', 'instrucciones', 'prioridad', 'entrega_en'];
+    private const CAMPOS = ['titulo', 'instrucciones', 'prioridad', 'entrega_en', 'meta_unidad', 'meta_descripcion', 'meta_cantidad'];
 
     public function index(): void
     {
@@ -43,6 +43,7 @@ final class TareaController extends Controller
         $this->requireModulo('tareas', Roles::SUPERVISION);
         $this->view('tareas/form', [
             'title'   => 'Nueva tarea',
+            'conReportes' => (new TareaService(Database::getInstance()))->conReportes(),
             'agentes' => (new Alcance(Database::getInstance()))->agentesDe((int) Auth::id()),
         ]);
     }
@@ -133,6 +134,48 @@ final class TareaController extends Controller
         $this->accion($id, 'devolver');
     }
 
+    /** POST /tareas/asignacion/{id}/reportar: agrega un reporte a la hoja del agente. */
+    public function reportar(int $id): void
+    {
+        $this->requireModulo('tareas', Roles::TI);
+        if (empty($_POST) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+            Session::flash('danger', 'Los archivos exceden el tamaño máximo permitido por el servidor.');
+            redirect('/tareas');
+        }
+        $this->verifyCsrf();
+        $svc = new TareaService(Database::getInstance());
+        $asig = $svc->asignacion($id);
+        if ($asig === null) {
+            throw new HttpException(404, 'La tarea no existe.');
+        }
+        $archivos = ArchivoService::enProduccion();
+        $guardados = [];
+        try {
+            foreach (self::subidas('evidencias') as $up) {
+                $guardados[] = $archivos->guardar($up, 'evidencias');
+            }
+            $r = $svc->reportar(
+                $id,
+                Auth::user(),
+                is_string($_POST['texto'] ?? null) ? (string) $_POST['texto'] : '',
+                (int) $this->input('cantidad'),
+                $guardados
+            );
+            if ($r['completa']) {
+                Notifier::tareaCompleta($id);
+                Session::flash('success', '¡Llegaste al 100 %! Avisamos a tu supervisor; ya puedes hacer el cierre.');
+            } else {
+                Session::flash('success', 'Reporte agregado' . ($r['porcentaje'] !== null ? " · avance {$r['porcentaje']} %." : '.'));
+            }
+        } catch (ValidationException $e) {
+            $archivos->descartar($guardados);
+            foreach ($e->errors() as $error) {
+                Session::flash('danger', $error);
+            }
+        }
+        redirect('/tareas/' . (int) $asig['tarea_id'] . '#hoja');
+    }
+
     public function archivo(int $id): void
     {
         $this->requireModulo('tareas', Roles::TI);
@@ -184,7 +227,7 @@ final class TareaController extends Controller
             default => null,
         };
         $mensajes = [
-            'iniciar' => 'Tarea en proceso.', 'entregar' => 'Entrega enviada al supervisor.',
+            'iniciar' => 'Tarea en proceso.', 'entregar' => 'Cierre enviado al supervisor.',
             'aceptar' => 'Entrega aceptada.', 'devolver' => 'Entrega devuelta con tus comentarios.',
         ];
         Session::flash('success', $mensajes[$accion]);

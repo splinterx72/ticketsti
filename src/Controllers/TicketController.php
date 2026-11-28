@@ -30,7 +30,7 @@ final class TicketController extends Controller
         'tipo_ticket', 'prioridad', 'titulo', 'descripcion', 'equipo_id',
         'componente_afectado', 'hostname_reportado',
         'reportada_instalacion_id', 'reportada_ubicacion_fisica_id', 'reportada_nivel_id', 'reportada_ala', 'reportada_referencia',
-        'para_usuario_id', 'categoria_id', 'equipos_series',
+        'para_usuario_id', 'categoria_id', 'equipos_series', 'tarea_asignacion_id',
     ];
 
     public function index(): void
@@ -141,6 +141,8 @@ final class TicketController extends Controller
             'title'       => 'Nuevo ticket',
             'categorias'  => $categorias->todas(true),
             // Tipos de TI: solo en el ticket propio de un agente (no a nombre de otro).
+            'misTareas'   => Auth::hasRole(Roles::TI) && $para === null && modulo('tareas')
+                ? (new \App\Services\TareaService($pdo))->abiertasDe((int) $user['id']) : [],
             'tiposTi'     => Auth::hasRole(Roles::TI) && $para === null && $categorias->disponible()
                 ? array_intersect_key(Catalog::TIPOS, array_flip(Catalog::TIPOS_TI)) : [],
             'equipos'     => $equipos,
@@ -195,6 +197,10 @@ final class TicketController extends Controller
         }
         if ((int) $input['para_usuario_id'] > 0 && (int) $input['para_usuario_id'] !== (int) Auth::id()) {
             Session::flash('info', 'El ticket quedó a nombre del trabajador, indicando que tú lo levantaste; a los dos les llegarán los avisos.');
+        }
+        if (($result['tarea_completa'] ?? null) !== null) {
+            Notifier::tareaCompleta((int) $result['tarea_completa']);
+            Session::flash('info', 'Con este ticket llegaste al 100 % de tu tarea; avisamos a tu supervisor.');
         }
         if ($result['asignado_a'] !== null) {
             Notifier::ticketActualizado($result['id'], 0, false, true);   // aviso al agente asignado automáticamente

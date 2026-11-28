@@ -379,6 +379,24 @@ final class Notifier
     }
 
     /** @return array<string, mixed>|null */
+    /** El agente llegó al 100 % de su meta: avisa al supervisor que está lista para cierre. */
+    public static function tareaCompleta(int $asignacionId): void
+    {
+        $a = self::asignacionTarea($asignacionId);
+        if ($a === null) {
+            return;
+        }
+        self::queue(
+            (string) $a['supervisor_email'],
+            "[{$a['folio']}] {$a['agente_nombre']} llegó al 100 %: {$a['titulo']}",
+            'Tarea al 100 %',
+            "{$a['agente_nombre']} completó la meta de la tarea. Está lista para su cierre.",
+            [],
+            self::baseUrl() . '/tareas/' . (int) $a['tarea_id'],
+            'Ver avance'
+        );
+    }
+
     private static function asignacionTarea(int $asignacionId): ?array
     {
         $stmt = Database::getInstance()->prepare(

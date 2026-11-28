@@ -167,6 +167,28 @@ final class Grafica
         return $barra . '</div>' . $leyenda . '</ul>';
     }
 
+    /**
+     * Anillo de avance (0–100 %) con el porcentaje al centro y el detalle en
+     * texto debajo (el texto es la vista equivalente). Al 100 % cambia al color
+     * de estado "bueno" con palomita.
+     */
+    public static function anillo(int $porcentaje, string $detalle, int $tam = 120): string
+    {
+        $p = max(0, min(100, $porcentaje));
+        $r = 42;
+        $c = 2 * M_PI * $r;
+        $lleno = round($c * $p / 100, 2);
+        $color = $p >= 100 ? self::BUENO : self::SERIE_1;
+        $svg = '<svg viewBox="0 0 100 100" width="' . $tam . '" height="' . $tam . '" role="img" aria-label="' . e("Avance {$p} %. {$detalle}") . '">'
+            . '<circle cx="50" cy="50" r="' . $r . '" fill="none" stroke="#e3e9ed" stroke-width="10"/>'
+            . ($p > 0 ? '<circle cx="50" cy="50" r="' . $r . '" fill="none" stroke="' . $color . '" stroke-width="10" stroke-linecap="' . ($p >= 100 ? 'butt' : 'round') . '"'
+                . ' stroke-dasharray="' . $lleno . ' ' . round($c, 2) . '" transform="rotate(-90 50 50)"/>' : '')
+            . '<text x="50" y="' . ($p >= 100 ? '50' : '55') . '" text-anchor="middle" font-size="20" font-weight="700" fill="#1f2d33">' . $p . '%</text>'
+            . ($p >= 100 ? '<text x="50" y="68" text-anchor="middle" font-size="11" fill="#1f2d33">✓ Completa</text>' : '')
+            . '</svg>';
+        return '<div class="graf-anillo text-center">' . $svg . '<div class="small text-body-secondary mt-1">' . e($detalle) . '</div></div>';
+    }
+
     private static function vistaTabla(string $tabla): string
     {
         return '<details class="graf-tabla"><summary>Ver como tabla</summary><div class="table-responsive">' . $tabla . '</div></details>';

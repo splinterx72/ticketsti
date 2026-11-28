@@ -187,3 +187,65 @@ function test_entrega_simultanea_no_se_duplica(): void
     proc_close($p);
     assert_eq(scalar('SELECT COUNT(comentario_entrega) FROM tarea_asignaciones WHERE id = ?', [$asig]), 0, 'la segunda entrega no sobrescribió la primera');
 }
+
+function test_hoja_de_reportes_con_meta_porcentaje_y_aviso_al_100(): void
+{
+    $t = equipo_tareas();
+    $svc = new TareaService(test_pdo());
+    $id = $svc->crear($t['sup'], tarea_form([$t['a1'], $t['a2']], ['meta_unidad' => 'equipos', 'meta_cantidad' => '10', 'evidencias' => []]), []);
+    $a1 = asignacion_de($id, $t['a1']);
+
+    assert_throws(ValidationException::class, fn () => $svc->reportar($a1, $t['a2'], 'no es mía', 3), 'solo el agente asignado');
+    $r = $svc->reportar($a1, $t['a1'], 'Formateé 4 equipos del nivel 1', 4);
+    assert_eq([$r['porcentaje'], $r['completa']], [40, false], '40 %');
+    assert_eq(scalar('SELECT estado FROM tarea_asignaciones WHERE id = ?', [$a1]), 'en_proceso', 'al reportar pasa a en proceso');
+
+    assert_throws(ValidationException::class, fn () => $svc->cambiarEstado($a1, $t['a1'], 'entregar', '', []), 'cierre antes del 100 % pide motivo');
+
+    $foto = archivos()->guardar(subida('nivel2.jpg', "\xFF\xD8\xFF\xE0" . str_repeat('b', 100)), 'evidencias');
+    $r = $svc->reportar($a1, $t['a1'], 'Nivel 2 completo', 7, [$foto]);
+    assert_eq([$r['porcentaje'], $r['completa']], [100, true], 'tope en 100 % y avisa');
+    assert_eq($svc->reportar($a1, $t['a1'], 'Revisión final', 0)['completa'], false, 'el aviso sale una sola vez');
+    assert_eq((int) scalar('SELECT COUNT(*) FROM tarea_archivos WHERE avance_id IS NOT NULL'), 1, 'la evidencia queda ligada a su reporte');
+
+    $d = $svc->detalle($id);
+    assert_eq([$d['hecho'], $d['meta_total'], $d['porcentaje']], [11, 20, 55], 'avance total de la tarea (2 agentes × 10)');
+    assert_eq(count($d['asignaciones'][0]['avances']) + count($d['asignaciones'][1]['avances']), 3, 'reportes en la hoja');
+
+    $svc->cambiarEstado($a1, $t['a1'], 'entregar', '', []);
+    assert_eq(scalar('SELECT estado FROM tarea_asignaciones WHERE id = ?', [$a1]), 'entregada', 'cierre al 100 % sin motivo');
+    assert_throws(ValidationException::class, fn () => $svc->reportar($a1, $t['a1'], 'tarde', 1), 'cerrada no admite reportes');
+
+    $lista = $svc->asignadasPor($t['sup']);
+    assert_eq((int) $lista[0]['hecho'], 11, 'la lista del supervisor trae lo hecho');
+}
+
+function test_meta_otro_pide_descripcion_y_sin_meta_no_hay_porcentaje(): void
+{
+    $t = equipo_tareas();
+    $svc = new TareaService(test_pdo());
+    assert_throws(ValidationException::class, fn () => $svc->crear($t['sup'], tarea_form([$t['a1']], ['meta_unidad' => 'otro', 'meta_cantidad' => '5']), []), 'otro sin descripción');
+    assert_throws(ValidationException::class, fn () => $svc->crear($t['sup'], tarea_form([$t['a1']], ['meta_unidad' => 'equipos', 'meta_cantidad' => '0']), []), 'cantidad 0');
+    $id = $svc->crear($t['sup'], tarea_form([$t['a1']], ['evidencias' => []]), []);
+    $r = $svc->reportar(asignacion_de($id, $t['a1']), $t['a1'], 'Avance sin meta', 9);
+    assert_eq($r['porcentaje'], null, 'sin meta no hay %');
+    assert_eq((int) scalar('SELECT cantidad FROM tarea_avances'), 0, 'sin meta la cantidad no cuenta');
+}
+
+function test_ticket_de_ti_suma_sus_equipos_a_la_tarea(): void
+{
+    $t = equipo_tareas();
+    $svc = new TareaService(test_pdo());
+    $id = $svc->crear($t['sup'], tarea_form([$t['a1']], ['meta_unidad' => 'equipos', 'meta_cantidad' => '2', 'evidencias' => []]), []);
+    $dueno = usuario('22222');
+    $e1 = equipo_geca($dueno, 'SER-T1');
+    $e2 = equipo_geca($dueno, 'SER-T2');
+    $r = (new \App\Services\TicketService(test_pdo()))->create($t['a1'], ticket_form([
+        'tipo_ticket' => 'tarea', 'equipos' => [(string) $e1, (string) $e2], 'tarea_asignacion_id' => (string) asignacion_de($id, $t['a1']),
+    ]));
+    assert_eq($r['tarea_completa'], asignacion_de($id, $t['a1']), 'con el ticket llegó al 100 %');
+    assert_eq((int) scalar('SELECT ticket_id FROM tarea_avances'), $r['id'], 'el reporte apunta al ticket');
+    assert_throws(ValidationException::class, fn () => (new \App\Services\TicketService(test_pdo()))->create($t['a2'], ticket_form([
+        'tipo_ticket' => 'tarea', 'tarea_asignacion_id' => (string) asignacion_de($id, $t['a1']),
+    ])), 'no se suma a la tarea de otro');
+}

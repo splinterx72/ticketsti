@@ -29,6 +29,7 @@ $vence = static function (string $entrega, bool $cerrada) use ($ahora): string {
             <?php foreach ($asignadas as $t):
                 $total = max(1, (int) $t['total']);
                 $cerrada = (int) $t['aceptadas'] === (int) $t['total'];
+                $pct = \App\Services\TareaService::porcentaje((int) ($t['hecho'] ?? 0), isset($t['meta_cantidad']) ? (int) $t['meta_cantidad'] * (int) $t['total'] : null);
                 ?>
                 <a href="<?= e(url('/tareas/' . (int) $t['id'])) ?>" class="list-group-item list-group-item-action py-3">
                     <div class="d-flex flex-wrap justify-content-between gap-2">
@@ -38,8 +39,15 @@ $vence = static function (string $entrega, bool $cerrada) use ($ahora): string {
                             <div class="small text-body-secondary">Entrega <?= e(fecha_mx($t['entrega_en'])) ?> · <?= prioridad_badge((string) $t['prioridad']) ?></div>
                         </div>
                         <div class="text-end" style="min-width: 11rem;">
+                            <?php if ($pct !== null): ?>
+                                <div class="small mb-1">Avance <strong><?= e($pct) ?> %</strong> · <?= e(number_format((int) $t['hecho'])) ?> de <?= e(number_format((int) $t['meta_cantidad'] * (int) $t['total'])) ?> <?= e(\App\Services\TareaService::unidad($t)) ?></div>
+                                <div class="progress mb-2" style="height: 8px;" role="progressbar" aria-label="Avance de la meta" aria-valuenow="<?= e($pct) ?>" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar <?= $pct >= 100 ? 'bg-success' : 'bg-primary' ?>" style="width: <?= e($pct) ?>%"></div>
+                                </div>
+                            <?php endif; ?>
+                            <?php if ((int) ($t['listas_cierre'] ?? 0) > 0): ?><span class="badge text-bg-success mb-1"><i class="bi bi-check2-circle me-1"></i><?= e($t['listas_cierre']) ?> al 100 %</span><?php endif; ?>
                             <div class="small mb-1">
-                                <strong><?= e($t['entregadas']) ?></strong> de <?= e($t['total']) ?> entregaron
+                                <strong><?= e($t['entregadas']) ?></strong> de <?= e($t['total']) ?> cerraron
                                 <?php if ((int) $t['por_revisar'] > 0): ?><span class="badge text-bg-info ms-1"><?= e($t['por_revisar']) ?> por revisar</span><?php endif; ?>
                             </div>
                             <div class="progress" style="height: 6px;" role="progressbar" aria-label="Avance" aria-valuenow="<?= e($t['aceptadas']) ?>" aria-valuemax="<?= e($t['total']) ?>">
@@ -59,7 +67,8 @@ $vence = static function (string $entrega, bool $cerrada) use ($ahora): string {
     <div class="card border-0 shadow-sm"><div class="card-body text-body-secondary small">No tienes tareas asignadas.</div></div>
 <?php else: ?>
     <div class="list-group shadow-sm">
-        <?php foreach ($mias as $t): [$label, $color] = $estados[$t['estado']]; ?>
+        <?php foreach ($mias as $t): [$label, $color] = $estados[$t['estado']];
+            $pct = \App\Services\TareaService::porcentaje((int) ($t['hecho'] ?? 0), isset($t['meta_cantidad']) ? (int) $t['meta_cantidad'] : null); ?>
             <a href="<?= e(url('/tareas/' . (int) $t['id'])) ?>" class="list-group-item list-group-item-action py-3">
                 <div class="d-flex flex-wrap justify-content-between gap-2">
                     <div>
@@ -67,7 +76,13 @@ $vence = static function (string $entrega, bool $cerrada) use ($ahora): string {
                         <div class="fw-semibold"><?= e($t['titulo']) ?> <?= $vence((string) $t['entrega_en'], in_array($t['estado'], ['entregada', 'aceptada'], true)) ?></div>
                         <div class="small text-body-secondary">Entrega <?= e(fecha_mx($t['entrega_en'])) ?></div>
                     </div>
-                    <span class="badge text-bg-<?= e($color) ?> align-self-start"><?= e($label) ?></span>
+                    <div class="text-end" style="min-width: 10rem;">
+                        <span class="badge text-bg-<?= e($color) ?>"><?= e($label) ?></span>
+                        <?php if ($pct !== null): ?>
+                            <div class="small mt-1"><strong><?= e($pct) ?> %</strong> · <?= e(number_format((int) $t['hecho'])) ?>/<?= e(number_format((int) $t['meta_cantidad'])) ?> <?= e(\App\Services\TareaService::unidad($t)) ?></div>
+                            <div class="progress" style="height: 6px;" role="progressbar" aria-label="Mi avance" aria-valuenow="<?= e($pct) ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar <?= $pct >= 100 ? 'bg-success' : 'bg-primary' ?>" style="width: <?= e($pct) ?>%"></div></div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </a>
         <?php endforeach; ?>

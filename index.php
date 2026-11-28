@@ -168,6 +168,7 @@ if (!$installMode) {
     $router->get('/tareas/archivo/{id}', [TareaController::class, 'archivo']);
     $router->post('/tareas/asignacion/{id}/iniciar', [TareaController::class, 'iniciar']);
     $router->post('/tareas/asignacion/{id}/entregar', [TareaController::class, 'entregar']);
+    $router->post('/tareas/asignacion/{id}/reportar', [TareaController::class, 'reportar']);
     $router->post('/tareas/asignacion/{id}/aceptar', [TareaController::class, 'aceptar']);
     $router->post('/tareas/asignacion/{id}/devolver', [TareaController::class, 'devolver']);
 
