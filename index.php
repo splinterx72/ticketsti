@@ -9,6 +9,7 @@ declare(strict_types=1);
  */
 
 use App\Config\Database;
+use App\Controllers\CategoriaController;
 use App\Controllers\AdminLocalController;
 use App\Controllers\AuthController;
 use App\Controllers\AvisoController;
@@ -184,6 +185,7 @@ if (!$installMode) {
     $router->get('/formatos/{id}/escaneo', [FormatoController::class, 'escaneo']);
     $router->post('/formatos/{id}/cancelar', [FormatoController::class, 'cancelar']);
     $router->post('/formatos/{id}/inventario', [FormatoController::class, 'inventario']);
+    $router->get('/ti/equipos/buscar', [TiController::class, 'buscarEquipos']);
     $router->post('/ti/mi-estado', [TiController::class, 'myStatus']);
 
     // Mi cuenta.
@@ -246,6 +248,9 @@ if (!$installMode) {
     $router->post('/ti/formatos/{id}', [FormatoAdminController::class, 'update']);
     $router->get('/ti/modulos', [ModuloController::class, 'index']);
     $router->post('/ti/modulos', [ModuloController::class, 'save']);
+    $router->get('/ti/categorias', [CategoriaController::class, 'index']);
+    $router->post('/ti/categorias', [CategoriaController::class, 'store']);
+    $router->post('/ti/categorias/{id}', [CategoriaController::class, 'update']);
     $router->get('/ti/sla', [SlaController::class, 'index']);
     $router->post('/ti/sla', [SlaController::class, 'save']);
     $router->get('/ti/zonas', [ZonaController::class, 'index']);

@@ -121,6 +121,13 @@ if (!function_exists('tipo_label')) {
             'garantia'                => 'Garantía',
             'formateo'                => 'Formateo',
             'actualizacion_ubicacion' => 'Actualización de ubicación',
+            'tarea'                   => 'Tarea',
+            'actualizaciones'         => 'Actualizaciones',
+            'levantamiento'           => 'Levantamiento',
+            'instruccion'             => 'Instrucción',
+            'formateos'               => 'Formateos',
+            'bajas'                   => 'Bajas',
+            'altas'                   => 'Altas',
             default                   => $tipo,
         };
     }

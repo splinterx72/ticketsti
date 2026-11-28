@@ -4,6 +4,7 @@
  * @var string $hasta
  * @var array<string, mixed> $kpis
  * @var list<array{etiqueta: string, total: int}> $porTipo
+ * @var list<array{etiqueta: string, total: int}> $porCategoria
  * @var list<array{etiqueta: string, total: int}> $porDepto
  * @var list<array{etiqueta: string, total: int}> $porInstalacion
  * @var list<array<string, mixed>> $instalaciones
@@ -120,6 +121,7 @@ $rangos = [
 
 <div class="row g-4 mb-4">
     <div class="col-md-6 col-xl-3"><?= $barras('Por tipo', $porTipo) ?></div>
+    <?php if ($porCategoria !== []): ?><div class="col-md-6 col-xl-3"><?= $barras('Por categoría', $porCategoria) ?></div><?php endif; ?>
     <div class="col-md-6 col-xl-3"><?= $barras('Por instalación', $porInstalacion) ?></div>
     <div class="col-md-6 col-xl-3"><?= $barras('Por departamento', $porDepto) ?></div>
     <div class="col-md-6 col-xl-3"><?= $barras('Por componente', $porComponente) ?></div>

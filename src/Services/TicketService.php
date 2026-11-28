@@ -79,6 +79,10 @@ final class TicketService
     /** @return array<string, mixed>|null */
     public function find(int $id): ?array
     {
+        // Categoría solo si ya se importó la migración.
+        $conCat = (new CategoriaService($this->pdo))->disponible();
+        $catSel = $conCat ? ', cat.nombre AS categoria_nombre, cat.descripcion AS categoria_descripcion' : ', NULL AS categoria_nombre, NULL AS categoria_descripcion';
+        $catJoin = $conCat ? ' LEFT JOIN categorias cat ON cat.id = t.categoria_id' : '';
         $stmt = $this->pdo->prepare(
             'SELECT t.*,
                     s.nombre AS solicitante_nombre, s.ficha AS solicitante_ficha, s.email AS solicitante_email,
@@ -95,7 +99,7 @@ final class TicketService
                     ur.zona AS r_zona, ur.sector AS r_sector, ur.inmueble AS r_inmueble,
                     ug.eps AS g_eps, ug.subdireccion AS g_subdireccion, ug.gerencia AS g_gerencia,
                     ug.zona AS g_zona, ug.sector AS g_sector, ug.inmueble AS g_inmueble,
-                    inst.nombre AS instalacion_nombre, ubf.indicaciones
+                    inst.nombre AS instalacion_nombre, ubf.indicaciones' . $catSel . '
                FROM tickets t
                LEFT JOIN instalaciones inst ON inst.id = t.instalacion_id
                LEFT JOIN ubicaciones_fisicas ubf ON ubf.id = t.reportada_ubicacion_fisica_id
@@ -106,7 +110,7 @@ final class TicketService
                JOIN estados es       ON es.id = t.estado_id
                LEFT JOIN equipos e   ON e.id = t.equipo_id
                LEFT JOIN ubicaciones ur ON ur.id = t.ubicacion_reportada_id
-               LEFT JOIN ubicaciones ug ON ug.id = e.ubicacion_geca_id
+               LEFT JOIN ubicaciones ug ON ug.id = e.ubicacion_geca_id' . $catJoin . '
               WHERE t.id = ?'
         );
         $stmt->execute([$id]);
@@ -169,9 +173,29 @@ final class TicketService
             $userId = $para;
         }
 
+        $categorias = new CategoriaService($this->pdo);
         $tipo = $in['tipo_ticket'] ?? '';
-        if (!in_array($tipo, Catalog::TIPOS_USUARIO, true)) {
+        $tiposTi = $esTi && $creadoPor === null && $categorias->disponible();
+        $esTipoTi = in_array($tipo, Catalog::TIPOS_TI, true);
+        if (!in_array($tipo, Catalog::TIPOS_USUARIO, true) && !($tiposTi && $esTipoTi)) {
             $errors[] = 'Selecciona el tipo de ticket.';
+        }
+        $categoriaId = null;
+        if ($categorias->disponible()) {
+            try {
+                $categoriaId = $categorias->validar((int) ($in['categoria_id'] ?? 0));
+            } catch (ValidationException $e) {
+                $errors = array_merge($errors, $e->errors());
+            }
+        }
+        // Tickets de TI: varios equipos (lista y/o series pegadas).
+        $equiposTi = [];
+        if ($tiposTi && $esTipoTi) {
+            try {
+                $equiposTi = $this->resolverEquipos((array) ($in['equipos'] ?? []), (string) ($in['equipos_series'] ?? ''));
+            } catch (ValidationException $e) {
+                $errors = array_merge($errors, $e->errors());
+            }
         }
         $prioridad = $in['prioridad'] ?? 'media';
         $permitidas = $esTi ? array_keys(Catalog::PRIORIDADES) : Catalog::PRIORIDADES_USUARIO;
@@ -188,9 +212,10 @@ final class TicketService
             $errors[] = 'Describe el problema con al menos 10 caracteres (máximo 5000).';
         }
 
-        // Equipo (debe pertenecer al usuario) y componente.
+        // Equipo (debe pertenecer al usuario) y componente. En los tickets de TI
+        // los equipos van en la lista de varios.
         $equipo = null;
-        $equipoId = (int) ($in['equipo_id'] ?? 0);
+        $equipoId = $esTipoTi ? 0 : (int) ($in['equipo_id'] ?? 0);
         if ($equipoId > 0) {
             foreach ($this->equiposDeUsuario($userId) as $eq) {
                 if ((int) $eq['id'] === $equipoId) {
@@ -235,7 +260,8 @@ final class TicketService
         $fisica = null;
         $ubicaciones = new UbicacionFisicaService($this->pdo);
         $capturada = (int) ($in['reportada_ubicacion_fisica_id'] ?? 0) > 0;
-        if ($capturada || $ubicaciones->hayCatalogo()) {
+        // En los tickets de TI la ubicación es opcional: el trabajo puede abarcar varios edificios.
+        if ($capturada || ($ubicaciones->hayCatalogo() && !$esTipoTi)) {
             try {
                 $fisica = $ubicaciones->validar($in, 'reportada');
             } catch (ValidationException $e) {
@@ -261,6 +287,7 @@ final class TicketService
                 'prioridad'              => $prioridad,
                 'usuario_solicitante_id' => $userId,
                 'creado_por_id'          => $creadoPor,
+                'categoria_id'           => $categoriaId,
                 'departamento_id'        => Catalog::departamentoParaTipo($tipo),
                 'estado_id'              => Catalog::estadoIdPorNombre(Catalog::ESTADO_INICIAL),
                 'equipo_id'              => $equipo !== null ? (int) $equipo['id'] : null,
@@ -283,7 +310,17 @@ final class TicketService
             if ($tipo === 'formateo') {
                 (new FormatoService($this->pdo))->emitir($id, $user);
             }
-            $asignadoA = (new AsignadorService($this->pdo))->alCrear($id);
+            if ($esTipoTi) {
+                // Ticket propio de TI: queda asignado a quien lo levanta, con sus equipos.
+                $ins = $this->pdo->prepare('INSERT INTO ticket_equipos (ticket_id, equipo_id) VALUES (?, ?)');
+                foreach ($equiposTi as $eid) {
+                    $ins->execute([$id, $eid]);
+                }
+                $this->pdo->prepare('UPDATE tickets SET agente_asignado_id = ?, atendido_en = CURRENT_TIMESTAMP WHERE id = ?')->execute([$userId, $id]);
+                $asignadoA = null;
+            } else {
+                $asignadoA = (new AsignadorService($this->pdo))->alCrear($id);
+            }
             $this->pdo->commit();
         } catch (Throwable $e) {
             if ($this->pdo->inTransaction()) {
@@ -360,8 +397,9 @@ final class TicketService
             'INSERT INTO tickets (folio, tipo_ticket, titulo, descripcion, prioridad, usuario_solicitante_id, creado_por_id,
                                   departamento_id, estado_id, equipo_id, componente_afectado, hostname_reportado,
                                   discrepancia_ubicacion, instalacion_id, reportada_ubicacion_fisica_id,
-                                  reportada_nivel_id, reportada_ala, referencia)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                                  reportada_nivel_id, reportada_ala, referencia'
+            . (isset($d['categoria_id']) ? ', categoria_id' : '') . ')
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?' . (isset($d['categoria_id']) ? ', ?' : '') . ')'
         );
         $stmt->execute([
             'TMP-' . bin2hex(random_bytes(8)),
@@ -369,6 +407,7 @@ final class TicketService
             $d['departamento_id'], $d['estado_id'], $d['equipo_id'], $d['componente_afectado'], $d['hostname_reportado'],
             $d['discrepancia_ubicacion'], $d['instalacion_id'], $d['reportada_ubicacion_fisica_id'],
             $d['reportada_nivel_id'], $d['reportada_ala'], $d['referencia'],
+            ...(isset($d['categoria_id']) ? [$d['categoria_id']] : []),
         ]);
         $id = (int) $this->pdo->lastInsertId();
         return [$id, Folio::asignar($this->pdo, 'tickets', 'TK', $id)];
@@ -489,6 +528,17 @@ final class TicketService
                 $errors[] = 'El agente seleccionado no es válido.';
             }
         }
+        // Categoría: TI la corrige si quien levantó el ticket eligió otra.
+        $categoriaId = isset($ticket['categoria_id']) ? (int) $ticket['categoria_id'] : 0;
+        $categoriaNueva = null;
+        $categorias = new CategoriaService($this->pdo);
+        if (array_key_exists('categoria_id', $in) && (string) $in['categoria_id'] !== '' && $categorias->disponible()
+            && (int) $in['categoria_id'] !== $categoriaId) {
+            $categoriaNueva = $categorias->find((int) $in['categoria_id']);
+            if ($categoriaNueva === null) {
+                $errors[] = 'Categoría inválida.';
+            }
+        }
         // Folio de Remedy: llega después; TI lo captura cuando lo tenga.
         $remedy = (string) ($ticket['folio_remedy'] ?? '');
         if (array_key_exists('folio_remedy', $in)) {
@@ -522,6 +572,9 @@ final class TicketService
         if ($deptoId !== (int) $ticket['departamento_id']) {
             $cambios[] = "departamento: {$ticket['departamento_nombre']} → {$depto['nombre']}";
         }
+        if ($categoriaNueva !== null) {
+            $cambios[] = 'categoría: ' . ($ticket['categoria_nombre'] ?? 'sin categoría') . ' → ' . $categoriaNueva['nombre'];
+        }
         if ($agenteId !== (int) ($ticket['agente_asignado_id'] ?? 0)) {
             $cambios[] = 'asignado: ' . ($ticket['agente_nombre'] ?? 'nadie') . ' → ' . ($agenteNuevo['nombre'] ?? 'nadie');
         }
@@ -539,6 +592,9 @@ final class TicketService
                   WHERE id = ?'
             );
             $stmt->execute([$estadoId, $prioridad, $deptoId, $agenteId > 0 ? $agenteId : null, $remedy !== '' ? $remedy : null, $estado['es_cierre'], (int) $ticket['id']]);
+            if ($categoriaNueva !== null) {
+                $this->pdo->prepare('UPDATE tickets SET categoria_id = ? WHERE id = ?')->execute([$categoriaNueva['id'], (int) $ticket['id']]);
+            }
             // Visible para el solicitante: así sigue el avance de su ticket.
             $this->insertComment((int) $ticket['id'], (int) $agente['id'], '[Sistema] ' . ucfirst(implode('; ', $cambios)) . '.', false);
             $this->pdo->commit();
@@ -554,6 +610,96 @@ final class TicketService
     // ==================================================================
     //  Utilidades
     // ==================================================================
+
+    /** Máximo de equipos en un ticket de TI. */
+    public const MAX_EQUIPOS = 500;
+
+    /**
+     * Ids de equipos elegidos de la lista y/o series pegadas (una por línea, o
+     * separadas por coma, punto y coma o espacio). Serie desconocida = error.
+     *
+     * @param list<mixed> $ids
+     * @return list<int>
+     */
+    public function resolverEquipos(array $ids, string $series): array
+    {
+        $out = [];
+        $ids = array_values(array_unique(array_filter(array_map('intval', array_filter($ids, 'is_scalar')), static fn (int $i): bool => $i > 0)));
+        if ($ids !== []) {
+            $in = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $this->pdo->prepare("SELECT id FROM equipos WHERE id IN ({$in})");
+            $stmt->execute($ids);
+            $out = array_map('intval', $stmt->fetchAll(\PDO::FETCH_COLUMN));
+        }
+        $lista = array_values(array_unique(array_filter(array_map(
+            static fn (string $s): string => strtoupper(trim($s)),
+            preg_split('/[\s,;]+/u', $series) ?: []
+        ), static fn (string $s): bool => $s !== '')));
+        if ($lista !== []) {
+            $buscar = $this->pdo->prepare('SELECT id FROM equipos WHERE serie = ?');
+            $faltan = [];
+            foreach ($lista as $serie) {
+                $buscar->execute([$serie]);
+                $eid = $buscar->fetchColumn();
+                if ($eid === false) {
+                    $faltan[] = $serie;
+                } else {
+                    $out[] = (int) $eid;
+                }
+            }
+            if ($faltan !== []) {
+                throw new ValidationException(['Estas series no existen en el inventario: ' . implode(', ', array_slice($faltan, 0, 20)) . (count($faltan) > 20 ? '…' : '') . '.']);
+            }
+        }
+        $out = array_values(array_unique($out));
+        if (count($out) > self::MAX_EQUIPOS) {
+            throw new ValidationException(['Un ticket admite hasta ' . self::MAX_EQUIPOS . ' equipos.']);
+        }
+        return $out;
+    }
+
+    /** @return list<array<string, mixed>> equipos de un ticket de TI con su resguardante */
+    public function equiposDelTicket(int $ticketId): array
+    {
+        if (!(new CategoriaService($this->pdo))->disponible()) {
+            return [];
+        }
+        $stmt = $this->pdo->prepare(
+            'SELECT e.id, e.serie, e.marca, e.modelo, e.tipo_componente, e.vigente_en_geca, u.ficha, u.nombre AS usuario_nombre
+               FROM ticket_equipos te JOIN equipos e ON e.id = te.equipo_id LEFT JOIN usuarios u ON u.id = e.usuario_id
+              WHERE te.ticket_id = ? ORDER BY e.serie'
+        );
+        $stmt->execute([$ticketId]);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Búsqueda de equipos para agregarlos a un ticket de TI: serie, monitor o
+     * ficha/nombre del resguardante.
+     *
+     * @return list<array{id: int, serie: string, texto: string}>
+     */
+    public function buscarEquipos(string $q, int $limite = 15): array
+    {
+        $q = mb_substr(trim($q), 0, 60);
+        if (mb_strlen($q) < 3) {
+            return [];
+        }
+        $like = addcslashes($q, '%_\\') . '%';
+        $stmt = $this->pdo->prepare(
+            'SELECT e.id, e.serie, e.marca, e.modelo, e.tipo_componente, u.ficha, u.nombre
+               FROM equipos e LEFT JOIN usuarios u ON u.id = e.usuario_id
+              WHERE e.serie LIKE ? OR e.serie_monitor1 LIKE ? OR e.serie_monitor2 LIKE ? OR u.ficha = ? OR u.nombre LIKE ?
+              ORDER BY e.vigente_en_geca DESC, e.serie LIMIT ' . max(1, min(50, $limite))
+        );
+        $stmt->execute([$like, $like, $like, $q, '%' . addcslashes($q, '%_\\') . '%']);
+        return array_map(static fn (array $r): array => [
+            'id' => (int) $r['id'],
+            'serie' => (string) $r['serie'],
+            'texto' => trim(($r['tipo_componente'] ? $r['tipo_componente'] . ' · ' : '') . $r['serie'] . ' — ' . trim(($r['marca'] ?? '') . ' ' . ($r['modelo'] ?? ''))
+                . ($r['ficha'] ? ' · ' . $r['ficha'] . ' ' . $r['nombre'] : ' · sin resguardante')),
+        ], $stmt->fetchAll());
+    }
 
     private function insertComment(int $ticketId, int $userId, string $mensaje, bool $interna): int
     {

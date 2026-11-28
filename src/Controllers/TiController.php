@@ -211,7 +211,7 @@ final class TiController extends Controller
         }
 
         $input = [];
-        foreach (['estado_id', 'prioridad', 'departamento_id', 'agente_asignado_id', 'folio_remedy'] as $k) {
+        foreach (['estado_id', 'prioridad', 'departamento_id', 'agente_asignado_id', 'folio_remedy', 'categoria_id'] as $k) {
             $input[$k] = $this->input($k);
         }
 
@@ -291,6 +291,18 @@ final class TiController extends Controller
         $back = (string) ($_SERVER['HTTP_REFERER'] ?? '');
         $path = (string) parse_url($back, PHP_URL_PATH);
         redirect($path !== '' && str_starts_with($path, '/') && !str_starts_with($path, '//') ? \App\Core\Router::currentPath($path) : '/');
+    }
+
+    /** GET /ti/equipos/buscar?q=: equipos para agregar a un ticket de TI (JSON). */
+    public function buscarEquipos(): void
+    {
+        $this->requireRole(self::ROLES);
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: private, no-store');
+        echo json_encode(
+            (new TicketService(Database::getInstance()))->buscarEquipos((string) ($_GET['q'] ?? '')),
+            JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
+        );
     }
 
     /** Atajo "Tomar ticket": se asigna al agente actual y pasa a En proceso si estaba Abierto. */

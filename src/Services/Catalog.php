@@ -26,10 +26,23 @@ final class Catalog
         'garantia'                => 'Garantía de hardware',
         'formateo'                => 'Solicitud de formateo (requiere autorización firmada)',
         'actualizacion_ubicacion' => 'Actualización de ubicación',
+        'tarea'                   => 'Tarea (TI)',
+        'actualizaciones'         => 'Actualizaciones (TI)',
+        'levantamiento'           => 'Levantamiento (TI)',
+        'instruccion'             => 'Instrucción (TI)',
+        'formateos'               => 'Formateos (TI, varios equipos)',
+        'bajas'                   => 'Bajas (TI)',
+        'altas'                   => 'Altas (TI)',
     ];
 
     /** Tipos que puede elegir un trabajador al crear un ticket. */
     public const TIPOS_USUARIO = ['incidencia', 'solicitud', 'garantia', 'formateo'];
+
+    /**
+     * Tipos que solo TI usa en sus propios tickets (trabajo de campo). Admiten
+     * varios equipos (`ticket_equipos`).
+     */
+    public const TIPOS_TI = ['tarea', 'actualizaciones', 'levantamiento', 'instruccion', 'formateos', 'bajas', 'altas'];
 
     public const PRIORIDADES = [
         'baja'    => 'Baja',
@@ -126,7 +139,7 @@ final class Catalog
     {
         return self::departamentoIdPorNombre(match ($tipo) {
             'garantia'                => self::DEPTO_GARANTIAS,
-            'actualizacion_ubicacion' => self::DEPTO_RESGUARDOS,
+            'actualizacion_ubicacion', 'levantamiento', 'bajas', 'altas' => self::DEPTO_RESGUARDOS,
             default                   => self::DEPTO_SOPORTE,
         });
     }

@@ -49,6 +49,8 @@ final class Installer
         'formato_plantillas', 'formatos', 'formato_firmas',
         // Cobertura de agentes por ubicación
         'agente_ubicaciones', 'agente_pausas',
+        // Categorías y varios equipos por ticket
+        'categorias', 'ticket_equipos',
     ];
 
     public const TIMEZONES = [

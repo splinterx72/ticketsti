@@ -193,6 +193,81 @@
         }
     }
 
+    // --- Nuevo ticket: descripción de la categoría elegida ---
+    document.querySelectorAll('select[data-categoria]').forEach(function (sel) {
+        var ayuda = sel.parentNode.querySelector('[data-categoria-descripcion]');
+        var pintar = function () {
+            var op = sel.options[sel.selectedIndex];
+            var d = op ? op.getAttribute('data-descripcion') : '';
+            if (ayuda) { ayuda.textContent = d ? 'Abarca: ' + d : 'Abarca: elige una categoría para ver ejemplos.'; }
+        };
+        sel.addEventListener('change', pintar);
+        pintar();
+    });
+
+    // --- Nuevo ticket de TI: tipos con varios equipos ---
+    var tipoSel = document.getElementById('tipo_ticket');
+    if (tipoSel && tipoSel.getAttribute('data-tipos-ti')) {
+        var tiposTi = tipoSel.getAttribute('data-tipos-ti').split(',');
+        var soloTi = document.querySelector('[data-solo-ti]');
+        var noTi = document.querySelector('[data-no-ti]');
+        var cambiarTipo = function () {
+            var esTi = tiposTi.indexOf(tipoSel.value) !== -1;
+            if (soloTi) { soloTi.classList.toggle('d-none', !esTi); }
+            if (noTi) { noTi.classList.toggle('d-none', esTi); }
+        };
+        tipoSel.addEventListener('change', cambiarTipo);
+        cambiarTipo();
+
+        var buscar = document.querySelector('[data-buscar-equipos]');
+        var resultados = document.querySelector('[data-resultados]');
+        var elegidos = document.querySelector('[data-elegidos]');
+        var temporizador = null;
+        var agregar = function (eq) {
+            if (elegidos.querySelector('input[value="' + eq.id + '"]')) { return; }
+            var li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center gap-2 px-0';
+            var txt = document.createElement('span');
+            txt.textContent = eq.texto;
+            var oculto = document.createElement('input');
+            oculto.type = 'hidden'; oculto.name = 'equipos[]'; oculto.value = String(eq.id);
+            var quitar = document.createElement('button');
+            quitar.type = 'button'; quitar.className = 'btn btn-sm btn-link text-danger p-0'; quitar.textContent = 'Quitar';
+            quitar.addEventListener('click', function () { li.remove(); });
+            li.appendChild(txt); li.appendChild(oculto); li.appendChild(quitar);
+            elegidos.appendChild(li);
+        };
+        if (buscar && resultados && elegidos) {
+            buscar.addEventListener('input', function () {
+                clearTimeout(temporizador);
+                var q = buscar.value.trim();
+                resultados.textContent = '';
+                if (q.length < 3) { return; }
+                temporizador = setTimeout(function () {
+                    fetch(buscar.getAttribute('data-buscar-equipos') + '?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+                        .then(function (r) { return r.ok ? r.json() : []; })
+                        .then(function (lista) {
+                            resultados.textContent = '';
+                            if (!lista.length) {
+                                var vacio = document.createElement('div');
+                                vacio.className = 'list-group-item small text-body-secondary';
+                                vacio.textContent = 'Sin coincidencias.';
+                                resultados.appendChild(vacio);
+                            }
+                            lista.forEach(function (eq) {
+                                var b = document.createElement('button');
+                                b.type = 'button'; b.className = 'list-group-item list-group-item-action small';
+                                b.textContent = '+ ' + eq.texto;
+                                b.addEventListener('click', function () { agregar(eq); b.remove(); });
+                                resultados.appendChild(b);
+                            });
+                        })
+                        .catch(function () {});
+                }, 250);
+            });
+        }
+    }
+
     // ------------------------------------------------------------------
     //  Carga GECA
     // ------------------------------------------------------------------

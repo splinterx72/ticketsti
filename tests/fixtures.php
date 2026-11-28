@@ -61,6 +61,7 @@ function ticket_form(array $extra = []): array
         'tipo_ticket' => 'incidencia', 'prioridad' => 'media', 'titulo' => 'No enciende el equipo',
         'descripcion' => 'Desde esta mañana el equipo no enciende.', 'equipo_id' => '0', 'componente_afectado' => 'general',
         'hostname_reportado' => '',
+        'categoria_id' => (string) scalar('SELECT MIN(id) FROM categorias'),
     ];
 }
 

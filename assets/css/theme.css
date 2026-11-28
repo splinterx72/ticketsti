@@ -69,6 +69,31 @@ h1, .h1, .h4 { letter-spacing: -.005em; }
     --bs-btn-focus-shadow-rgb: var(--mesa-primary-rgb);
 }
 .btn { border-radius: .55rem; font-weight: 500; }
+
+/* --- Botones de selección (btn-check): sin marcar = blanco con borde gris;
+       marcado = relleno sólido con palomita. Antes el hover pintaba igual que
+       "marcado" y no se distinguían. --- */
+.btn-check + .btn-outline-primary {
+    --bs-btn-color: #33464f;
+    --bs-btn-bg: #fff;
+    --bs-btn-border-color: #c3cfd6;
+    --bs-btn-hover-color: var(--mesa-primary);
+    --bs-btn-hover-bg: var(--mesa-primary-subtle);
+    --bs-btn-hover-border-color: var(--mesa-primary);
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: var(--mesa-primary);
+    --bs-btn-active-border-color: var(--mesa-primary);
+    font-weight: 500;
+}
+.btn-check:checked + .btn-outline-primary {
+    box-shadow: 0 0 0 .15rem rgba(var(--mesa-primary-rgb), .25);
+}
+.btn-check:checked + .btn-outline-primary::before {
+    content: "\2713";
+    font-weight: 700;
+    margin-right: .3rem;
+}
+.btn-check:focus-visible + .btn-outline-primary { outline: 2px solid var(--mesa-accent); outline-offset: 2px; }
 .btn-link { --bs-btn-color: var(--mesa-primary); --bs-btn-hover-color: var(--mesa-primary-hover); }
 
 .nav-pills { --bs-nav-pills-link-active-bg: var(--mesa-primary); --bs-nav-pills-border-radius: 999px; }

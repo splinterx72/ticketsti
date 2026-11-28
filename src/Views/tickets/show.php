@@ -7,6 +7,8 @@
  * @var list<array<string, mixed>> $departamentos
  * @var list<array<string, mixed>> $agentes
  * @var list<array<string, mixed>> $garantias
+ * @var list<array{id: int, nombre: string, descripcion: ?string, activo: int}> $categorias
+ * @var list<array<string, mixed>> $equiposTi  equipos de un ticket de TI
  * @var array<string, mixed> $authUser
  * @var array<string, string> $old
  */
@@ -195,6 +197,17 @@ $monitor = match ($t['componente_afectado']) {
                             </select>
                         </div>
                     </div>
+                    <?php if (($categorias ?? []) !== []): ?>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold" for="categoria_g">Categoría</label>
+                            <select class="form-select form-select-sm" id="categoria_g" name="categoria_id">
+                                <?php if (empty($t['categoria_id'])): ?><option value="">Sin categoría</option><?php endif; ?>
+                                <?php foreach ($categorias as $c): if ($c['activo'] !== 1 && $c['id'] !== (int) ($t['categoria_id'] ?? 0)) { continue; } ?>
+                                    <option value="<?= e($c['id']) ?>" <?= $c['id'] === (int) ($t['categoria_id'] ?? 0) ? 'selected' : '' ?>><?= e($c['nombre']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    <?php endif; ?>
                     <div class="mb-3">
                         <label class="form-label small fw-semibold" for="folio_remedy">Folio Remedy</label>
                         <input class="form-control form-control-sm font-monospace" id="folio_remedy" name="folio_remedy" maxlength="40" value="<?= e($t['folio_remedy'] ?? '') ?>" placeholder="Captúralo cuando llegue (p. ej. WO0000014931785)">
@@ -236,9 +249,25 @@ $monitor = match ($t['componente_afectado']) {
             </div>
         <?php endif; ?>
 
+        <?php if (($equiposTi ?? []) !== []): ?>
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white fw-semibold"><i class="bi bi-pc-display me-1"></i>Equipos del trabajo (<?= e(count($equiposTi)) ?>)</div>
+                <ul class="list-group list-group-flush small" style="max-height: 22rem; overflow-y: auto;">
+                    <?php foreach ($equiposTi as $q): ?>
+                        <li class="list-group-item">
+                            <?php if ($esTi): ?><a class="font-monospace" href="<?= e(url('/ti/equipos/' . (int) $q['id'])) ?>"><?= e($q['serie']) ?></a><?php else: ?><span class="font-monospace"><?= e($q['serie']) ?></span><?php endif; ?>
+                            <span class="text-body-secondary"><?= e(trim(($q['tipo_componente'] ? tipo_equipo((string) $q['tipo_componente']) . ' · ' : '') . ($q['marca'] ?? '') . ' ' . ($q['modelo'] ?? ''))) ?></span>
+                            <div class="text-body-secondary"><?= $q['ficha'] ? e($q['ficha'] . ' · ' . $q['usuario_nombre']) : 'Sin resguardante' ?></div>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white fw-semibold"><i class="bi bi-info-circle me-1"></i>Detalles</div>
             <dl class="card-body small mb-0 detail-list">
+                <?php if (!empty($t['categoria_nombre'])): ?><dt>Categoría</dt><dd title="<?= e($t['categoria_descripcion'] ?? '') ?>"><?= e($t['categoria_nombre']) ?></dd><?php endif; ?>
                 <dt>Departamento</dt><dd><?= e($t['departamento_nombre']) ?></dd>
                 <?php if (!empty($t['folio_remedy'])): ?><dt>Folio Remedy</dt><dd class="font-monospace"><?= e($t['folio_remedy']) ?></dd><?php endif; ?>
                 <dt>Atiende</dt><dd><?= e($t['agente_nombre'] ?? 'Sin asignar') ?></dd>

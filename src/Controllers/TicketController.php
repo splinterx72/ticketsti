@@ -30,7 +30,7 @@ final class TicketController extends Controller
         'tipo_ticket', 'prioridad', 'titulo', 'descripcion', 'equipo_id',
         'componente_afectado', 'hostname_reportado',
         'reportada_instalacion_id', 'reportada_ubicacion_fisica_id', 'reportada_nivel_id', 'reportada_ala', 'reportada_referencia',
-        'para_usuario_id',
+        'para_usuario_id', 'categoria_id', 'equipos_series',
     ];
 
     public function index(): void
@@ -136,8 +136,13 @@ final class TicketController extends Controller
             $instalacionGeca[(int) $eq['id']] = $fisicas->instalacionDeInmuebleGeca($eq['g_inmueble'] ?? null);
         }
 
+        $categorias = new \App\Services\CategoriaService($pdo);
         $this->view('tickets/create', [
             'title'       => 'Nuevo ticket',
+            'categorias'  => $categorias->todas(true),
+            // Tipos de TI: solo en el ticket propio de un agente (no a nombre de otro).
+            'tiposTi'     => Auth::hasRole(Roles::TI) && $para === null && $categorias->disponible()
+                ? array_intersect_key(Catalog::TIPOS, array_flip(Catalog::TIPOS_TI)) : [],
             'equipos'     => $equipos,
             'catalogo'    => $fisicas->catalogo(),
             'hayCatalogo' => $fisicas->hayCatalogo(),
@@ -163,6 +168,8 @@ final class TicketController extends Controller
             $input[$f] = $this->input($f);
         }
         $input['descripcion'] = is_string($_POST['descripcion'] ?? null) ? (string) $_POST['descripcion'] : '';
+        $input['equipos_series'] = is_string($_POST['equipos_series'] ?? null) ? (string) $_POST['equipos_series'] : '';
+        $input['equipos'] = is_array($_POST['equipos'] ?? null) ? array_values(array_filter($_POST['equipos'], 'is_string')) : [];
 
         $archivos = self::archivosTicket();
         $guardados = [];
@@ -225,6 +232,8 @@ final class TicketController extends Controller
             'estados'      => $esTi ? Catalog::estados() : [],
             'departamentos' => $esTi ? Catalog::departamentos() : [],
             'agentes'      => $esTi ? Catalog::agentes() : [],
+            'categorias'   => (new \App\Services\CategoriaService(Database::getInstance()))->todas(),
+            'equiposTi'    => $service->equiposDelTicket($id),
             'formatos'     => modulo('formatos') ? (new \App\Services\FormatoService(Database::getInstance()))->deTicket($id) : [],
             'plantillas'   => $esTi && modulo('plantillas') ? (new \App\Services\PlantillaService(Database::getInstance()))->todas(true) : null,
             // Sugerencia en vivo (disponibilidad de hoy) mientras no haya agente.

@@ -11,7 +11,11 @@
  * @var list<array{id: int, nombre: string, ficha: string, ver_todos: bool, hasta: ?string}> $jefes  quienes me autorizaron
  * @var array{id: int, nombre: string, ficha: string}|null $para  a nombre de quién (null = yo)
  * @var bool $supervisa  supervisor/coordinador/admin: puede levantar por trabajadores de sus instalaciones
+ * @var list<array{id: int, nombre: string, descripcion: ?string}> $categorias
+ * @var array<string, string> $tiposTi  tipos que solo TI usa en sus propios tickets (varios equipos)
  */
+$tipoSel = $old['tipo_ticket'] ?? 'incidencia';
+$catSel = (int) ($old['categoria_id'] ?? 0);
 $hasOld = $old !== [];
 // Regla 3.C: se preselecciona el equipo principal (el primero, ordenado por es_principal DESC).
 $equipoSel = $hasOld ? (int) ($old['equipo_id'] ?? 0) : (int) ($equipos[0]['id'] ?? 0);
@@ -87,10 +91,19 @@ if ($hasOld) {
                     <div class="row g-3">
                         <div class="col-sm-7">
                             <label for="tipo_ticket" class="form-label fw-semibold">Tipo</label>
-                            <select class="form-select" id="tipo_ticket" name="tipo_ticket" required>
+                            <select class="form-select" id="tipo_ticket" name="tipo_ticket" required data-tipos-ti="<?= e(implode(',', array_keys($tiposTi))) ?>">
+                                <?php if ($tiposTi !== []): ?><optgroup label="Para trabajadores"><?php endif; ?>
                                 <?php foreach ($tipos as $k => $label): ?>
-                                    <option value="<?= e($k) ?>" <?= ($old['tipo_ticket'] ?? 'incidencia') === $k ? 'selected' : '' ?>><?= e($label) ?></option>
+                                    <option value="<?= e($k) ?>" <?= $tipoSel === $k ? 'selected' : '' ?>><?= e($label) ?></option>
                                 <?php endforeach; ?>
+                                <?php if ($tiposTi !== []): ?>
+                                    </optgroup>
+                                    <optgroup label="Trabajo de TI (varios equipos)">
+                                        <?php foreach ($tiposTi as $k => $label): ?>
+                                            <option value="<?= e($k) ?>" <?= $tipoSel === $k ? 'selected' : '' ?>><?= e($label) ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                <?php endif; ?>
                             </select>
                         </div>
                         <div class="col-sm-5">
@@ -101,6 +114,18 @@ if ($hasOld) {
                                 <?php endforeach; ?>
                             </select>
                         </div>
+                        <?php if ($categorias !== []): ?>
+                            <div class="col-12">
+                                <label for="categoria_id" class="form-label fw-semibold">Categoría</label>
+                                <select class="form-select" id="categoria_id" name="categoria_id" required data-categoria>
+                                    <option value="">Elige la categoría…</option>
+                                    <?php foreach ($categorias as $c): ?>
+                                        <option value="<?= e($c['id']) ?>" data-descripcion="<?= e($c['descripcion'] ?? '') ?>" <?= $catSel === $c['id'] ? 'selected' : '' ?>><?= e($c['nombre']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <div class="form-text" data-categoria-descripcion>Abarca: elige una categoría para ver ejemplos.</div>
+                            </div>
+                        <?php endif; ?>
                         <div class="col-12">
                             <label for="titulo" class="form-label fw-semibold">Título</label>
                             <input type="text" class="form-control" id="titulo" name="titulo" maxlength="180" required
@@ -122,7 +147,22 @@ if ($hasOld) {
         </div>
 
         <div class="col-lg-5">
-            <div class="card border-0 shadow-sm mb-4">
+            <?php if ($tiposTi !== []): ?>
+                <div class="card border-0 shadow-sm mb-4 d-none" data-solo-ti>
+                    <div class="card-header bg-white fw-semibold">2. Equipos del trabajo</div>
+                    <div class="card-body">
+                        <label for="buscarEquipo" class="form-label fw-semibold">Agregar por serie, ficha o nombre</label>
+                        <input type="search" class="form-control" id="buscarEquipo" autocomplete="off" placeholder="Escribe al menos 3 caracteres"
+                               data-buscar-equipos="<?= e(url('/ti/equipos/buscar')) ?>">
+                        <div class="list-group mt-1" data-resultados></div>
+                        <ul class="list-group list-group-flush small mt-2" data-elegidos></ul>
+                        <label for="equipos_series" class="form-label fw-semibold mt-3">O pega las series <span class="fw-normal text-body-secondary">(una por línea o separadas por coma)</span></label>
+                        <textarea class="form-control font-monospace" id="equipos_series" name="equipos_series" rows="3" spellcheck="false"><?= e($old['equipos_series'] ?? '') ?></textarea>
+                        <div class="form-text">El ticket queda asignado a ti. La ubicación es opcional si el trabajo abarca varios edificios.</div>
+                    </div>
+                </div>
+            <?php endif; ?>
+            <div class="card border-0 shadow-sm mb-4" data-no-ti>
                 <div class="card-header bg-white fw-semibold">2. ¿Qué equipo?</div>
                 <div class="card-body">
                     <label for="equipo_id" class="form-label fw-semibold">Equipo</label>

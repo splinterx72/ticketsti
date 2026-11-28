@@ -51,6 +51,11 @@ final class ReporteController extends Controller
             static fn (array $r): array => ['etiqueta' => tipo_label((string) $r['clave']), 'total' => (int) $r['total']],
             $grupo("SELECT t.tipo_ticket AS clave, COUNT(*) AS total FROM tickets t WHERE t.creado_en BETWEEN ? AND ?{$sc} GROUP BY t.tipo_ticket ORDER BY total DESC")
         );
+        $porCategoria = (new \App\Services\CategoriaService($pdo))->disponible() ? $grupo(
+            "SELECT COALESCE(c.nombre, 'Sin categoría') AS etiqueta, COUNT(*) AS total
+               FROM tickets t LEFT JOIN categorias c ON c.id = t.categoria_id
+              WHERE t.creado_en BETWEEN ? AND ?{$sc} GROUP BY c.id, c.nombre ORDER BY total DESC"
+        ) : [];
         $porDepto = $grupo(
             "SELECT d.nombre AS etiqueta, COUNT(*) AS total
                FROM tickets t JOIN departamentos d ON d.id = t.departamento_id
@@ -125,6 +130,7 @@ final class ReporteController extends Controller
                 'discrepancias'  => (int) ($kpis['discrepancias'] ?? 0),
             ],
             'porTipo'       => $porTipo,
+            'porCategoria'  => $porCategoria,
             'porDepto'      => array_map(static fn (array $r): array => ['etiqueta' => (string) $r['etiqueta'], 'total' => (int) $r['total']], $porDepto),
             'porInstalacion' => array_map(static fn (array $r): array => ['etiqueta' => (string) $r['etiqueta'], 'total' => (int) $r['total']], $porInstalacion),
             'porComponente' => $porComponente,
@@ -167,9 +173,11 @@ final class ReporteController extends Controller
     {
         $this->requireModulo('reportes', self::ROLES);
         [$desde, $hasta] = $this->rango();
+        $conCat = (new \App\Services\CategoriaService(Database::getInstance()))->disponible();
 
         $stmt = Database::getInstance()->prepare(
-            'SELECT t.folio, t.creado_en, t.cerrado_en, t.tipo_ticket, t.prioridad, t.titulo,
+            'SELECT t.folio, t.creado_en, t.cerrado_en, t.tipo_ticket, t.prioridad, t.titulo, '
+                . ($conCat ? 'cat.nombre' : 'NULL') . ' AS categoria,
                     es.nombre AS estado, d.nombre AS departamento,
                     s.ficha, s.nombre AS solicitante, a.nombre AS agente,
                     e.serie, t.componente_afectado, t.hostname_reportado, t.discrepancia_ubicacion,
@@ -179,7 +187,8 @@ final class ReporteController extends Controller
                JOIN departamentos d ON d.id = t.departamento_id
                JOIN usuarios s ON s.id = t.usuario_solicitante_id
                LEFT JOIN usuarios a ON a.id = t.agente_asignado_id
-               LEFT JOIN equipos e ON e.id = t.equipo_id
+               LEFT JOIN equipos e ON e.id = t.equipo_id'
+               . ($conCat ? ' LEFT JOIN categorias cat ON cat.id = t.categoria_id' : '') . '
               WHERE t.creado_en BETWEEN ? AND ?' . $this->alcance()[0] . '
               ORDER BY t.id'
         );
@@ -191,11 +200,11 @@ final class ReporteController extends Controller
 
         $out = fopen('php://output', 'wb');
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['Folio', 'Creado', 'Cerrado', 'Tipo', 'Prioridad', 'Título', 'Estado', 'Departamento',
+        fputcsv($out, ['Folio', 'Creado', 'Cerrado', 'Tipo', 'Categoría', 'Prioridad', 'Título', 'Estado', 'Departamento',
             'Ficha', 'Solicitante', 'Agente', 'Serie', 'Componente', 'Hostname', 'Discrepancia ubicación', 'Horas de resolución'], ',', '"', '');
         while ($r = $stmt->fetch()) {
             fputcsv($out, [
-                $r['folio'], $r['creado_en'], $r['cerrado_en'] ?? '', tipo_label((string) $r['tipo_ticket']),
+                $r['folio'], $r['creado_en'], $r['cerrado_en'] ?? '', tipo_label((string) $r['tipo_ticket']), $r['categoria'] ?? '',
                 Catalog::PRIORIDADES[$r['prioridad']] ?? $r['prioridad'], self::safeCell((string) $r['titulo']), $r['estado'], $r['departamento'],
                 $r['ficha'], self::safeCell((string) $r['solicitante']), $r['agente'] ?? '', $r['serie'] ?? '',
                 componente_label((string) $r['componente_afectado']), $r['hostname_reportado'] ?? '',

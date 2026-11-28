@@ -81,6 +81,7 @@ $rolLabel = \App\Core\Roles::LABELS;
                             $gestion[] = ['/ti/correo', 'bi-envelope-at', 'Correo y Remedy'];
                             $gestion[] = ['/ti/zonas', 'bi-map', 'Zonas'];
                             $gestion[] = ['/ti/sla', 'bi-stopwatch', 'Tiempos de atención'];
+                            $gestion[] = ['/ti/categorias', 'bi-tags', 'Categorías'];
                             $gestion[] = ['/ti/instalaciones', 'bi-buildings', 'Instalaciones'];
                             $gestion[] = ['/ti/usuarios', 'bi-people', 'Usuarios'];
                         }
